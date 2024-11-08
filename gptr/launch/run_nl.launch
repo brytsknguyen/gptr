@@ -2,7 +2,7 @@
 <launch>
 
     <!-- Name of the UWB sequence -->
-    <arg name="bag_file" default="/media/tmn/mySataSSD1/Experiments/gptr/linktrack/modified_linktrack_data_line1_2024-10-30-15-05-53.bag"/>
+    <arg name="bag_file" default="/media/tmn/mySataSSD1/Experiments/gptr/linktrack/linktrack_01_line.bag"/>
     <arg name="anchor_path" default="/media/tmn/mySataSSD1/Experiments/gptr/linktrack/anccoordinates.txt"/>
     <arg name="result_save_path" default="/home/tmn/gptr/ui/c1/"/>
 
