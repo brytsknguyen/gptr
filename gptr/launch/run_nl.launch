@@ -2,7 +2,7 @@
 <launch>
 
     <!-- Name of the UWB sequence -->
-    <arg name="bag_file" default="/media/tmn/mySataSSD1/Experiments/gptr/linktrack/linktrack_01_line.bag"/>
+    <arg name="bag_file" default="/media/tmn/mySataSSD1/Experiments/gptr/linktrack/modified_linktrack_data_line1_2024-10-30-15-05-53.bag"/>
     <arg name="anchor_path" default="/media/tmn/mySataSSD1/Experiments/gptr/linktrack/anccoordinates.txt"/>
     <arg name="result_save_path" default="/home/tmn/gptr/ui/c1/"/>
 
@@ -25,7 +25,7 @@
         <param name="traj_save_path" value="$(arg result_save_path)"/>
 
         <!-- Parameters for the Gaussian Process -->
-        <param name="gpDt" value="0.04357"/>
+        <param name="gpDt" value="0.02204"/>
         <param name="gpQr" value="1.00"/>
         <param name="gpQc" value="1.00"/>
         
@@ -46,8 +46,8 @@
 
         <!-- Parameters for the solver  -->
         <param name="SLIDE_SIZE" value="2"/> <!-- How many knots to slide -->
-        <param name="WINDOW_SIZE" value="20"/> <!-- How many knot length does the sliding window -->
-        <param name="w_twr" value="1.0"/> <!-- Coefficients for TDOA residuals -->
+        <param name="WINDOW_SIZE" value="40"/> <!-- How many knot length does the sliding window -->
+        <param name="w_twr" value="10.0"/> <!-- Coefficients for TDOA residuals -->
         <param name="GYR_N" value="20.0"/> <!-- Coefficients for IMU residuals -->
         <param name="GYR_W" value="1.0"/> <!-- Coefficients for IMU residuals -->
         <param name="ACC_N" value="1.0"/> <!-- Coefficients for IMU residuals -->

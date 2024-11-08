@@ -244,9 +244,47 @@ void processData(GaussianProcessPtr traj, GPNLPtr gpmui)
         tt_solve.Toc();
 
         // Step 4: Report, visualize
-        printf("Traj: %f. Sw: %.3f -> %.3f. Buf: %d, %d, %d. Num knots: %d\n",
+        printf("Traj: %f. Sw: %.3f -> %.3f. Buf: %3d, %3d, %3d. Num knots: %d.\n",
                 traj->getMaxTime(), swUIBuf.minTime(), swUIBuf.maxTime(),
                 UIBuf.twrBuf.size(), UIBuf.imuBuf.size(), UIBuf.gtrBuf.size(), traj->getNumKnots());
+
+        // for (auto &uwb : swUIBuf.twrBuf)
+        // {
+        //     double ts = uwb->header.stamp.toSec();
+        //     if (!traj->TimeInInterval(ts, 1e-6))
+        //         continue;
+
+        //     int tidx = uwb->id;
+        //     for(auto &node : uwb->nodes)
+        //     {
+        //         int aidx = node.id;
+        //         SE3d pose_W_B = traj->pose(ts);
+
+        //         double mind = POSINF;
+        //         string minidx = "";
+
+        //         for(int tidx_ = 0; tidx_ < 4; tidx_++)
+        //         {
+        //             for(int aidx_ = 0; aidx_ < 4; aidx_++)
+        //             {   
+        //                 Vector3d p_W_a = anc_pos[aidx_];
+        //                 Vector3d p_B_t = tag_pos[tidx_];
+
+        //                 Vector3d pat = pose_W_B.so3()*p_B_t + pose_W_B.translation() - p_W_a;
+        //                 double patnrm = pat.norm();
+        //                 double diff = patnrm - node.dis;
+        //                 printf("tidx: %d. aidx: %d. (%d, %d). dis_meas: %f. dis_theo: %f. diff: %f\n", tidx, aidx, tidx_, aidx_, node.dis, pat.norm(), diff);
+
+        //                 if (fabs(diff) < mind)
+        //                 {
+        //                     mind = fabs(diff);
+        //                     minidx = myprintf("%d, %d", tidx_, aidx_);
+        //                 }
+        //             }
+        //         }
+        //         printf("(%d, %d) -> Minidx: %s\n\n", tidx, aidx, minidx.c_str());
+        //     }
+        // }
 
         // Visualize knots
         pcl::PointCloud<pcl::PointXYZ> est_knots;

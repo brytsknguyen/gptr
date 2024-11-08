@@ -305,7 +305,6 @@ public:
         const deque<TwrMsgPtr> &twrData, const vector<Vector3d> &anc_pos, const vector<Vector3d> &tag_pos,
         double tmin, double tmax, double wTwr, double twr_loss_thres)
     {
-
         auto usmin = traj->computeTimeIndex(tmin);
         auto usmax = traj->computeTimeIndex(tmax);
 
@@ -935,7 +934,7 @@ public:
         FactorMeta factorMetaTwr;
         double cost_twr_init = -1;
         double cost_twr_final = -1;
-        // AddTwrFactors(problem, traj, paramInfoMap, factorMetaTwr, twrData, anc_pos, tag_pos, tmin, tmax, wTwr, twr_loss_thres);
+        AddTwrFactors(problem, traj, paramInfoMap, factorMetaTwr, twrData, anc_pos, tag_pos, tmin, tmax, wTwr, twr_loss_thres);
 
         FactorMeta factorMetaIMU;
         double cost_imu_init = -1;
@@ -945,7 +944,7 @@ public:
         FactorMeta factorMetaPose;
         double cost_pose_init = -1;
         double cost_pose_final = -1;
-        AddPoseFactors(problem, traj, paramInfoMap, factorMetaPose, poseData, tmin, tmax, 1.0, -1);
+        // AddPoseFactors(problem, traj, paramInfoMap, factorMetaPose, poseData, tmin, tmax, 1.0, -1);
 
         // Add the prior factor
         FactorMeta factorMetaPrior;
