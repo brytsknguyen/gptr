@@ -1,4 +1,5 @@
 #include <ceres/ceres.h>
+#include "GaussianProcess.hpp"
 #include "utility.h"
 
 class GPPointToPlaneFactorAutodiff

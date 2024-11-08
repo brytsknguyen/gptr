@@ -545,7 +545,7 @@ public:
 
         T sXn = sin(Xn);
         T sXnp2 = sXn*sXn;
-        T s2Xn = sin(2.0*Xn);
+        // T s2Xn = sin(2.0*Xn);
         
         T cXn = cos(Xn);
         // T cXnp2 = cXn*cXn;

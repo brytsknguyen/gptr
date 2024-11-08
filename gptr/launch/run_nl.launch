@@ -1,0 +1,69 @@
+<?xml version="1.0"?>
+<launch>
+
+    <!-- Name of the UWB sequence -->
+    <arg name="bag_file" default="/media/tmn/mySataSSD1/Experiments/gptr/linktrack/linktrack_01_line.bag"/>
+    <arg name="anchor_path" default="/media/tmn/mySataSSD1/Experiments/gptr/linktrack/anccoordinates.txt"/>
+    <arg name="result_save_path" default="/home/tmn/gptr/ui/c1/"/>
+
+    <!-- Anchor position -->
+    <arg name="anc_pos" default="[ 0.478117,  2.236060, 1.211040,
+                                  -2.497800,  0.536811, 0.957432,
+                                   0.127442, -2.777080, 1.251770,
+                                   2.615860, -0.087540, 1.129350 ]"/>
+
+    <arg name="tag_pos" default="[ -0.21667,  0.146392, 0.010258,
+                                   -0.00000,  0.149459, 0.013335,
+                                   -0.00689, -0.134120, 0.013157,
+                                   -0.22238, -0.128724, 0.008859 ]"/>
+ 
+    <!-- Launch the uwb imu fusion node -->
+    <node pkg="gptr" type="gptr_gpnl" name="gptr_gpnl" output="screen">
+        
+        <param name="auto_exit"  value="1"/>
+        <param name="if_save_traj" value="1"/>
+        <param name="traj_save_path" value="$(arg result_save_path)"/>
+
+        <!-- Parameters for the Gaussian Process -->
+        <param name="gpDt" value="0.04357"/>
+        <param name="gpQr" value="1.00"/>
+        <param name="gpQc" value="1.00"/>
+        
+        <!-- UWB anchor position -->
+        <param name="anc_pos"     value="$(arg anc_pos)" type="yaml"/>
+        <param name="tag_pos"     value="$(arg tag_pos)" type="yaml"/>
+        
+        <param name="twr_topic"   value="[/nlink_linktrack_nodeframe3_tag0,
+                                          /nlink_linktrack_nodeframe3_tag1,
+                                          /nlink_linktrack_nodeframe3_tag2,
+                                          /nlink_linktrack_nodeframe3_tag3 ]" type="yaml"/>
+
+        <param name="imu_topic" value="/imu/data"/>
+        <param name="gt_topic"  value="/vicon/uwbtags/uwbtags"/>
+        <param name="fuse_twr"  value="1"/>
+        <param name="fuse_imu"  value="1"/>
+        <param name="init_pose" value="[1.4, -1.54, 0.60, 0.005452836393996, -0.002141464369095, 0.999856812793057, -0.015875598159622 ]" type="yaml"/>
+
+        <!-- Parameters for the solver  -->
+        <param name="SLIDE_SIZE" value="2"/> <!-- How many knots to slide -->
+        <param name="WINDOW_SIZE" value="20"/> <!-- How many knot length does the sliding window -->
+        <param name="w_twr" value="1.0"/> <!-- Coefficients for TDOA residuals -->
+        <param name="GYR_N" value="20.0"/> <!-- Coefficients for IMU residuals -->
+        <param name="GYR_W" value="1.0"/> <!-- Coefficients for IMU residuals -->
+        <param name="ACC_N" value="1.0"/> <!-- Coefficients for IMU residuals -->
+        <param name="ACC_W" value="1.0"/> <!-- Coefficients for IMU residuals -->
+        <param name="tdoa_loss_thres" value="30.0"/> <!-- Loss function for IMU residuals -->
+        <param name="mp_loss_thres" value="100.0"/> <!-- Loss function for motion prior residuals -->
+
+    </node>
+
+   <!-- Visualize -->
+    <node pkg="rviz" type="rviz" name="rviz_ui" output="log" required="true"
+        args="-d $(find gptr)/launch/gptr_ui.rviz"/>        
+
+    <!-- Play the bag file -->
+    <node required="false" pkg="rosbag" type="play" name="rosbag_player"
+          args="--clock $(arg bag_file) -r 1.0 -s 0.0"
+          launch-prefix="bash -c 'sleep 1.0; $0 $@' "/>       
+
+</launch>

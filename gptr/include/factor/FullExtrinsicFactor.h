@@ -4,6 +4,7 @@
 #define FullExtrinsicFactor_H_
 
 #include <ceres/ceres.h>
+#include "GaussianProcess.hpp"
 #include "utility.h"
 
 using SO3d = Sophus::SO3<double>;

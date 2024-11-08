@@ -20,6 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_conversions
   pcl_ros
   cf_msgs
+  nlink_parser
 )
 
 ## System dependencies are found with CMake's conventions
@@ -158,6 +159,12 @@ add_executable(${PROJECT_NAME}_gpvicalib src/GPVICalib.cpp)
 add_dependencies(${PROJECT_NAME}_gpvicalib ${catkin_EXPORTED_TARGETS})
 target_compile_options(${PROJECT_NAME}_gpvicalib PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
 target_link_libraries(${PROJECT_NAME}_gpvicalib ${catkin_LIBRARIES} ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS})
+
+# UWB fusion
+add_executable(${PROJECT_NAME}_gpnl src/GPNL.cpp)
+add_dependencies(${PROJECT_NAME}_gpnl ${catkin_EXPORTED_TARGETS})
+target_compile_options(${PROJECT_NAME}_gpnl PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
+target_link_libraries(${PROJECT_NAME}_gpnl ${catkin_LIBRARIES} ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS})
 
 # UWB fusion
 add_executable(${PROJECT_NAME}_gpui src/GPUI.cpp)

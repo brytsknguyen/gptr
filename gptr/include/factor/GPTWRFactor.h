@@ -1,29 +1,55 @@
+/**
+* This file is part of splio.
+* 
+* Copyright (C) 2020 Thien-Minh Nguyen <thienminh.nguyen at ntu dot edu dot sg>,
+* School of EEE
+* Nanyang Technological Univertsity, Singapore
+* 
+* For more information please see <https://britsknguyen.github.io>.
+* or <https://github.com/brytsknguyen/splio>.
+* If you use this code, please cite the respective publications as
+* listed on the above websites.
+* 
+* splio is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* (at your option) any later version.
+* 
+* splio is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+* 
+* You should have received a copy of the GNU General Public License
+* along with splio.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #include <ceres/ceres.h>
 #include "GaussianProcess.hpp"
-#include "utility.h"
+#include "../utility.h"
 
 using namespace Eigen;
 
-class GPPointToPlaneFactor: public ceres::CostFunction
+class GPTWRFactor: public ceres::CostFunction
 {
 public:
 
     // Destructor
-    ~GPPointToPlaneFactor() {};
+    ~GPTWRFactor() {};
 
     // Constructor
-    GPPointToPlaneFactor(const Vector3d &f_, const Vector4d &coef, double w_,
-                         GPMixerPtr gpm_, double s_)
-    :   f          (f_               ),
-        n          (coef.head<3>()   ),
-        m          (coef.tail<1>()(0)),
-        w          (w_               ),
-        Dt         (gpm_->getDt()    ),
-        s          (s_               ),
-        gpm        (gpm_             )
+    GPTWRFactor(double twr_, const Vector3d &p_W_anc_, const Vector3d &p_B_tag_, double w_,
+                GPMixerPtr gpm_, double s_)
+    :   twr        (twr_            ),
+        p_W_anc     (p_W_anc_         ),
+        p_B_tag     (p_B_tag_         ),
+        w           (w_               ),
+        Dt          (gpm_->getDt()    ),
+        s           (s_               ),
+        gpm         (gpm_             )
 
     {
-        // 1-element residual: n^T*(Rt*f + pt) + m
+        // 1-element residual: || p_itp - pos_an_i || - || p_itp - pos_an_j || - twr
         set_num_residuals(1);
 
         // Rotation of the first knot
@@ -75,15 +101,18 @@ public:
 
         // Residual
         Eigen::Map<Matrix<double, 1, 1>> residual(residuals);
-        residual[0] = w*(n.dot(Xt.R*f + Xt.P) + m);
+        Eigen::Vector3d p_W_tag = Xt.R.matrix() * p_B_tag + Xt.P;
+        Eigen::Vector3d pat = p_W_tag - p_W_anc;
+        residual[0] = w*(pat.norm() - twr);
 
         /* #endregion Calculate the pose at sampling time -----------------------------------------------------------*/
-    
+
         if (!jacobians)
             return true;
 
-        Matrix<double, 1, 3> Dr_DRt  = -n.transpose()*Xt.R.matrix()*SO3d::hat(f);
-        Matrix<double, 1, 3> Dr_DPt  =  n.transpose();
+        Matrix<double, 1, 3> Dr_Dpat =  pat.normalized().transpose();   
+        Matrix<double, 1, 3> Dr_DRt  = -Dr_Dpat * Xt.R.matrix() * SO3d::hat(p_B_tag);
+        Matrix<double, 1, 3> Dr_DPt  =  Dr_Dpat;        
 
         size_t idx;
 
@@ -200,20 +229,17 @@ public:
 
 private:
 
-    // Feature coordinates in body frame
-    Vector3d f;
+    // twr measurement
+    double twr;
 
-    // Plane normal
-    Vector3d n;
-
-    // Plane offset
-    double m;
+    // Anchor positions
+    Vector3d p_W_anc;
+    const Vector3d p_B_tag;
 
     // Weight
-    double w = 0.1;
+    double w = 10;
 
-    // Gaussian process params
-    
+    // Gaussian process param
     const int Ridx = 0;
     const int Oidx = 1;
     const int Sidx = 2;
@@ -235,8 +261,9 @@ private:
     const int VbIdx = 10;
     const int AbIdx = 11;
 
-    // Interpolation param
+    // Spline param
     double Dt;
     double s;
+
     GPMixerPtr gpm;
 };

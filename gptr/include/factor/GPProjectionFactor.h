@@ -25,9 +25,7 @@
 */
 
 #include <ceres/ceres.h>
-#include <map>
-#include "basalt/spline/ceres_spline_helper.h"
-#include "basalt/utils/sophus_utils.hpp"
+#include "GaussianProcess.hpp"
 #include "../utility.h"
 
 using namespace Eigen;

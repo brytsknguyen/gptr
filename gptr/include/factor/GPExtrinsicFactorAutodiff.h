@@ -1,8 +1,6 @@
 #pragma once
 
 #include <ceres/ceres.h>
-#include "basalt/spline/ceres_spline_helper.h"
-#include "basalt/utils/sophus_utils.hpp"
 #include "GaussianProcess.hpp"
 #include "utility.h"
 
