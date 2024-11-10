@@ -10,6 +10,8 @@
 #include "factor/GPExtrinsicFactor.h"
 #include "factor/GPExtrinsicFactorAutodiff.h"
 
+#include "AutoDiffSO3Parameterization.hpp"
+
 struct FactorMeta
 {
     vector<double *> so3_parameter_blocks;
@@ -48,7 +50,7 @@ void GetFactorJacobian(ceres::Problem &problem, FactorMeta &factorMeta,
     {
         if (local_pamaterization_type == 0)
         {
-            localparameterization = new basalt::LieLocalParameterization<SO3d>();
+            localparameterization = new AutoDiffSO3Parameterization<SO3d>();
             problem.SetParameterization(parameter, localparameterization);
         }
         else

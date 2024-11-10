@@ -100,11 +100,6 @@
 // Ceres
 #include <ceres/ceres.h>
 
-// Basalt
-#include "basalt/spline/se3_spline.h"
-#include "basalt/spline/ceres_spline_helper.h"
-#include "basalt/spline/ceres_local_param.hpp"
-
 // ikdtree
 #include <ikdTree/ikd_Tree.h>
 

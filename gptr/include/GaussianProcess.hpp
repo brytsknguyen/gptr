@@ -9,6 +9,7 @@
 
 // Sophus
 #include <sophus/se3.hpp>
+#include <basalt/utils/sophus_utils.hpp>
 
 typedef Sophus::SO3<double> SO3d;
 typedef Sophus::SE3<double> SE3d;

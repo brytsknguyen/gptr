@@ -1,7 +1,5 @@
 #include "utility.h"
 #include "GaussianProcess.hpp"
-// #include "i2EKFLO.hpp"
-// #include "LOAM.hpp"
 
 #include "factor/GPPointToPlaneFactor.h"
 #include "factor/GPPointToPlaneFactorAutodiff.h"
@@ -11,6 +9,8 @@
 
 #include "factor/GPExtrinsicFactor.h"
 #include "factor/GPExtrinsicFactorAutodiff.h"
+
+#include "AutoDiffSO3Parameterization.hpp"
 
 double mpSigGa = 1.0;
 double mpSigNu = 1.0;
@@ -54,7 +54,7 @@ void GetFactorJacobian(ceres::Problem &problem, FactorMeta &factorMeta,
     {
         if (local_pamaterization_type == 0)
         {
-            localparameterization = new basalt::LieLocalParameterization<SO3d>();
+            localparameterization = new AutoDiffSO3Parameterization<SO3d>();
             problem.SetParameterization(parameter, localparameterization);
         }
         else
