@@ -9,7 +9,7 @@
 
 // Sophus
 #include <sophus/se3.hpp>
-#include <basalt/utils/sophus_utils.hpp>
+#include <SophusExtras.hpp>
 
 typedef Sophus::SO3<double> SO3d;
 typedef Sophus::SE3<double> SE3d;
@@ -925,16 +925,19 @@ private:
     // Set to true to maintain a covariance of each state
     bool keepCov = false;
 
+    template <typename T>
+    using aligned_deque = std::deque<T, Eigen::aligned_allocator<T>>;
+
     // Covariance
-    Eigen::aligned_deque<CovM> C;
+    aligned_deque<CovM> C;
 
     // State vector
-    Eigen::aligned_deque<SO3d> R;
-    Eigen::aligned_deque<Vec3> O;
-    Eigen::aligned_deque<Vec3> S;
-    Eigen::aligned_deque<Vec3> P;
-    Eigen::aligned_deque<Vec3> V;
-    Eigen::aligned_deque<Vec3> A;
+    aligned_deque<SO3d> R;
+    aligned_deque<Vec3> O;
+    aligned_deque<Vec3> S;
+    aligned_deque<Vec3> P;
+    aligned_deque<Vec3> V;
+    aligned_deque<Vec3> A;
 
 public:
 

@@ -17,12 +17,6 @@
 #include "nav_msgs/Odometry.h"
 #include "geometry_msgs/PoseWithCovarianceStamped.h"
 
-// Basalt
-#include "basalt/spline/se3_spline.h"
-#include "basalt/spline/ceres_spline_helper.h"
-#include "basalt/spline/ceres_local_param.hpp"
-#include "basalt/spline/posesplinex.h"
-
 // Custom built utilities
 #include "utility.h"
 #include "GaussianProcess.hpp"

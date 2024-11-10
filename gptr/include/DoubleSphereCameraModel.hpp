@@ -1,5 +1,7 @@
 #pragma once
 
+#define UNUSED(x) (void)(x)
+
 template <typename Scalar_ = double>
 class DoubleSphereCamera
 {
@@ -91,7 +93,7 @@ public:
 
     if constexpr (!std::is_same_v<DerivedJ3D, std::nullptr_t>)
     {
-      BASALT_ASSERT(d_proj_d_p3d);
+      // BASALT_ASSERT(d_proj_d_p3d);
 
       const Scalar norm2 = norm * norm;
       const Scalar xy = x * y;
@@ -121,7 +123,7 @@ public:
 
     if constexpr (!std::is_same_v<DerivedJparam, std::nullptr_t>)
     {
-      BASALT_ASSERT(d_proj_d_param);
+      // BASALT_ASSERT(d_proj_d_param);
 
       const Scalar norm2 = norm * norm;
 
@@ -183,8 +185,11 @@ private:
 
 struct CameraCalibration
 {
-  Eigen::aligned_vector<Sophus::SE3d> T_i_c;
-  Eigen::aligned_vector<DoubleSphereCamera<double>> intrinsics;
+  template <typename T>
+  using aligned_deque = std::deque<T, Eigen::aligned_allocator<T>>;
+
+  aligned_deque<Sophus::SE3d> T_i_c;
+  aligned_deque<DoubleSphereCamera<double>> intrinsics;
   // Eigen::aligned_vector<Eigen::Vector2i> resolution;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
