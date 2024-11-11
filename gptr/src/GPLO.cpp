@@ -486,11 +486,11 @@ int main(int argc, char **argv)
             printf("T_E_G found: \n");
             for(int i = 0; i < Nlidar; i++)
             {
-                T_E_G[i] = myTf(Util::YPR2Quat(T_E_G_[i*6 + 3], xtrz_gndtr[i*6 + 4], xtrz_gndtr[i*6 + 5]),
+                T_E_G[i] = myTf(Util::YPR2Quat(T_E_G_[i*6 + 3], T_E_G_[i*6 + 4], T_E_G_[i*6 + 5]),
                                 Vector3d(T_E_G_[i*6 + 0], T_E_G_[i*6 + 1], T_E_G_[i*6 + 2]));
 
                 for(int j = 0; j < 6; j++)
-                    printf("%f, ", xtrz_gndtr[i*6 + j]);
+                    printf("%f, ", T_E_G_[i*6 + j]);
                 cout << endl;
             }
         }
