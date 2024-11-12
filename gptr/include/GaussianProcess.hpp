@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <deque>
 
 #include <algorithm>    // Include this header for std::max
 #include <Eigen/Dense>

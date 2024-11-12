@@ -25,6 +25,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(tf2_msgs REQUIRED)
+find_package(cf_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
 # ROS wrapped packges
@@ -68,7 +69,7 @@ message("Eigen dir ${EIGEN3_INCLUDE_DIR}")
 
 # region Visual-Inertial Fusion ---------------------------------------------------------------------------------------
 
-# Test
+# VIcalib
 add_executable(${PROJECT_NAME}_vicalib src/GPVICalib.cpp)
 target_include_directories(${PROJECT_NAME}_vicalib PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
 ament_target_dependencies(${PROJECT_NAME}_vicalib
@@ -92,6 +93,27 @@ install(TARGETS
 
 
 # region UWB Inertial Fusion ------------------------------------------------------------------------------------------
+
+# UI Fusion
+add_executable(${PROJECT_NAME}_ui src/GPUI.cpp)
+target_include_directories(${PROJECT_NAME}_ui PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+ament_target_dependencies(${PROJECT_NAME}_ui
+  rclcpp
+  pcl_conversions
+  Sophus
+  tf2_ros
+  cf_msgs
+  visualization_msgs
+  sensor_msgs std_msgs geometry_msgs nav_msgs tf2_msgs
+)
+target_compile_options(${PROJECT_NAME}_ui PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
+target_link_libraries(${PROJECT_NAME}_ui ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS} fmt::fmt)
+# Link the executable to the workspace library
+install(TARGETS
+  ${PROJECT_NAME}_ui
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 
 # Test
 add_executable(${PROJECT_NAME}_ui_test src/testUI.cpp)

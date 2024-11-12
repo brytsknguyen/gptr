@@ -553,7 +553,7 @@ public:
             int prev_idx = -1;
             for(auto &param : kept_params)
             {
-                ROS_ASSERT_MSG(param.pidx > prev_idx, "%d, %d", param.pidx, prev_idx);
+                assert(param.pidx > prev_idx && myprintf("%d, %d", param.pidx, prev_idx).c_str());
                 prev_idx = param.pidx;
             }
         }

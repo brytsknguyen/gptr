@@ -20,6 +20,7 @@
   <depend>geometry_msgs</depend>
   <depend>visualization_msgs</depend>
   <depend>tf2_ros</depend>
+  <depend>cf_msgs</depend>
 
   <exec_depend>run_lio_sim.py</exec_depend>
   <exec_depend>ros2launch</exec_depend>
