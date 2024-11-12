@@ -336,7 +336,7 @@ int main(int argc, char **argv)
     // Initalize ros nodes
     rclcpp::init(argc, argv);
     
-    nh_ptr = rclcpp::Node::make_shared("gptr");
+    nh_ptr = rclcpp::Node::make_shared("gptrlo");
     
     // Supress the pcl warning
     pcl::console::setVerbosityLevel(pcl::console::L_ERROR); // Suppress warnings by pcl load

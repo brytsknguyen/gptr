@@ -5,9 +5,9 @@
 #include "ros/ros.h"
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
-#include "sensor_msgs/PointCloud2.h"
-#include "nav_msgs/Odometry.h"
-#include "geometry_msgs/PoseWithCovarianceStamped.h"
+#include "sensor_msgs/msg/point_cloud2.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+#include "geometry_msgs/msg/pose_with_covariance_stamped.h"
 #include "geometry_msgs/TransformStamped.h"
 
 // Custom built utilities
@@ -402,7 +402,7 @@ int main(int argc, char **argv)
     // Load the anchor pose 
     vector<double> anc_pos_;
     nh_ptr->getParam("anc_pos", anc_pos_);
-    ROS_ASSERT(anc_pos_.size() % 3 == 0);
+    assert(anc_pos_.size() % 3 == 0);
     printf("Found %d anchors.\n", anc_pos_.size()/3);
     for(int aidx = 0; aidx < anc_pos_.size(); aidx+=3)
     {
@@ -413,7 +413,7 @@ int main(int argc, char **argv)
     // Load the anchor pose 
     vector<double> tag_pos_;
     nh_ptr->getParam("tag_pos", tag_pos_);
-    ROS_ASSERT(tag_pos_.size() % 3 == 0);
+    assert(tag_pos_.size() % 3 == 0);
     printf("Found %d tags.\n", tag_pos_.size()/3);
     for(int tidx = 0; tidx < tag_pos_.size(); tidx+=3)
     {

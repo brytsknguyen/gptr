@@ -253,6 +253,9 @@ typedef geometry_msgs::msg::PoseStamped::SharedPtr RosPoseStampedMsgPtr;
 typedef nav_msgs::msg::Odometry RosOdomMsg;
 typedef nav_msgs::msg::Odometry::SharedPtr RosOdomMsgPtr;
 
+typedef nav_msgs::msg::Path RosPathMsg;
+typedef nav_msgs::msg::Path::SharedPtr RosPathMsgPtr;
+
 typedef visualization_msgs::msg::Marker RosMarkerMsg;
 typedef visualization_msgs::msg::Marker::SharedPtr RosMarkerMsgPtr;
 

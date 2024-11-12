@@ -17,7 +17,7 @@ class GPUI
 private:
 
     // Node handle to get information needed
-    ros::NodeHandlePtr nh;
+    NodeHandlePtr nh;
 
     // Map of traj-kidx and parameter id
     map<pair<int, int>, int> tk2p;
@@ -30,7 +30,7 @@ public:
    ~GPUI() {};
    
     // Constructor
-    GPUI(ros::NodeHandlePtr &nh_) : nh(nh_) {};
+    GPUI(NodeHandlePtr &nh_) : nh(nh_) {};
 
     void AddTrajParams(ceres::Problem &problem,
         GaussianProcessPtr &traj, int tidx,
@@ -546,7 +546,7 @@ public:
             //        param.pidx, param.tidx, param.kidx, param.sidx);
         }
 
-        ROS_ASSERT(kept_count != 0);
+        assert(kept_count != 0);
 
         // Just make sure that all of the column index will increase
         {
@@ -620,7 +620,7 @@ public:
             TARGET_BASE += marg_params[idx].delta_size;
         }
 
-        ROS_ASSERT(TARGET_BASE == KEPT_BASE);
+        assert(TARGET_BASE == KEPT_BASE);
 
         // Copy the Jacobians of kept states
         for(int idx = 0; idx < kept_params.size(); idx++)
@@ -705,19 +705,19 @@ public:
 
         // Check to see if removed res are among the wierd res
         for(auto &res : factorMetaMp2kRemoved.res)
-            ROS_ASSERT(wierdRes.find(res) == wierdRes.end());
+            assert(wierdRes.find(res) == wierdRes.end());
         // printf("Wierd res: %d. No overlap with mp2k\n");
 
         for(auto &res : factorMetaTDOARemoved.res)
-            ROS_ASSERT(wierdRes.find(res) == wierdRes.end());
+            assert(wierdRes.find(res) == wierdRes.end());
         // printf("Wierd res: %d. No overlap with lidar\n");
 
         // for(auto &res : factorMetaGpxRemoved.res)
-        //     ROS_ASSERT(wierdRes.find(res) == wierdRes.end());
+        //     assert(wierdRes.find(res) == wierdRes.end());
         // printf("Wierd res: %d. No overlap with Gpx\n", wierdRes.size());
 
         for(auto &res : factorMetaPriorRemoved.res)
-            ROS_ASSERT(wierdRes.find(res) == wierdRes.end());
+            assert(wierdRes.find(res) == wierdRes.end());
         // printf("Wierd res: %d. No overlap with Gpx\n", wierdRes.size());
 
         // Save the marginalization factors and states
@@ -793,22 +793,22 @@ public:
                     switch(sidx)
                     {
                         case 0:
-                            ROS_ASSERT(param.address == traj->getKnotSO3(kidx).data());
+                            assert(param.address == traj->getKnotSO3(kidx).data());
                             break;
                         case 1:
-                            ROS_ASSERT(param.address == traj->getKnotOmg(kidx).data());
+                            assert(param.address == traj->getKnotOmg(kidx).data());
                             break;
                         case 2:
-                            ROS_ASSERT(param.address == traj->getKnotAlp(kidx).data());
+                            assert(param.address == traj->getKnotAlp(kidx).data());
                             break;
                         case 3:
-                            ROS_ASSERT(param.address == traj->getKnotPos(kidx).data());
+                            assert(param.address == traj->getKnotPos(kidx).data());
                             break;
                         case 4:
-                            ROS_ASSERT(param.address == traj->getKnotVel(kidx).data());
+                            assert(param.address == traj->getKnotVel(kidx).data());
                             break;
                         case 5:
-                            ROS_ASSERT(param.address == traj->getKnotAcc(kidx).data());
+                            assert(param.address == traj->getKnotAcc(kidx).data());
                             break;
                         default:
                             printf("Unrecognized param block! %d, %d, %d\n", tidx, kidx, sidx);
@@ -818,9 +818,9 @@ public:
                 else
                 {
                     // if(sidx == 0)
-                    //     ROS_ASSERT(param.address == R_Lx_Ly.data());
+                    //     assert(param.address == R_Lx_Ly.data());
                     // if(sidx == 1)    
-                    //     ROS_ASSERT(param.address == P_Lx_Ly.data());
+                    //     assert(param.address == P_Lx_Ly.data());
                 }
             }
         }

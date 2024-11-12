@@ -7,13 +7,15 @@
 #include "factor/GPIMUFactor.h"
 #include "factor/GPProjectionFactor.h"
 
+#include "utility.h"
+
 class GPMVICalib
 {
 
 private:
 
     // Node handle to get information needed
-    ros::NodeHandlePtr nh;
+    NodeHandlePtr nh;
 
     // Map of traj-kidx and parameter id
     map<pair<int, int>, int> tk2p;
@@ -26,7 +28,7 @@ public:
    ~GPMVICalib() {};
    
     // Constructor
-    GPMVICalib(ros::NodeHandlePtr &nh_) : nh(nh_) {};
+    GPMVICalib(NodeHandlePtr &nh_) : nh(nh_) {};
 
     void AddTrajParams(ceres::Problem &problem,
         GaussianProcessPtr &traj, int tidx,
@@ -306,22 +308,22 @@ public:
                     switch(sidx)
                     {
                         case 0:
-                            ROS_ASSERT(param.address == traj->getKnotSO3(kidx).data());
+                            assert(param.address == traj->getKnotSO3(kidx).data());
                             break;
                         case 1:
-                            ROS_ASSERT(param.address == traj->getKnotOmg(kidx).data());
+                            assert(param.address == traj->getKnotOmg(kidx).data());
                             break;
                         case 2:
-                            ROS_ASSERT(param.address == traj->getKnotAlp(kidx).data());
+                            assert(param.address == traj->getKnotAlp(kidx).data());
                             break;
                         case 3:
-                            ROS_ASSERT(param.address == traj->getKnotPos(kidx).data());
+                            assert(param.address == traj->getKnotPos(kidx).data());
                             break;
                         case 4:
-                            ROS_ASSERT(param.address == traj->getKnotVel(kidx).data());
+                            assert(param.address == traj->getKnotVel(kidx).data());
                             break;
                         case 5:
-                            ROS_ASSERT(param.address == traj->getKnotAcc(kidx).data());
+                            assert(param.address == traj->getKnotAcc(kidx).data());
                             break;
                         default:
                             printf("Unrecognized param block! %d, %d, %d\n", tidx, kidx, sidx);
@@ -331,9 +333,9 @@ public:
                 else
                 {
                     // if(sidx == 0)
-                    //     ROS_ASSERT(param.address == R_Lx_Ly.data());
+                    //     assert(param.address == R_Lx_Ly.data());
                     // if(sidx == 1)    
-                    //     ROS_ASSERT(param.address == P_Lx_Ly.data());
+                    //     assert(param.address == P_Lx_Ly.data());
                 }
             }
         }

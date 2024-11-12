@@ -35,7 +35,7 @@ mutex GNSolver::solver_mtx;
 
 GNSolver::~GNSolver(){};
 
-GNSolver::GNSolver(ros::NodeHandlePtr &nh_, int &LIDX_) : nh(nh_), LIDX(LIDX_)
+GNSolver::GNSolver(NodeHandlePtr &nh_, int &LIDX_) : nh(nh_), LIDX(LIDX_)
 {
     nh->getParam("/lidar_weight", lidar_weight);
 
@@ -69,7 +69,7 @@ void GNSolver::EvaluateLidarFactors
         for(int cidx = 0; cidx < Coefs.size(); cidx++)
         {
             const LidarCoef &coef = Coefs[cidx];
-            ROS_ASSERT(cidx == coef.ptIdx);
+            assert(cidx == coef.ptIdx);
 
             // Skip if lidar coef is not assigned
             if (coef.t < 0)
@@ -309,7 +309,7 @@ void GNSolver::Marginalize
             for(int cidx = 0; cidx < Coefs.size(); cidx++)
             {
                 LidarCoef &coef = Coefs[cidx];
-                ROS_ASSERT(cidx == coef.ptIdx);
+                assert(cidx == coef.ptIdx);
 
                 // Skip if lidar coef is not assigned
                 if (coef.t < 0)

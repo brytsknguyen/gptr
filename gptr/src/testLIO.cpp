@@ -237,7 +237,7 @@ void CreateCeresProblem(ceres::Problem &problem, ceres::Solver::Options &options
 //     //     int    uf  = usf.first;
 //     //     double sf  = usf.second;
 //     //     // Confirm that basea and baseb are DK knots apart
-//     //     ROS_ASSERT(uf - us == DK && DK > 1);
+//     //     assert(uf - us == DK && DK > 1);
 //     //     vector<double *> factor_param_blocks;
 //     //     // Add the parameter blocks
 //     //     for (int knot_idx = us; knot_idx < us + 2; knot_idx++)
@@ -321,7 +321,7 @@ void CreateCeresProblem(ceres::Problem &problem, ceres::Solver::Options &options
 //         int    uf  = usf.first;
 //         double sf  = usf.second;
 //         // Confirm that basea and baseb are DK knots apart
-//         ROS_ASSERT(uf - us == DK && DK > 1);
+//         assert(uf - us == DK && DK > 1);
 //         // Create the factor
 //         double gp_loss_thres = -1;
 //         ceres::LossFunction *gp_loss_func = gp_loss_thres == -1 ? NULL : new ceres::HuberLoss(gp_loss_thres);
@@ -402,7 +402,7 @@ void CreateCeresProblem(ceres::Problem &problem, ceres::Solver::Options &options
 //         int    uf  = usf.first;
 //         double sf  = usf.second;
 //         // Confirm that basea and baseb are DK knots apart
-//         ROS_ASSERT(uf - us == DK && DK > 1);
+//         assert(uf - us == DK && DK > 1);
 //         vector<double *> factor_param_blocks;
 //         // Add the parameter blocks
 //         for (int knot_idx = us; knot_idx < us + 2; knot_idx++)

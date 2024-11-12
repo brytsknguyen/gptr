@@ -26,7 +26,7 @@ class GNSolver
 private:
 
     // Node handle to get information needed
-    ros::NodeHandlePtr nh;
+    NodeHandlePtr nh;
 
     int LIDX;
 
@@ -71,7 +71,7 @@ public:
    ~GNSolver();
    
     // Constructor
-    GNSolver(ros::NodeHandlePtr &nh_, int &LIDX_);
+    GNSolver(NodeHandlePtr &nh_, int &LIDX_);
 
     void EvaluateMotionPriorFactors
     (

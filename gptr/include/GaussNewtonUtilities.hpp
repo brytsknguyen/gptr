@@ -257,7 +257,7 @@ public:
         for(auto &param : margInfo->keptParamInfo)
         {
             // Confirm that the param is in the new map
-            // ROS_ASSERT(paramInfoMap.find(param.address) != paramInfoMap.end());
+            // assert(paramInfoMap.find(param.address) != paramInfoMap.end());
 
             if (param.type == ParamType::SO3)
                 mutable_parameter_block_sizes()->push_back(4);
@@ -286,7 +286,7 @@ public:
         for(int idx = 0; idx < margInfo->keptParamInfo.size(); idx++)
         {
             ParamInfo &param = margInfo->keptParamInfo[idx];
-            // ROS_ASSERT(keptParamMap.find(parameters[idx]) != keptParamMap.end());
+            // assert(keptParamMap.find(parameters[idx]) != keptParamMap.end());
 
             // Find the residual
             if (param.type == ParamType::SO3)
@@ -315,7 +315,7 @@ public:
             }
             else
             {
-                yolos("Unknown param type! %d\n", param.type);
+                printf("Unknown param type! %d\n", param.type);
                 exit(-1);
             }
         }

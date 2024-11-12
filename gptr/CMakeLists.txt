@@ -3,7 +3,7 @@ project(gptr)
 
 set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_CXX_FLAGS "-std=c++17 -Wfatal-errors")
-# set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall")
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -65,7 +65,33 @@ message("Eigen dir ${EIGEN3_INCLUDE_DIR}")
 # endif()
 
 
-# region UWB Fusion ---------------------------------------------------------------------------------------------------
+
+# region Visual-Inertial Fusion ---------------------------------------------------------------------------------------
+
+# Test
+add_executable(${PROJECT_NAME}_vicalib src/GPVICalib.cpp)
+target_include_directories(${PROJECT_NAME}_vicalib PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+ament_target_dependencies(${PROJECT_NAME}_vicalib
+  rclcpp
+  pcl_conversions
+  Sophus
+  tf2_ros
+  visualization_msgs
+  sensor_msgs std_msgs geometry_msgs nav_msgs tf2_msgs
+)
+target_compile_options(${PROJECT_NAME}_vicalib PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
+target_link_libraries(${PROJECT_NAME}_vicalib ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS} fmt::fmt)
+# Link the executable to the workspace library
+install(TARGETS
+  ${PROJECT_NAME}_vicalib
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+# endregion Visual-Inertial Fusion ------------------------------------------------------------------------------------
+
+
+
+# region UWB Inertial Fusion ------------------------------------------------------------------------------------------
 
 # Test
 add_executable(${PROJECT_NAME}_ui_test src/testUI.cpp)
@@ -86,7 +112,7 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# endregion UWB Fusion ------------------------------------------------------------------------------------------------
+# endregion UWB Inertial Fusion ---------------------------------------------------------------------------------------
 
 
 

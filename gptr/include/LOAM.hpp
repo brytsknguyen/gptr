@@ -142,7 +142,7 @@ public:
                 // Fit the plane
                 if(Util::fitPlane(nbrPoints, min_planarity, max_plane_dis, Coef_[pidx].n, Coef_[pidx].plnrty))
                 {
-                    // ROS_ASSERT(tpoint >= 0);
+                    // assert(tpoint >= 0);
                     Coef_[pidx].t = tpoint;
                     Coef_[pidx].f = Vector3d(pointRaw.x, pointRaw.y, pointRaw.z);
                     Coef_[pidx].finW = Vector3d(pointInW.x, pointInW.y, pointInW.z);

@@ -5,9 +5,9 @@
 #include "ros/ros.h"
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
-#include "sensor_msgs/PointCloud2.h"
-#include "nav_msgs/Odometry.h"
-#include "geometry_msgs/PoseWithCovarianceStamped.h"
+#include "sensor_msgs/msg/point_cloud2.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+#include "geometry_msgs/msg/pose_with_covariance_stamped.h"
 
 // Custom built utilities
 #include "utility.h"

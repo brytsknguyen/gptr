@@ -10,21 +10,21 @@
 #include <opencv2/opencv.hpp>
 
 // ROS utilities
-#include "ros/ros.h"
-#include "rosbag/bag.h"
-#include "rosbag/view.h"
-#include "sensor_msgs/PointCloud2.h"
-#include "nav_msgs/Odometry.h"
-#include "geometry_msgs/PoseWithCovarianceStamped.h"
+// #include "ros/ros.h"
+// #include "rosbag/bag.h"
+// #include "rosbag/view.h"
+// #include "sensor_msgs/msg/point_cloud2.hpp"
+// #include "nav_msgs/msg/odometry.hpp"
+#include "geometry_msgs/msg/pose_with_covariance_stamped.h"
 
 // Custom built utilities
-#include "utility.h"
 #include "GaussianProcess.hpp"
 #include "GPVICalib.hpp"
+#include "utility.h"
 
 using namespace std;
 
-boost::shared_ptr<ros::NodeHandle> nh_ptr;
+NodeHandlePtr nh_ptr;
 
 std::map<int, Eigen::Vector3d> getCornerPosition3D(const std::string& data_path)
 {
@@ -160,7 +160,7 @@ void getIMUMeasurements(const std::string &data_path, vector<IMUData> &imu_meas)
     std::cout << "loaded " << imu_meas.size() << " IMU measurements" << std::endl;
 }
 
-void getGT(const std::string &data_path, nav_msgs::Path &gt_path)
+void getGT(const std::string &data_path, RosPathMsg &gt_path)
 {
     gt_path.poses.clear();
 
@@ -179,8 +179,8 @@ void getGT(const std::string &data_path, nav_msgs::Path &gt_path)
         ss >> timestamp >> tmp >> pos[0] >> tmp >> pos[1] >> tmp >> pos[2] >>
             tmp >> q.w() >> tmp >> q.x() >> tmp >> q.y() >> tmp >> q.z();
 
-        geometry_msgs::PoseStamped traj_msg;
-        traj_msg.header.stamp = ros::Time().fromNSec(timestamp);
+        geometry_msgs::msg::PoseStamped traj_msg;
+        traj_msg.header.stamp = rclcpp::Time(timestamp);
         traj_msg.pose.position.x = pos.x();
         traj_msg.pose.position.y = pos.y();
         traj_msg.pose.position.z = pos.z();
@@ -249,42 +249,42 @@ struct CameraImuBuf
 };
 
 CameraImuBuf CIBuf;
-// nav_msgs::Path est_path;
-nav_msgs::Path gt_path;
+// RosPathMsg est_path;
+RosPathMsg gt_path;
 
-ros::Publisher gt_pub;
-ros::Publisher gt_path_pub;
-ros::Publisher est_pub;
-ros::Publisher odom_pub;
-ros::Publisher knot_pub;
-ros::Publisher corner_pub;
+// rclcpp::Publisher<> gt_pub;
+rclcpp::Publisher<RosPathMsg>::SharedPtr gt_path_pub;
+rclcpp::Publisher<RosPathMsg>::SharedPtr est_pub;
+rclcpp::Publisher<RosOdomMsg>::SharedPtr odom_pub;
+rclcpp::Publisher<RosPc2Msg>::SharedPtr knot_pub;
+rclcpp::Publisher<RosPc2Msg>::SharedPtr corner_pub;
 
 Eigen::Vector3d bg = Eigen::Vector3d::Zero();
 Eigen::Vector3d ba = Eigen::Vector3d::Zero();
-Eigen::Vector3d g = Eigen::Vector3d(0, 0, 9.81);
+Eigen::Vector3d g  = Eigen::Vector3d(0, 0, 9.81);
 
 bool if_save_traj;
 std::string traj_save_path;
 
 void publishCornerPos(std::map<int, Eigen::Vector3d> &corner_pos_3d)
 {
-    sensor_msgs::PointCloud2 corners_msg;
+    RosPc2Msg corners_msg;
     pcl::PointCloud<pcl::PointXYZ> pc_corners;
     for (const auto& iter : corner_pos_3d) {
         Eigen::Vector3d pos_i = iter.second;
         pc_corners.points.push_back(pcl::PointXYZ(pos_i[0], pos_i[1], pos_i[2]));
     }
     pcl::toROSMsg(pc_corners, corners_msg);
-    corners_msg.header.stamp = ros::Time::now();
+    corners_msg.header.stamp = rclcpp::Clock().now();
     corners_msg.header.frame_id = "map";
-    corner_pub.publish(corners_msg);
+    corner_pub->publish(corners_msg);
 }
 
 void processData(GaussianProcessPtr traj, GPMVICalibPtr gpmui, std::map<int, Eigen::Vector3d> corner_pos_3d,
                 CameraCalibration* cam_calib)
 {
     // Loop and optimize
-    while(ros::ok())
+    while(rclcpp::ok())
     {
         // Step: Optimization
         TicToc tt_solve;          
@@ -314,13 +314,13 @@ void processData(GaussianProcessPtr traj, GPMVICalibPtr gpmui, std::map<int, Eig
             Eigen::Vector3d knot_pos = traj->getKnotPose(i).translation();
             est_knots.points.push_back(pcl::PointXYZ(knot_pos.x(), knot_pos.y(), knot_pos.z()));
         }
-        sensor_msgs::PointCloud2 knot_msg;
+        RosPc2Msg knot_msg;
         pcl::toROSMsg(est_knots, knot_msg);
-        knot_msg.header.stamp = ros::Time::now();
+        knot_msg.header.stamp = rclcpp::Clock().now();
         knot_msg.header.frame_id = "map";        
-        knot_pub.publish(knot_msg);           
+        knot_pub->publish(knot_msg);           
 
-        gt_path_pub.publish(gt_path);    
+        gt_path_pub->publish(gt_path);    
         publishCornerPos(corner_pos_3d);
         break;
     }
@@ -335,7 +335,7 @@ void saveTraj(GaussianProcessPtr traj)
     std::string traj_file_name = traj_save_path + "traj.txt";
     std::ofstream f_traj(traj_file_name);    
     for (int i = 0; i < gt_path.poses.size(); i++) {
-        double t_gt = gt_path.poses[i].header.stamp.toSec();
+        double t_gt = rclcpp::Time(gt_path.poses[i].header.stamp).seconds();
         auto   us = traj->computeTimeIndex(t_gt);
         int    u  = us.first;
         double s  = us.second;
@@ -355,7 +355,7 @@ void saveTraj(GaussianProcessPtr traj)
     std::string gt_file_name = traj_save_path + "gt.txt";
     std::ofstream f_gt(gt_file_name);    
     for (int i = 0; i < gt_path.poses.size(); i++) {
-        double t_gt = gt_path.poses[i].header.stamp.toSec();
+        double t_gt = rclcpp::Time(gt_path.poses[i].header.stamp).seconds();
     
         f_gt << std::fixed << t_gt << std::setprecision(7) 
              << " " << gt_path.poses[i].pose.position.x << " " << gt_path.poses[i].pose.position.y << " " << gt_path.poses[i].pose.position.z
@@ -367,24 +367,24 @@ void saveTraj(GaussianProcessPtr traj)
 int main(int argc, char **argv)
 {
     // Initialize the node
-    ros::init(argc, argv, "gpvicalib");
-    ros::NodeHandle nh("~");
-    nh_ptr = boost::make_shared<ros::NodeHandle>(nh);
+    rclcpp::init(argc, argv);
+    
+    nh_ptr = rclcpp::Node::make_shared("gpvicalib");
 
     // Determine if we exit if no data is received after a while
     bool auto_exit = Util::GetBoolParam(nh_ptr, "auto_exit", false);
 
     // Parameters for the GP trajectory
     double gpQr_ = 1.0, gpQc_ = 1.0;
-    nh_ptr->getParam("gpDt", gpDt );
-    nh_ptr->getParam("gpQr", gpQr_);
-    nh_ptr->getParam("gpQc", gpQc_);
+    Util::GetParam(nh_ptr, "gpDt", gpDt );
+    Util::GetParam(nh_ptr, "gpQr", gpQr_);
+    Util::GetParam(nh_ptr, "gpQc", gpQc_);
     gpQr = gpQr_*Matrix3d::Identity(3, 3);
     gpQc = gpQc_*Matrix3d::Identity(3, 3);
 
     // Find the path to data
     string data_path;
-    nh_ptr->getParam("data_path", data_path);
+    Util::GetParam(nh_ptr, "data_path", data_path);
     
     // Load the corner positions in 3D and measurements
     string corner3d_path = data_path + "corners3D.csv";
@@ -405,28 +405,28 @@ int main(int argc, char **argv)
     getGT(data_path, gt_path);
 
     // Publish estimates
-    knot_pub = nh_ptr->advertise<sensor_msgs::PointCloud2>("/estimated_knot", 10);
-    // gt_pub   = nh_ptr->advertise<nav_msgs::Odometry>("/ground_truth", 10);
-    gt_path_pub = nh_ptr->advertise<nav_msgs::Path>("/ground_truth_path", 10);
-    est_pub  = nh_ptr->advertise<nav_msgs::Path>("/estimated_trajectory", 10);
-    odom_pub = nh_ptr->advertise<nav_msgs::Odometry>("/estimated_pose", 10);
-    corner_pub = nh_ptr->advertise<sensor_msgs::PointCloud2>("/corners", 10);
+    knot_pub = nh_ptr->create_publisher<RosPc2Msg>("/estimated_knot", 10);
+    // gt_pub = nh_ptr->create_publisher<RosOdomMsg>("/ground_truth", 10);
+    gt_path_pub = nh_ptr->create_publisher<RosPathMsg>("/ground_truth_path", 10);
+    est_pub = nh_ptr->create_publisher<RosPathMsg>("/estimated_trajectory", 10);
+    odom_pub = nh_ptr->create_publisher<RosOdomMsg>("/estimated_pose", 10);
+    corner_pub = nh_ptr->create_publisher<RosPc2Msg>("/corners", 10);
 
     // est_path.header.frame_id = "map";
     gt_path.header.frame_id = "map";
 
     // Time to check the buffers and perform optimization
-    nh_ptr->getParam("WINDOW_SIZE", WINDOW_SIZE);
-    nh_ptr->getParam("SLIDE_SIZE", SLIDE_SIZE);
-    nh_ptr->getParam("w_corner", w_corner);
-    nh_ptr->getParam("GYR_N", GYR_N);
-    nh_ptr->getParam("GYR_W", GYR_W);
-    nh_ptr->getParam("ACC_N", ACC_N);
-    nh_ptr->getParam("ACC_W", ACC_W);    
-    nh_ptr->getParam("corner_loss_thres", corner_loss_thres);
-    nh_ptr->getParam("mp_loss_thres", mp_loss_thres);
+    Util::GetParam(nh_ptr, "WINDOW_SIZE", WINDOW_SIZE);
+    Util::GetParam(nh_ptr, "SLIDE_SIZE", SLIDE_SIZE);
+    Util::GetParam(nh_ptr, "w_corner", w_corner);
+    Util::GetParam(nh_ptr, "GYR_N", GYR_N);
+    Util::GetParam(nh_ptr, "GYR_W", GYR_W);
+    Util::GetParam(nh_ptr, "ACC_N", ACC_N);
+    Util::GetParam(nh_ptr, "ACC_W", ACC_W);    
+    Util::GetParam(nh_ptr, "corner_loss_thres", corner_loss_thres);
+    Util::GetParam(nh_ptr, "mp_loss_thres", mp_loss_thres);
     if_save_traj = Util::GetBoolParam(nh_ptr, "if_save_traj", if_save_traj);
-    nh_ptr->getParam("traj_save_path", traj_save_path);
+    Util::GetParam(nh_ptr, "traj_save_path", traj_save_path);
     
     // Create the trajectory
     traj = GaussianProcessPtr(new GaussianProcess(gpDt, gpQr, gpQc, true));
@@ -437,17 +437,17 @@ int main(int argc, char **argv)
     traj->setStartTime(t0);
     SE3d initial_pose;
     Eigen::Matrix3d rwi;
-    rwi << -0.997865,  0.0135724,  0.0638772,
-            0.0628005, -0.0687564,   0.995655,
-            0.0179054,   0.997541,  0.0677573;
+    rwi << -0.9978650,  0.0135724, 0.0638772,
+            0.0628005, -0.0687564, 0.9956550,
+            0.0179054,  0.9975410, 0.0677573;
     initial_pose.so3() = Sophus::SO3d::fitToSO3(rwi);
     initial_pose.translation() = Eigen::Vector3d(0.290213, 0.393962, 0.642399);
     traj->setKnot(0, GPState(t0, initial_pose));
 
     Eigen::Matrix3d rai;
-    rai << -0.997945, 0.00867498, 0.0634844,
-            0.0627571, -0.0675298, 0.995742,
-            0.0129251, 0.99768, 0.0668466;
+    rai << -0.9979450,  0.00867498, 0.0634844,
+            0.0627571, -0.06752980, 0.9957420,
+            0.0129251,  0.99768000, 0.0668466;
 
     for (size_t i = 0; i < CIBuf.imu_data.size(); i++) {
         const Eigen::Vector3d ad = CIBuf.imu_data[i].acc;
@@ -469,11 +469,11 @@ int main(int argc, char **argv)
     thread pdthread(processData, traj, gpmui, corner_pos_3d, &cam_calib);
 
     // Spin
-    ros::MultiThreadedSpinner spinner(0);
-    spinner.spin();
+    rclcpp::spin(nh_ptr);
     pdthread.join();
-    if (if_save_traj) {
+
+    if (if_save_traj)
         saveTraj(traj);
-    }
+
     return 0;
 }
