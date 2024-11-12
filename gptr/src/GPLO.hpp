@@ -25,7 +25,7 @@ class MLCME
 private:
 
     // Node handle to get information needed
-    ros::NodeHandlePtr nh;
+    NodeHandlePtr nh;
 
     int Nlidar;
 
@@ -73,31 +73,23 @@ public:
    ~MLCME() {};
    
     // Constructor
-    MLCME(ros::NodeHandlePtr &nh_, int Nlidar_)
+    MLCME(NodeHandlePtr &nh_, int Nlidar_)
         : nh(nh_), Nlidar(Nlidar_), R_Lx_Ly(vector<SO3d>(Nlidar_, SO3d())), P_Lx_Ly(vector<Vec3>(Nlidar_, Vec3(0, 0, 0)))
     {
-        nh->getParam("fix_time_begin", fix_time_begin);
-        nh->getParam("fix_time_end", fix_time_end);
-
-        nh->getParam("max_ceres_iter", max_ceres_iter);
-
-        nh->getParam("max_lidarcoefs", max_lidarcoefs);
-
-        nh->getParam("lidar_weight", lidar_weight);
-        nh->getParam("ld_loss_thres", ld_loss_thres);
-        nh->getParam("xt_loss_thres", xt_loss_thres);
-        nh->getParam("mp_loss_thres", mp_loss_thres);
-
-
-        nh->getParam("max_omg", max_omg);
-        nh->getParam("max_alp", max_alp);
-
-        nh->getParam("max_vel", max_vel);
-        nh->getParam("max_acc", max_acc);
-
-        nh->getParam("xtSigGa", xtSigGa);
-        nh->getParam("xtSigNu", xtSigNu);
-
+        Util::GetParam(nh, "fix_time_begin", fix_time_begin);
+        Util::GetParam(nh, "fix_time_end"  , fix_time_end  );
+        Util::GetParam(nh, "max_ceres_iter", max_ceres_iter);
+        Util::GetParam(nh, "max_lidarcoefs", max_lidarcoefs);
+        Util::GetParam(nh, "lidar_weight"  , lidar_weight  );
+        Util::GetParam(nh, "ld_loss_thres" , ld_loss_thres );
+        Util::GetParam(nh, "xt_loss_thres" , xt_loss_thres );
+        Util::GetParam(nh, "mp_loss_thres" , mp_loss_thres );
+        Util::GetParam(nh, "max_omg", max_omg);
+        Util::GetParam(nh, "max_alp", max_alp);
+        Util::GetParam(nh, "max_vel", max_omg);
+        Util::GetParam(nh, "max_acc", max_alp);
+        Util::GetParam(nh, "xtSigGa", xtSigGa);
+        Util::GetParam(nh, "xtSigNu", xtSigNu);
         fuse_marg = Util::GetBoolParam(nh, "fuse_marg", false);
         compute_cost = Util::GetBoolParam(nh, "compute_cost", false);
     };
@@ -325,7 +317,7 @@ public:
         GPMixerPtr gpmextr(new GPMixer(gpmx->getDt(), (xtSigGa*Vec3(1.0, 1.0, 1.0)).asDiagonal(), (xtSigNu*Vec3(1.0, 1.0, 1.0)).asDiagonal()));
 
         int XTRZ_DENSITY = 1;
-        nh->getParam("XTRZ_DENSITY", XTRZ_DENSITY);
+        nh->get_parameter("XTRZ_DENSITY", XTRZ_DENSITY);
 
         for (int kidx = 0; kidx < trajx->getNumKnots() - 2; kidx++)
         {
@@ -374,9 +366,9 @@ public:
 
                 for (int idx = umins; idx < umins + 2; idx++)
                 {
-                    ROS_ASSERT(idx < trajx->getNumKnots());
+                    assert(idx < trajx->getNumKnots());
 
-                    // ROS_ASSERT(Util::SO3IsValid(trajx->getKnotSO3(idx)));
+                    // assert(Util::SO3IsValid(trajx->getKnotSO3(idx)));
                     factor_param_blocks.push_back(trajx->getKnotSO3(idx).data());
                     factor_param_blocks.push_back(trajx->getKnotOmg(idx).data());
                     factor_param_blocks.push_back(trajx->getKnotAlp(idx).data());
@@ -384,12 +376,12 @@ public:
                     factor_param_blocks.push_back(trajx->getKnotVel(idx).data());
                     factor_param_blocks.push_back(trajx->getKnotAcc(idx).data());
 
-                    ROS_ASSERT(paramInfoMap.find(trajx->getKnotSO3(idx).data()) != paramInfoMap.end());
-                    ROS_ASSERT(paramInfoMap.find(trajx->getKnotOmg(idx).data()) != paramInfoMap.end());
-                    ROS_ASSERT(paramInfoMap.find(trajx->getKnotAlp(idx).data()) != paramInfoMap.end());
-                    ROS_ASSERT(paramInfoMap.find(trajx->getKnotPos(idx).data()) != paramInfoMap.end());
-                    ROS_ASSERT(paramInfoMap.find(trajx->getKnotVel(idx).data()) != paramInfoMap.end());
-                    ROS_ASSERT(paramInfoMap.find(trajx->getKnotAcc(idx).data()) != paramInfoMap.end());
+                    assert(paramInfoMap.find(trajx->getKnotSO3(idx).data()) != paramInfoMap.end());
+                    assert(paramInfoMap.find(trajx->getKnotOmg(idx).data()) != paramInfoMap.end());
+                    assert(paramInfoMap.find(trajx->getKnotAlp(idx).data()) != paramInfoMap.end());
+                    assert(paramInfoMap.find(trajx->getKnotPos(idx).data()) != paramInfoMap.end());
+                    assert(paramInfoMap.find(trajx->getKnotVel(idx).data()) != paramInfoMap.end());
+                    assert(paramInfoMap.find(trajx->getKnotAcc(idx).data()) != paramInfoMap.end());
 
                     factorMeta.coupled_params.back().push_back(paramInfoMap[trajx->getKnotSO3(idx).data()]);
                     factorMeta.coupled_params.back().push_back(paramInfoMap[trajx->getKnotOmg(idx).data()]);
@@ -401,8 +393,8 @@ public:
 
                 for (int idx = uminf; idx < uminf + 2; idx++)
                 {
-                    ROS_ASSERT(idx < trajy->getNumKnots());
-                    // ROS_ASSERT(Util::SO3IsValid(trajy->getKnotSO3(idx)));
+                    assert(idx < trajy->getNumKnots());
+                    // assert(Util::SO3IsValid(trajy->getKnotSO3(idx)));
                     factor_param_blocks.push_back(trajy->getKnotSO3(idx).data());
                     factor_param_blocks.push_back(trajy->getKnotOmg(idx).data());
                     factor_param_blocks.push_back(trajy->getKnotAlp(idx).data());
@@ -410,12 +402,12 @@ public:
                     factor_param_blocks.push_back(trajy->getKnotVel(idx).data());
                     factor_param_blocks.push_back(trajy->getKnotAcc(idx).data());
 
-                    ROS_ASSERT(paramInfoMap.find(trajy->getKnotSO3(idx).data()) != paramInfoMap.end());
-                    ROS_ASSERT(paramInfoMap.find(trajy->getKnotOmg(idx).data()) != paramInfoMap.end());
-                    ROS_ASSERT(paramInfoMap.find(trajy->getKnotAlp(idx).data()) != paramInfoMap.end());
-                    ROS_ASSERT(paramInfoMap.find(trajy->getKnotPos(idx).data()) != paramInfoMap.end());
-                    ROS_ASSERT(paramInfoMap.find(trajy->getKnotVel(idx).data()) != paramInfoMap.end());
-                    ROS_ASSERT(paramInfoMap.find(trajy->getKnotAcc(idx).data()) != paramInfoMap.end());
+                    assert(paramInfoMap.find(trajy->getKnotSO3(idx).data()) != paramInfoMap.end());
+                    assert(paramInfoMap.find(trajy->getKnotOmg(idx).data()) != paramInfoMap.end());
+                    assert(paramInfoMap.find(trajy->getKnotAlp(idx).data()) != paramInfoMap.end());
+                    assert(paramInfoMap.find(trajy->getKnotPos(idx).data()) != paramInfoMap.end());
+                    assert(paramInfoMap.find(trajy->getKnotVel(idx).data()) != paramInfoMap.end());
+                    assert(paramInfoMap.find(trajy->getKnotAcc(idx).data()) != paramInfoMap.end());
 
                     factorMeta.coupled_params.back().push_back(paramInfoMap[trajy->getKnotSO3(idx).data()]);
                     factorMeta.coupled_params.back().push_back(paramInfoMap[trajy->getKnotOmg(idx).data()]);
@@ -430,8 +422,8 @@ public:
                 factorMeta.coupled_params.back().push_back(paramInfoMap[R_Lx_Ly.data()]);
                 factorMeta.coupled_params.back().push_back(paramInfoMap[P_Lx_Ly.data()]);
 
-                ROS_ASSERT(paramInfoMap.find(R_Lx_Ly.data()) != paramInfoMap.end());
-                ROS_ASSERT(paramInfoMap.find(P_Lx_Ly.data()) != paramInfoMap.end());
+                assert(paramInfoMap.find(R_Lx_Ly.data()) != paramInfoMap.end());
+                assert(paramInfoMap.find(P_Lx_Ly.data()) != paramInfoMap.end());
                 
                 // Create the factors
                 ceres::LossFunction *xtz_loss_function = xt_loss_thres <= 0 ? NULL : new ceres::HuberLoss(xt_loss_thres);
@@ -627,19 +619,19 @@ public:
         // Insanity check to keep track of all the params
         for(auto &cpset : factorMetaMp2k.coupled_params)
             for(auto &cp : cpset)
-                ROS_ASSERT(paramInfoMap.find(cp.address) != paramInfoMap.end());
+                assert(paramInfoMap.find(cp.address) != paramInfoMap.end());
 
         for(auto &cpset : factorMetaLidar.coupled_params)
             for(auto &cp : cpset)
-                ROS_ASSERT(paramInfoMap.find(cp.address) != paramInfoMap.end());
+                assert(paramInfoMap.find(cp.address) != paramInfoMap.end());
 
         for(auto &cpset : factorMetaGpx.coupled_params)
             for(auto &cp : cpset)
-                ROS_ASSERT_MSG(paramInfoMap.find(cp.address) != paramInfoMap.end(), "%x", cp.address);
+                assert(paramInfoMap.find(cp.address) != paramInfoMap.end() && myprintf("%x", cp.address).c_str());
 
         for(auto &cpset : factorMetaPrior.coupled_params)
             for(auto &cp : cpset)
-                ROS_ASSERT(paramInfoMap.find(cp.address) != paramInfoMap.end());
+                assert(paramInfoMap.find(cp.address) != paramInfoMap.end());
 
         // Deskew, Transform and Associate
         auto FindRemovedFactors = [&tmid](FactorMeta &factorMeta, FactorMeta &factorMetaRemoved, FactorMeta &factorMetaRetained) -> void
@@ -704,7 +696,7 @@ public:
         for(auto &cpset : factorMetaRemoved.coupled_params)
             for(auto &cp : cpset)
             {
-                ROS_ASSERT(paramInfoMap.find(cp.address) != paramInfoMap.end());
+                assert(paramInfoMap.find(cp.address) != paramInfoMap.end());
                 removed_params[cp.address] = paramInfoMap[cp.address];
             }
 
@@ -713,7 +705,7 @@ public:
         for(auto &cpset : factorMetaRetained.coupled_params)
             for(auto &cp : cpset)
             {
-                ROS_ASSERT(paramInfoMap.find(cp.address) != paramInfoMap.end());
+                assert(paramInfoMap.find(cp.address) != paramInfoMap.end());
                 retained_params[cp.address] = paramInfoMap[cp.address];
             }
 
@@ -736,25 +728,25 @@ public:
 
             if (a.tidx == -1 && b.tidx != -1)
             {
-                ROS_ASSERT(abpidx == false);
+                assert(abpidx == false);
                 return false;
             }
 
             if (a.tidx != -1 && b.tidx == -1)
             {
-                ROS_ASSERT(abpidx == true);
+                assert(abpidx == true);
                 return true;
             }
             
             if ((a.tidx != -1 && b.tidx != -1) && (a.tidx < b.tidx))
             {
-                ROS_ASSERT(abpidx == true);
+                assert(abpidx == true);
                 return true;
             }
             
             if ((a.tidx != -1 && b.tidx != -1) && (a.tidx > b.tidx))
             {
-                ROS_ASSERT(abpidx == false);
+                assert(abpidx == false);
                 return false;
             }
 
@@ -763,25 +755,25 @@ public:
             {
                 if (a.kidx == -1 && b.kidx != -1)
                 {
-                    ROS_ASSERT(abpidx == false);
+                    assert(abpidx == false);
                     return false;
                 }
 
                 if (a.kidx != -1 && b.kidx == -1)
                 {
-                    ROS_ASSERT(abpidx == true);
+                    assert(abpidx == true);
                     return true;
                 }
 
                 if ((a.kidx != -1 && b.kidx != -1) && (a.kidx < b.kidx))
                 {
-                    ROS_ASSERT(abpidx == true);
+                    assert(abpidx == true);
                     return true;
                 }
 
                 if ((a.kidx != -1 && b.kidx != -1) && (a.kidx > b.kidx))
                 {
-                    ROS_ASSERT(abpidx == false);
+                    assert(abpidx == false);
                     return false;
                 }
 
@@ -789,29 +781,29 @@ public:
                 {
                     if (a.sidx == -1 && b.sidx != -1)
                     {
-                        ROS_ASSERT(abpidx == false);
+                        assert(abpidx == false);
                         return false;
                     }
 
                     if (a.sidx != -1 && b.sidx == -1)
                     {
-                        ROS_ASSERT(abpidx == true);
+                        assert(abpidx == true);
                         return true;
                     }
 
                     if ((a.sidx != -1 && b.sidx != -1) && (a.sidx < b.sidx))
                     {
-                        ROS_ASSERT(abpidx == true);
+                        assert(abpidx == true);
                         return true;
                     }
                     
                     if ((a.sidx != -1 && b.sidx != -1) && (a.sidx > b.sidx))
                     {
-                        ROS_ASSERT(abpidx == false);
+                        assert(abpidx == false);
                         return false;
                     }
 
-                    ROS_ASSERT(abpidx == false);
+                    assert(abpidx == false);
                     return false;    
                 }
             }
@@ -844,14 +836,14 @@ public:
             //        param.pidx, param.tidx, param.kidx, param.sidx);
         }
 
-        ROS_ASSERT(kept_count != 0);
+        assert(kept_count != 0);
 
         // Just make sure that all of the column index will increase
         {
             int prev_idx = -1;
             for(auto &param : kept_params)
             {
-                ROS_ASSERT(param.pidx > prev_idx);
+                assert(param.pidx > prev_idx);
                 prev_idx = param.pidx;
             }
         }
@@ -921,7 +913,7 @@ public:
             TARGET_BASE += marg_params[idx].delta_size;
         }
 
-        ROS_ASSERT(TARGET_BASE == KEPT_BASE);
+        assert(TARGET_BASE == KEPT_BASE);
 
         // Copy the Jacobians of kept states
         for(int idx = 0; idx < kept_params.size(); idx++)
@@ -1005,19 +997,19 @@ public:
 
         // Check to see if removed res are among the wierd res
         for(auto &res : factorMetaMp2kRemoved.res)
-            ROS_ASSERT(wierdRes.find(res) == wierdRes.end());
+            assert(wierdRes.find(res) == wierdRes.end());
         // printf("Wierd res: %d. No overlap with mp2k\n");
 
         for(auto &res : factorMetaLidarRemoved.res)
-            ROS_ASSERT(wierdRes.find(res) == wierdRes.end());
+            assert(wierdRes.find(res) == wierdRes.end());
         // printf("Wierd res: %d. No overlap with lidar\n");
 
         for(auto &res : factorMetaGpxRemoved.res)
-            ROS_ASSERT(wierdRes.find(res) == wierdRes.end());
+            assert(wierdRes.find(res) == wierdRes.end());
         // printf("Wierd res: %d. No overlap with Gpx\n", wierdRes.size());
 
         for(auto &res : factorMetaPriorRemoved.res)
-            ROS_ASSERT(wierdRes.find(res) == wierdRes.end());
+            assert(wierdRes.find(res) == wierdRes.end());
         // printf("Wierd res: %d. No overlap with Gpx\n", wierdRes.size());
 
         // Save the marginalization factors and states
@@ -1109,22 +1101,22 @@ public:
                     switch(sidx)
                     {
                         case 0:
-                            ROS_ASSERT(param.address == trajs[tidx]->getKnotSO3(kidx).data());
+                            assert(param.address == trajs[tidx]->getKnotSO3(kidx).data());
                             break;
                         case 1:
-                            ROS_ASSERT(param.address == trajs[tidx]->getKnotOmg(kidx).data());
+                            assert(param.address == trajs[tidx]->getKnotOmg(kidx).data());
                             break;
                         case 2:
-                            ROS_ASSERT(param.address == trajs[tidx]->getKnotAlp(kidx).data());
+                            assert(param.address == trajs[tidx]->getKnotAlp(kidx).data());
                             break;
                         case 3:
-                            ROS_ASSERT(param.address == trajs[tidx]->getKnotPos(kidx).data());
+                            assert(param.address == trajs[tidx]->getKnotPos(kidx).data());
                             break;
                         case 4:
-                            ROS_ASSERT(param.address == trajs[tidx]->getKnotVel(kidx).data());
+                            assert(param.address == trajs[tidx]->getKnotVel(kidx).data());
                             break;
                         case 5:
-                            ROS_ASSERT(param.address == trajs[tidx]->getKnotAcc(kidx).data());
+                            assert(param.address == trajs[tidx]->getKnotAcc(kidx).data());
                             break;
                         default:
                             printf("Unrecognized param block! %d, %d, %d\n", tidx, kidx, sidx);
@@ -1138,7 +1130,7 @@ public:
                         bool found = false;
                         for(int lidx = 0; lidx < Nlidar; lidx++)
                             found = found || (param.address == R_Lx_Ly[lidx].data());
-                        ROS_ASSERT(found);    
+                        assert(found);    
                     }
 
                     if(sidx == 1)
@@ -1146,7 +1138,7 @@ public:
                         bool found = false;
                         for(int lidx = 0; lidx < Nlidar; lidx++)
                             found = found || (param.address == P_Lx_Ly[lidx].data());
-                        ROS_ASSERT(found);    
+                        assert(found);    
                     }
                 }
             }

@@ -55,44 +55,24 @@
 #include <glob.h>
 
 // ROS
-#include <ros/ros.h>
-#include <std_msgs/Header.h>
-#include <std_msgs/Float64MultiArray.h>
-#include <std_msgs/String.h>
-#include <sensor_msgs/Imu.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <sensor_msgs/NavSatFix.h>
-#include <nav_msgs/Odometry.h>
-#include <nav_msgs/Path.h>
-#include <visualization_msgs/Marker.h>
-#include <visualization_msgs/MarkerArray.h>
-#include <tf/LinearMath/Quaternion.h>
-#include <tf/transform_listener.h>
-#include <tf/transform_datatypes.h>
-#include <tf/transform_broadcaster.h>
-
-// Opencv
-// #include <opencv2/opencv.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/header.hpp>
+#include <sensor_msgs/msg/imu.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <geometry_msgs/msg/point.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <nav_msgs/msg/path.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+#include "tf2_msgs/msg/tf_message.hpp"
 
 // PCL
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-// #include <pcl/search/impl/search.hpp>
-// #include <pcl/range_image/range_image.h>
 #include <pcl/kdtree/kdtree_flann.h>
-// #include <pcl/common/common.h>
-// #include <pcl/common/transforms.h>
 #include <pcl/registration/icp.h>
 #include <pcl/io/pcd_io.h>
-// #include <pcl/filters/filter.h>
-// #include <pcl/filters/voxel_grid.h>
-// #include <pcl/filters/crop_box.h>
 #include <pcl_conversions/pcl_conversions.h>
-
-// UFO map
-// #include <ufo/math/vector3.h>
-// #include <ufo/map/point_cloud.h>
-// #include <ufo/map/surfel_map.h>
 
 // Sophus
 #include <sophus/se3.hpp>
@@ -116,20 +96,17 @@ using namespace Eigen;
 #define KWHT  "\x1B[37m"
 #define RESET "\033[0m"
 
-#define yolo() printf("Hello line: %s:%d. \n", __FILE__ , __LINE__);
-#define yolos(...) printf("Hello line: %s:%d. ", __FILE__, __LINE__); printf(__VA_ARGS__); std::cout << std::endl;
 #define MAX_THREADS std::thread::hardware_concurrency()/2
 
 // Shortened typedef matching character length of Vector3d and Matrix3d
 typedef Eigen::Quaterniond Quaternd;
 typedef Eigen::Quaterniond Quaternf;
 
-
 // Shorthand for sophus objects
 typedef Sophus::SO3<double> SO3d;
 typedef Sophus::SE3<double> SE3d;
 
-typedef boost::shared_ptr<ros::NodeHandle> NodeHandlePtr;
+typedef rclcpp::Node::SharedPtr NodeHandlePtr;
 
 /* #region  Custom point type definition ----------------------------------------------------------------------------*/
 
@@ -258,11 +235,26 @@ typedef boost::shared_ptr<ikdtree> ikdtreePtr;
 
 /* #region  Image pointer shortened name ----------------------------------------------------------------------------*/
 
-typedef sensor_msgs::Imu::ConstPtr RosImuPtr;
-typedef sensor_msgs::Image::Ptr RosImgPtr;
-typedef sensor_msgs::Image::ConstPtr RosImgConstPtr;
-// typedef map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> VisFeatureFrame;
-// typedef pair<double, VisFeatureFrame> StampedVisFeatureFrame;
+typedef sensor_msgs::msg::Imu RosImuMsg;
+typedef sensor_msgs::msg::Imu::SharedPtr RosImuMsgPtr;
+
+typedef sensor_msgs::msg::Image RosImgMsg;
+typedef sensor_msgs::msg::Image::SharedPtr RosImgMsgPtr;
+
+typedef sensor_msgs::msg::PointCloud2 RosPc2Msg;
+typedef sensor_msgs::msg::PointCloud2::SharedPtr RosPc2MsgPtr;
+
+typedef tf2_msgs::msg::TFMessage RosTf2Msg;
+typedef tf2_msgs::msg::TFMessage::SharedPtr RosTf2MsgPtr;
+
+typedef geometry_msgs::msg::PoseStamped RosPoseStampedMsg;
+typedef geometry_msgs::msg::PoseStamped::SharedPtr RosPoseStampedMsgPtr;
+
+typedef nav_msgs::msg::Odometry RosOdomMsg;
+typedef nav_msgs::msg::Odometry::SharedPtr RosOdomMsgPtr;
+
+typedef visualization_msgs::msg::Marker RosMarkerMsg;
+typedef visualization_msgs::msg::Marker::SharedPtr RosMarkerMsgPtr;
 
 /* #endregion Image pointer shortened name --------------------------------------------------------------------------*/
 
@@ -377,7 +369,7 @@ struct myTf
         this->pos << point.x, point.y, point.z;
     }
 
-    myTf(const nav_msgs::Odometry &odom)
+    myTf(const nav_msgs::msg::Odometry &odom)
     {
         this->rot = Quaternion<T>(odom.pose.pose.orientation.w,
                                     odom.pose.pose.orientation.x,
@@ -389,7 +381,7 @@ struct myTf
                      odom.pose.pose.position.z;
     }
 
-    myTf(const geometry_msgs::PoseStamped &pose)
+    myTf(const geometry_msgs::msg::PoseStamped &pose)
     {
         this->rot = Quaternion<T>(pose.pose.orientation.w,
                                   pose.pose.orientation.x,
@@ -602,16 +594,16 @@ namespace Util
     }
 
     template <typename PointType>
-    sensor_msgs::PointCloud2 publishCloud(ros::Publisher &thisPub,
-                                          pcl::PointCloud<PointType> &thisCloud,
-                                          ros::Time thisStamp, std::string thisFrame)
+    RosPc2Msg publishCloud(rclcpp::Publisher<RosPc2Msg>::SharedPtr thisPub,
+                           pcl::PointCloud<PointType> &thisCloud,
+                           rclcpp::Time thisStamp, std::string thisFrame)
     {
-        sensor_msgs::PointCloud2 tempCloud;
+        RosPc2Msg tempCloud;
         pcl::toROSMsg(thisCloud, tempCloud);
         tempCloud.header.stamp = thisStamp;
         tempCloud.header.frame_id = thisFrame;
         // if (thisPub.getNumSubscribers() != 0)
-            thisPub.publish(tempCloud);
+            thisPub->publish(tempCloud);
         return tempCloud;
     }
 
@@ -1124,11 +1116,38 @@ namespace Util
         // return true;
     }
 
-    inline bool GetBoolParam(const NodeHandlePtr &nh, const string &param, bool default_value)
+    inline bool GetBoolParam(const NodeHandlePtr &nh, const string &param_name, bool default_value)
     {
-        int param_;
-        nh->param(param, param_, default_value == true ? 1 : 0);
-        return (param_ == 0 ? false : true);
+        if(!nh->has_parameter(param_name))
+            nh->declare_parameter(param_name, rclcpp::PARAMETER_INTEGER);
+        
+        int param_ = default_value ? 1 : 0;
+        nh->get_parameter(param_name, param_);
+        return (param_ == 1 ? true : false);
+    }
+
+    // inline double GetDoubleParam(const NodeHandlePtr &nh, const string &param, double default_value=0)
+    // {
+    //     nh->declare_parameter(param, rclcpp::PARAMETER_DOUBLE);
+    //     double value = default_value;
+    //     value = nh->get_parameter(param).as_double();
+    //     return value;
+    // }
+
+    // inline string GetStringParam(const NodeHandlePtr &nh, const string &param, string default_value="")
+    // {
+    //     nh->declare_parameter(param, rclcpp::PARAMETER_STRING);
+    //     string value = default_value;
+    //     value = nh->get_parameter(param).as_string();
+    //     return value;
+    // }
+
+    template <typename T>
+    inline bool GetParam(const NodeHandlePtr &nh, const string &param_name, T &param)
+    {
+        if(!nh->has_parameter(param_name))
+            nh->declare_parameter(param_name, param);
+        return nh->get_parameter(param_name, param);
     }
 
 }; // namespace Util
@@ -1140,9 +1159,9 @@ public:
 
     ImuSample();
 
-    ImuSample(RosImuPtr const& msg)
+    ImuSample(RosImuMsgPtr const &msg)
     {
-        t = msg->header.stamp.toSec();
+        t = rclcpp::Time(msg->header.stamp).seconds();
         gyro = Vector3d(msg->angular_velocity.x,
                         msg->angular_velocity.y,
                         msg->angular_velocity.z);
@@ -1415,7 +1434,7 @@ public:
         bg = bg_; ba = ba_; grav = grav_;
     }
 
-    void forwardPropagate(const RosImuPtr &msg)
+    void forwardPropagate(const RosImuMsgPtr &msg)
     {
         Vector3d gyrn(msg->angular_velocity.x,
                       msg->angular_velocity.y,
@@ -1425,7 +1444,7 @@ public:
                       msg->linear_acceleration.y,
                       msg->linear_acceleration.z);
 
-        double tn = msg->header.stamp.toSec();
+        double tn = rclcpp::Time(msg->header.stamp).seconds();
 
         forwardPropagate(gyrn, accn, tn);
     }
@@ -1516,7 +1535,7 @@ public:
 
     mytf getTf(double ts, bool warning=true) const
     {
-        ROS_ASSERT(t.size() >= 1);
+        assert(t.size() >= 1);
 
         if (ts < t.front())
         {
@@ -1695,6 +1714,8 @@ inline std::string myprintf(const std::string& format, ...)
     return string(vec.begin(), vec.end() - 1);
 }
 
+#define yolo() myprintf("Hello line: %s:%d.", __FILE__ , __LINE__).c_str()
+#define yolos(...) (myprintf("Hello line: %s:%d. ", __FILE__, __LINE__) + myprintf(__VA_ARGS__)).c_str()
 
 inline bool file_exist(const std::string& name)
 {
@@ -1758,6 +1779,5 @@ inline string zeroPaddedString(int num, int max)
 
     return (num_str + std::to_string(num));
 }
-
 
 #endif

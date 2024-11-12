@@ -1,6 +1,8 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
-#include "utility.h"
+
+// Ros stuff
+#include "rclcpp/rclcpp.hpp"
 
 /* All needed for filter of custom point type----------*/
 #include <pcl/pcl_base.h>
@@ -16,11 +18,8 @@
 
 // All about gaussian process
 #include "GaussianProcess.hpp"
+#include "utility.h"
 
-// // Custom solver
-// #include "GNSolver.h"
-
-using NodeHandlePtr = boost::shared_ptr<ros::NodeHandle>;
 class LOAM
 {
 private:
@@ -54,10 +53,10 @@ private:
     deque<CloudXYZITPtr> cloud_seg_buf;
 
     // Publisher
-    ros::Publisher trajPub;
-    ros::Publisher swTrajPub;
-    ros::Publisher assocCloudPub;
-    ros::Publisher deskewedCloudPub;
+    rclcpp::Publisher<RosPc2Msg>::SharedPtr trajPub;
+    rclcpp::Publisher<RosPc2Msg>::SharedPtr swTrajPub;
+    rclcpp::Publisher<RosPc2Msg>::SharedPtr assocCloudPub;
+    rclcpp::Publisher<RosPc2Msg>::SharedPtr deskewedCloudPub;
 
 public:
 
@@ -70,21 +69,21 @@ public:
         lock_guard<mutex> lg(nh_mtx);
 
         // Trajectory estimate
-        nh_ptr->getParam("deltaT", deltaT);
+        Util::GetParam(nh_ptr, "deltaT", deltaT);
 
         // Weight for the motion prior
-        nh_ptr->getParam("mpSigGa", mpSigGa);
-        nh_ptr->getParam("mpSigNu", mpSigNu);
+        Util::GetParam(nh_ptr, "mpSigGa", mpSigGa);
+        Util::GetParam(nh_ptr, "mpSigNu", mpSigNu);
 
         // Association params
-        nh_ptr->getParam("min_planarity", min_planarity);
-        nh_ptr->getParam("max_plane_dis", max_plane_dis);
-        nh_ptr->getParam("knnSize", knnSize);
+        Util::GetParam(nh_ptr, "min_planarity", min_planarity);
+        Util::GetParam(nh_ptr, "max_plane_dis", max_plane_dis);
+        Util::GetParam(nh_ptr, "knnSize", knnSize);
 
-        trajPub = nh_ptr->advertise<sensor_msgs::PointCloud2>(myprintf("/lidar_%d/gp_traj", LIDX), 1);
-        swTrajPub = nh_ptr->advertise<sensor_msgs::PointCloud2>(myprintf("/lidar_%d/sw_opt", LIDX), 1);
-        assocCloudPub = nh_ptr->advertise<sensor_msgs::PointCloud2>(myprintf("/lidar_%d/assoc_cloud", LIDX), 1);
-        deskewedCloudPub = nh_ptr->advertise<sensor_msgs::PointCloud2>(myprintf("/lidar_%d/cloud_inW", LIDX), 1);
+        trajPub = nh_ptr->create_publisher<RosPc2Msg>(myprintf("/lidar_%d/gp_traj", LIDX), 1);
+        swTrajPub = nh_ptr->create_publisher<RosPc2Msg>(myprintf("/lidar_%d/sw_opt", LIDX), 1);
+        assocCloudPub = nh_ptr->create_publisher<RosPc2Msg>(myprintf("/lidar_%d/assoc_cloud", LIDX), 1);
+        deskewedCloudPub = nh_ptr->create_publisher<RosPc2Msg>(myprintf("/lidar_%d/cloud_inW", LIDX), 1);
 
         Matrix3d SigGa = Vector3d(mpSigGa, mpSigGa, mpSigGa).asDiagonal();
         Matrix3d SigNu = Vector3d(mpSigNu, mpSigNu, mpSigNu).asDiagonal();
@@ -98,8 +97,7 @@ public:
                    const CloudXYZITPtr &cloudRaw, const CloudXYZIPtr &cloudInB, const CloudXYZIPtr &cloudInW,
                    vector<LidarCoef> &Coef)
     {
-        ROS_ASSERT_MSG(cloudRaw->size() == cloudInB->size(),
-                       "cloudRaw: %d. cloudInB: %d", cloudRaw->size(), cloudInB->size());
+        assert(cloudRaw->size() == cloudInB->size() && myprintf("cloudRaw: %d. cloudInB: %d", cloudRaw->size(), cloudInB->size()).c_str());
 
         if (priormap->size() > knnSize)
         {
@@ -210,7 +208,7 @@ public:
             }
 
             // Publish global trajectory
-            Util::publishCloud(trajPub, *trajCP, ros::Time::now(), "world");
+            Util::publishCloud(trajPub, *trajCP, rclcpp::Clock().now(), "world");
         }
 
         // Sample and publish the slinding window trajectory
@@ -219,8 +217,8 @@ public:
             if(traj->TimeInInterval(ts))
                 poseSampled->points.push_back(myTf(traj->pose(ts)).Pose6D(ts));
 
-        // static ros::Publisher swTrajPub = nh_ptr->advertise<sensor_msgs::PointCloud2>(myprintf("/lidar_%d/sw_opt", LIDX), 1);
-        Util::publishCloud(swTrajPub, *poseSampled, ros::Time::now(), "world");
+        // static ros::Publisher swTrajPub = nh_ptr->advertise<RosPc2Msg>(myprintf("/lidar_%d/sw_opt", LIDX), 1);
+        Util::publishCloud(swTrajPub, *poseSampled, rclcpp::Clock().now(), "world");
 
         CloudXYZIPtr assoc_cloud(new CloudXYZI());
         for (int widx = 0; widx < swCloudCoef.size(); widx++)
@@ -236,12 +234,12 @@ public:
                 }
         }
         
-        // static ros::Publisher assocCloudPub = nh_ptr->advertise<sensor_msgs::PointCloud2>(myprintf("/lidar_%d/assoc_cloud", LIDX), 1);
+        // static ros::Publisher assocCloudPub = nh_ptr->advertise<RosPc2Msg>(myprintf("/lidar_%d/assoc_cloud", LIDX), 1);
         if (assoc_cloud->size() != 0)
-            Util::publishCloud(assocCloudPub, *assoc_cloud, ros::Time::now(), "world");
+            Util::publishCloud(assocCloudPub, *assoc_cloud, rclcpp::Clock().now(), "world");
 
         // Publish the deskewed pointCloud
-        Util::publishCloud(deskewedCloudPub, *cloudUndiInW, ros::Time::now(), "world");
+        Util::publishCloud(deskewedCloudPub, *cloudUndiInW, rclcpp::Clock().now(), "world");
     }
 
     GaussianProcessPtr &GetTraj()

@@ -9,19 +9,11 @@
 #include <pcl/filters/impl/uniform_sampling.hpp>
 
 // ROS utilities
-#include "ros/ros.h"
-#include <rosbag/bag.h>
-#include <rosbag/view.h>
-#include "sensor_msgs/PointCloud2.h"
+#include "sensor_msgs/msg/point_cloud2.h"
+#include "geometry_msgs/msg/transform_stamped.hpp"
 
 // Add ikdtree
 #include <ikdTree/ikd_Tree.h>
-
-// Basalt
-// #include "basalt/spline/se3_spline.h"
-// #include "basalt/spline/ceres_spline_helper.h"
-// #include "basalt/spline/ceres_local_param.hpp"
-// #include "basalt/spline/posesplinex.h"
 
 // Custom built utilities
 #include "utility.h"
@@ -31,15 +23,11 @@
 #include "LOAM.hpp"
 #include "GPLO.hpp"
 
-// Factor for optimization
-// #include "factor/GPExtrinsicFactor.h"
-// #include "factor/GPMotionPriorTwoKnotsFactor.h"
-
 using namespace std;
 namespace fs = std::filesystem;
 
 // Node handle
-boost::shared_ptr<ros::NodeHandle> nh_ptr;
+NodeHandlePtr nh_ptr;
 
 // Get the dense prior map
 string priormap_file = "";
@@ -70,7 +58,7 @@ vector<string> lidar_type = {"ouster"};
 vector<string> stamp_time = {"start"};
 
 // Check for log and load the GP trajectory with the control points in log
-vector<int> resume_from_log = {0};
+vector<long int> resume_from_log = {0};
 
 // Get the prior map leaf size
 double pmap_leaf_size = 0.15;
@@ -179,7 +167,7 @@ typename pcl::PointCloud<PointType>::Ptr uniformDownsample(const typename pcl::P
 
 void getInitPose(int lidx,
                  const vector<vector<CloudXYZITPtr>> &clouds,
-                 const vector<vector<ros::Time>> &cloudstamp,
+                 const vector<vector<rclcpp::Time>> &cloudstamp,
                  CloudXYZIPtr &priormap,
                  vector<double> &timestart,
                  const vector<double> &xyzypr_W_L0,
@@ -193,8 +181,8 @@ void getInitPose(int lidx,
     // Time period to merge initial clouds
     double startup_merge_time = 3.0;
 
-    ROS_ASSERT(pc0.size() == Nlidar);
-    ROS_ASSERT(tf_W_Li0.size() == Nlidar);
+    assert(pc0.size() == Nlidar);
+    assert(tf_W_Li0.size() == Nlidar);
 
     // Merge the pointclouds in the first few seconds
     pc0[lidx] = CloudXYZIPtr(new CloudXYZI());
@@ -202,20 +190,20 @@ void getInitPose(int lidx,
     for(int cidx = 0; cidx < Ncloud; cidx++)
     {
         // Check if pointcloud is later
-        if ((cloudstamp[lidx][cidx] - cloudstamp[lidx][0]).toSec() > startup_merge_time)
+        if ((cloudstamp[lidx][cidx] - cloudstamp[lidx][0]).seconds() > startup_merge_time)
         {
-            timestart[lidx] = cloudstamp[lidx][cidx].toSec();
+            timestart[lidx] = cloudstamp[lidx][cidx].seconds();
             break;
         }
         // Merge lidar
         CloudXYZI temp; pcl::copyPointCloud(*clouds[lidx][cidx], temp);
         *pc0[lidx] += temp;
-        // printf("P0 lidar %d, Cloud %d. Points: %d. Copied: %d\n", lidx, cidx, clouds[lidx][cidx]->size(), pc0[lidx]->size());
+        // RCLCPP_INFO(nh_ptr->get_logger(),  "P0 lidar %d, Cloud %d. Points: %d. Copied: %d", lidx, cidx, clouds[lidx][cidx]->size(), pc0[lidx]->size());
     }
     int Norg = pc0[lidx]->size();
     // Downsample the pointcloud
     pc0[lidx] = uniformDownsample<PointXYZI>(pc0[lidx], pmap_leaf_size);
-    printf("Intial cloud of lidar %d, Points: %d -> %d\n", lidx, Norg, pc0[lidx]->size());
+    RCLCPP_INFO(nh_ptr->get_logger(),  "Intial cloud of lidar %d, Points: %d -> %d", lidx, Norg, pc0[lidx]->size());
     // Find ICP alignment and refine
     CloudMatcher cm(0.1, 0.1);
     // Set the original position of the anchors
@@ -230,7 +218,7 @@ void getInitPose(int lidx,
     // bool     icpconverged = cm.CheckICP(priormap, pc0[lidx], tf_W_L0.cast<float>().tfMat(), tfm_W_Li0, 0.2, 10, 1.0, icpFitness, icpTime);
     
     // tf_W_L0 = myTf(tfm_W_Li0);
-    // printf("Lidar %d initial pose. %s. Time: %f. Fn: %f. XYZ: %f, %f, %f. YPR: %f, %f, %f.\n",
+    // RCLCPP_INFO(nh_ptr->get_logger(),  "Lidar %d initial pose. %s. Time: %f. Fn: %f. XYZ: %f, %f, %f. YPR: %f, %f, %f.",
     //         lidx, icpconverged ? "Conv" : "Not Conv", icpTime, icpFitness,
     //         tf_W_L0.pos.x(), tf_W_L0.pos.y(), tf_W_L0.pos.z(),
     //         tf_W_L0.yaw(), tf_W_L0.pitch(), tf_W_L0.roll());
@@ -240,11 +228,11 @@ void getInitPose(int lidx,
     ioaOpt.init_tf = tf_W_L0;
     ioaOpt.max_iterations = 20;
     ioaOpt.show_report = true;
-    ioaOpt.text = myprintf("T_W_L(%d,0)_refined_%d", lidx, 10);
+    ioaOpt.text = myprintf( "T_W_L(%d,0)_refined_%d", lidx, 10);
     IOASummary ioaSum;
     ioaSum.final_tf = ioaOpt.init_tf;
     cm.IterateAssociateOptimize(ioaOpt, ioaSum, priormap, pc0[lidx]);
-    printf("Refined: \n");
+    RCLCPP_INFO(nh_ptr->get_logger(),  "Refined: ");
     cout << ioaSum.final_tf.tfMat() << endl;
     
     // Save the result to external buffer
@@ -287,7 +275,7 @@ void syncLidar(const vector<CloudXYZITPtr> &cloudbufi, const vector<CloudXYZITPt
 
             // Now there is overlap, extract the points in the cloudi interval
             // ROS_ASSERT_MSG((tif <= tjf && tjf <= tib) || (tif <= tjb && tjb <= tib),
-            //                "cidxi: %d. tif: %f. tib: %f. tjf: %f. tjb: %f\n",
+            //                "cidxi: %d. tif: %f. tib: %f. tjf: %f. tjb: %f",
             //                 cidxi, tif, tib, tjf, tjb);
 
             // Insert points to the cloudx
@@ -297,7 +285,7 @@ void syncLidar(const vector<CloudXYZITPtr> &cloudbufi, const vector<CloudXYZITPt
             
             last_cloud_j = cidxj;
 
-            // printf("cloudj %d is split. Cloudx of cloudi %d now has %d points\n", last_cloudj, cidx1, cloudx->size());
+            // RCLCPP_INFO(nh_ptr->get_logger(),  "cloudj %d is split. Cloudx of cloudi %d now has %d points", last_cloudj, cidx1, cloudx->size());
         }
     }
 }
@@ -308,16 +296,16 @@ void VisualizeGndtr(vector<CloudPosePtr> &gndtrCloud)
     int Nlidar = gndtrCloud.size();
     
     // Create the publisher
-    ros::Publisher pmpub = nh_ptr->advertise<sensor_msgs::PointCloud2>("/priormap_viz", 1);
-    ros::Publisher gndtrPub[Nlidar];
+    rclcpp::Publisher<RosPc2Msg>::SharedPtr pmpub = nh_ptr->create_publisher<RosPc2Msg>("/priormap_viz", 1);
+    rclcpp::Publisher<RosPc2Msg>::SharedPtr gndtrPub[Nlidar];
     for(int idx = 0; idx < Nlidar; idx++)
-        gndtrPub[idx] = nh_ptr->advertise<sensor_msgs::PointCloud2>(myprintf("/lidar_%d/gndtr", idx), 10);
+        gndtrPub[idx] = nh_ptr->create_publisher<RosPc2Msg>(myprintf( "/lidar_%d/gndtr", idx), 10);
 
     // Publish gndtr every x seconds
-    ros::Rate rate(10);
-    while(ros::ok())
+    rclcpp::Rate rate(10);
+    while(rclcpp::ok())
     {
-        ros::Time currTime = ros::Time::now();
+        rclcpp::Time currTime = rclcpp::Clock().now();
 
         // Publish the prior map for visualization
         static int count = 0;
@@ -330,12 +318,12 @@ void VisualizeGndtr(vector<CloudPosePtr> &gndtrCloud)
         {
             if(gndtrCloud[lidx]->size() == 0)
             {
-                // printf(KYEL "GND pose is empty\n" RESET);
+                // RCLCPP_INFO(nh_ptr->get_logger(),  KYEL "GND pose is empty" RESET);
                 continue;
             }
 
-            // printf("Publish GND pose cloud of %d points\n", gndtrCloud[lidx]->size());
-            Util::publishCloud(gndtrPub[lidx], *gndtrCloud[lidx], ros::Time::now(), "world");
+            // RCLCPP_INFO(nh_ptr->get_logger(),  "Publish GND pose cloud of %d points", gndtrCloud[lidx]->size());
+            Util::publishCloud(gndtrPub[lidx], *gndtrCloud[lidx], rclcpp::Clock().now(), "world");
         }
 
         // Sleep
@@ -346,157 +334,157 @@ void VisualizeGndtr(vector<CloudPosePtr> &gndtrCloud)
 int main(int argc, char **argv)
 {
     // Initalize ros nodes
-    ros::init(argc, argv, "gptr");
-    ros::NodeHandle nh("~");
-    nh_ptr = boost::make_shared<ros::NodeHandle>(nh);
+    rclcpp::init(argc, argv);
+    
+    nh_ptr = rclcpp::Node::make_shared("gptr");
     
     // Supress the pcl warning
     pcl::console::setVerbosityLevel(pcl::console::L_ERROR); // Suppress warnings by pcl load
 
-    printf(KGRN "Multi-Lidar Coupled Motion Estimation Started.\n" RESET);
+    RCLCPP_INFO(nh_ptr->get_logger(),  KGRN "Multi-Lidar Coupled Motion Estimation Started.\n" RESET);
 
-    ros::Time programstart = ros::Time::now();
+    rclcpp::Time programstart = rclcpp::Clock().now();
  
     /* #region Read parameters --------------------------------------------------------------------------------------*/
 
     runkf = Util::GetBoolParam(nh_ptr, "runkf", false);
 
     // Knot length
-    nh_ptr->getParam("deltaT", deltaT);
-    printf("Gaussian process with knot length: %f\n", deltaT);
+    Util::GetParam(nh_ptr, "deltaT", deltaT);
+    RCLCPP_INFO(nh_ptr->get_logger(), "Gaussian process with knot length: %f", deltaT);
 
     // Get the user define parameters
-    nh_ptr->getParam("priormap_file", priormap_file);
-    nh_ptr->getParam("lidar_bag_file", lidar_bag_file);
+    Util::GetParam(nh_ptr, "priormap_file", priormap_file);
+    Util::GetParam(nh_ptr, "lidar_bag_file", lidar_bag_file);
     
-    nh_ptr->getParam("MAX_CLOUDS", MAX_CLOUDS);
-    nh_ptr->getParam("SKIPPED_TIME", SKIPPED_TIME);
-    RECURRENT_SKIP = Util::GetBoolParam(nh_ptr, "RECURRENT_SKIP", false);
+    Util::GetParam(nh_ptr, "MAX_CLOUDS", MAX_CLOUDS);
+    Util::GetParam(nh_ptr, "SKIPPED_TIME", SKIPPED_TIME);
+    Util::GetBoolParam(nh_ptr, "RECURRENT_SKIP", RECURRENT_SKIP);
     
-    nh_ptr->getParam("imu_topic", imu_topic);
-    nh_ptr->getParam("lidar_topic", lidar_topic);
-    nh_ptr->getParam("lidar_type", lidar_type);
-    nh_ptr->getParam("stamp_time", stamp_time);
-    nh_ptr->getParam("resume_from_log", resume_from_log);
+    Util::GetParam(nh_ptr, "imu_topic", imu_topic);
+    Util::GetParam(nh_ptr, "lidar_topic", lidar_topic);
+    Util::GetParam(nh_ptr, "lidar_type", lidar_type);
+    Util::GetParam(nh_ptr, "stamp_time", stamp_time);
+    Util::GetParam(nh_ptr, "resume_from_log", resume_from_log);
 
     // Determine the number of lidar
     int Nlidar = lidar_topic.size();
     int Nimu = imu_topic.size();
 
     // Get the leaf size for prior map
-    nh_ptr->getParam("pmap_leaf_size", pmap_leaf_size);
+    Util::GetParam(nh_ptr, "pmap_leaf_size", pmap_leaf_size);
 
     // Get the leaf size for lidar pointclouds
     cloud_ds = vector<double>(Nlidar, 0.1);
-    nh_ptr->getParam("cloud_ds", cloud_ds);
+    Util::GetParam(nh_ptr, "cloud_ds", cloud_ds);
 
     // Find the settings for cross trajectory optimmization
     VIZ_ONLY = Util::GetBoolParam(nh_ptr, "VIZ_ONLY", false);
-    nh_ptr->getParam("SW_CLOUDNUM", SW_CLOUDNUM);
-    nh_ptr->getParam("SW_CLOUDSTEP", SW_CLOUDSTEP);
-    nh_ptr->getParam("t_shift", t_shift);
-    nh_ptr->getParam("max_outer_iter", max_outer_iter);
-    nh_ptr->getParam("max_inner_iter", max_inner_iter);
-    nh_ptr->getParam("min_inner_iter", min_inner_iter);
-    nh_ptr->getParam("conv_thres", conv_thres);
-    nh_ptr->getParam("dJ_conv_thres", dJ_conv_thres);
-    nh_ptr->getParam("conv_dX_thres", conv_dX_thres);
-    nh_ptr->getParam("change_thres", change_thres);
+    Util::GetParam(nh_ptr, "SW_CLOUDNUM"   , SW_CLOUDNUM   );
+    Util::GetParam(nh_ptr, "SW_CLOUDSTEP"  , SW_CLOUDSTEP  );
+    Util::GetParam(nh_ptr, "t_shift"       , t_shift       );
+    Util::GetParam(nh_ptr, "max_outer_iter", max_outer_iter);
+    Util::GetParam(nh_ptr, "max_inner_iter", max_inner_iter);
+    Util::GetParam(nh_ptr, "min_inner_iter", min_inner_iter);
+    Util::GetParam(nh_ptr, "conv_thres"    , conv_thres    );
+    Util::GetParam(nh_ptr, "dJ_conv_thres" , dJ_conv_thres );
+    Util::GetParam(nh_ptr, "conv_dX_thres" , conv_dX_thres );
+    Util::GetParam(nh_ptr, "change_thres"  , change_thres  );
 
     // Location to save the logs
-    nh_ptr->getParam("log_dir", log_dir);
-    nh_ptr->getParam("log_period", log_period);
+    Util::GetParam(nh_ptr, "log_dir", log_dir);
+    Util::GetParam(nh_ptr, "log_period", log_period);
 
     // Some notifications
-    printf("Get bag at %s and prior map at %s.\n", lidar_bag_file.c_str(), priormap_file.c_str());
-    printf("Lidar info: \n");
+    RCLCPP_INFO(nh_ptr->get_logger(),  "Get bag at %s and prior map at %s.", lidar_bag_file.c_str(), priormap_file.c_str());
+    RCLCPP_INFO(nh_ptr->get_logger(),  "Lidar info: \n");
     for(int lidx = 0; lidx < Nlidar; lidx++)
-        printf("Type: %s.\tDs: %f. Topic %s.\n", lidar_type[lidx].c_str(), cloud_ds[lidx], lidar_topic[lidx].c_str());
-    printf("Maximum number of clouds: %d\n", MAX_CLOUDS);
+        RCLCPP_INFO(nh_ptr->get_logger(),  "Type: %s.\tDs: %f. Topic %s.", lidar_type[lidx].c_str(), cloud_ds[lidx], lidar_topic[lidx].c_str());
+    RCLCPP_INFO(nh_ptr->get_logger(),  "Maximum number of clouds: %d", MAX_CLOUDS);
 
-    printf("IMU info: \n");
+    RCLCPP_INFO(nh_ptr->get_logger(),  "IMU info: \n");
     int imuCount = 0;
     for(int iidx = 0; iidx < Nimu; iidx++)
-        printf("Topic %s.\n", imu_topic[iidx].c_str());
+        RCLCPP_INFO(nh_ptr->get_logger(),  "Topic %s.", imu_topic[iidx].c_str());
 
     // Get the initial position of the lidars
     vector<double> xyzypr_W_L0(Nlidar*6, 0.0);
-    if( nh_ptr->getParam("xyzypr_W_L0", xyzypr_W_L0) )
+    if( Util::GetParam(nh_ptr, "xyzypr_W_L0", xyzypr_W_L0) )
     {
         if (xyzypr_W_L0.size() < Nlidar*6)
         {
-            printf(KYEL "T_W_L0 missing values. Setting all to zeros \n" RESET);
+            RCLCPP_INFO(nh_ptr->get_logger(),  KYEL "T_W_L0 missing values. Setting all to zeros \n" RESET);
             xyzypr_W_L0 = vector<double>(Nlidar*6, 0.0);
         }
         else
         {
-            printf("T_W_L0 found: \n");
+            RCLCPP_INFO(nh_ptr->get_logger(),  "T_W_L0 found: \n");
             for(int i = 0; i < Nlidar; i++)
                 for(int j = 0; j < 6; j++)
-                    printf("%f, ", xyzypr_W_L0[i*6 + j]);
+                    RCLCPP_INFO(nh_ptr->get_logger(),  "%f, ", xyzypr_W_L0[i*6 + j]);
                 cout << endl;
         }
     }
     else
     {
-        printf("Failed to get xyzypr_W_L0. Setting all to zeros\n");
+        RCLCPP_INFO(nh_ptr->get_logger(),  "Failed to get xyzypr_W_L0. Setting all to zeros\n");
         xyzypr_W_L0 = vector<double>(Nlidar*6, 0.0);
     }
 
     T_B_Li_gndtr.resize(Nlidar);
     vector<double> xtrz_gndtr(Nlidar*6, 0.0);
-    if( nh_ptr->getParam("xtrz_gndtr", xtrz_gndtr) )
+    if( Util::GetParam(nh_ptr, "xtrz_gndtr", xtrz_gndtr) )
     {
         if (xtrz_gndtr.size() < Nlidar*6)
         {
-            printf(KYEL "xtrz_gndtr missing values. Setting all to zeros \n" RESET);
+            RCLCPP_INFO(nh_ptr->get_logger(),  KYEL "xtrz_gndtr missing values. Setting all to zeros \n" RESET);
             xtrz_gndtr = vector<double>(Nlidar*6, 0.0);
         }
         else
         {
-            printf("xtrz_gndtr found: \n");
+            RCLCPP_INFO(nh_ptr->get_logger(), "xtrz_gndtr found: \n");
             for(int i = 0; i < Nlidar; i++)
             {
                 T_B_Li_gndtr[i] = myTf(Util::YPR2Quat(xtrz_gndtr[i*6 + 3], xtrz_gndtr[i*6 + 4], xtrz_gndtr[i*6 + 5]),
                                              Vector3d(xtrz_gndtr[i*6 + 0], xtrz_gndtr[i*6 + 1], xtrz_gndtr[i*6 + 2]));
 
                 for(int j = 0; j < 6; j++)
-                    printf("%f, ", xtrz_gndtr[i*6 + j]);
+                    RCLCPP_INFO(nh_ptr->get_logger(),  "%f, ", xtrz_gndtr[i*6 + j]);
                 cout << endl;
             }
         }
     }
     else
     {
-        printf("Failed to get xyzypr_W_L0. Setting all to zeros\n");
+        RCLCPP_INFO(nh_ptr->get_logger(),  "Failed to get xyzypr_W_L0. Setting all to zeros\n");
         xyzypr_W_L0 = vector<double>(Nlidar*6, 0.0);
     }
 
     vector<myTf<double>> T_E_G(Nlidar, myTf());
     vector<double> T_E_G_(Nlidar*6, 0.0);
-    if( nh_ptr->getParam("T_E_G", T_E_G_) )
+    if( Util::GetParam(nh_ptr, "T_E_G", T_E_G_) )
     {
         if (T_E_G_.size() < Nlidar*6)
         {
-            printf(KYEL "T_E_G_ missing values. Setting all to zeros \n" RESET);
+            RCLCPP_INFO(nh_ptr->get_logger(),  KYEL "T_E_G_ missing values. Setting all to zeros \n" RESET);
             T_E_G_ = vector<double>(Nlidar*6, 0.0);
         }
         else
         {
-            printf("T_E_G found: \n");
+            RCLCPP_INFO(nh_ptr->get_logger(),  "T_E_G found: \n");
             for(int i = 0; i < Nlidar; i++)
             {
                 T_E_G[i] = myTf(Util::YPR2Quat(T_E_G_[i*6 + 3], T_E_G_[i*6 + 4], T_E_G_[i*6 + 5]),
                                 Vector3d(T_E_G_[i*6 + 0], T_E_G_[i*6 + 1], T_E_G_[i*6 + 2]));
 
                 for(int j = 0; j < 6; j++)
-                    printf("%f, ", T_E_G_[i*6 + j]);
+                    RCLCPP_INFO(nh_ptr->get_logger(),  "%f, ", T_E_G_[i*6 + j]);
                 cout << endl;
             }
         }
     }
     else
-        printf("Failed to get T_E_G. Setting all to identity.\n");
+        RCLCPP_INFO(nh_ptr->get_logger(),  "Failed to get T_E_G. Setting all to identity.\n");
 
     /* #endregion Read parameters -----------------------------------------------------------------------------------*/
  
@@ -505,7 +493,7 @@ int main(int argc, char **argv)
     pcl::io::loadPCDFile<PointXYZI>(priormap_file, *priormap);
     priormap = uniformDownsample<PointXYZI>(priormap, pmap_leaf_size);
     // Create the kd tree
-    printf(KYEL "Building the prior map. Size: %d\n" RESET, priormap->size());
+    RCLCPP_INFO(nh_ptr->get_logger(),  KYEL "Building the prior map. Size: %d\n" RESET, priormap->size());
     kdTreeMap->setInputCloud(priormap);
 
     /* #endregion Load the priormap ---------------------------------------------------------------------------------*/
@@ -522,10 +510,10 @@ int main(int argc, char **argv)
         pctopicidx[lidar_topic[lidx]] = lidx;
 
     // Storage of the pointclouds
-    vector<vector<RosImuPtr>> imus(Nimu);
+    vector<vector<RosImuMsgPtr>> imus(Nimu);
     vector<vector<CloudXYZITPtr>> clouds(Nlidar);
-    vector<vector<ros::Time>> cloudstamp(Nlidar);
-    vector<tf2_msgs::TFMessage> gndtr;
+    vector<vector<rclcpp::Time>> cloudstamp(Nlidar);
+    vector<RosTf2Msg> gndtr;
 
     vector<string> queried_topics = lidar_topic;
     for(auto &topic : imu_topic)
@@ -539,7 +527,7 @@ int main(int argc, char **argv)
         string topic_dir = lidar_topic[lidx]; boost::replace_all(topic_dir, "/", "__");
         string path = lidar_bag_file + "/clouds/" + topic_dir + "/";
 
-        printf("Looking into %s\n", path.c_str());
+        RCLCPP_INFO(nh_ptr->get_logger(),  "Looking into %s", path.c_str());
         
         vector<fs::directory_entry> pcd_files;
         // Iterate through the directory and add .pcd files to the vector
@@ -548,16 +536,16 @@ int main(int argc, char **argv)
             if (entry.is_regular_file() && entry.path().extension() == ".pcd") 
             {
                 pcd_files.push_back(entry);
-                // printf("Found %s\n", entry.path().string().c_str());
+                // RCLCPP_INFO(nh_ptr->get_logger(),  "Found %s", entry.path().string().c_str());
             }
         }
 
-        auto inferStamp = [](const fs::directory_entry &tstr) -> ros::Time
+        auto inferStamp = [](const fs::directory_entry &tstr) -> rclcpp::Time
         {
             string tstr_ = tstr.path().filename().string();
             boost::replace_all(tstr_, ".pcd", "");
             vector<string> tstr_parts; boost::split(tstr_parts, tstr_, boost::is_any_of("."));
-            return ros::Time(stod(tstr_parts[0]), stoul(tstr_parts[1]));
+            return rclcpp::Time(stod(tstr_parts[0]), stoul(tstr_parts[1]));
         };
         // Sort the files alphabetically by their path
         std::sort(pcd_files.begin(), pcd_files.end(), 
@@ -570,7 +558,7 @@ int main(int argc, char **argv)
         clouds[lidx].resize(numClouds);
         cloudstamp[lidx].resize(numClouds);
 
-        printf("Found %d pointclouds for %s topic\n", numClouds, lidar_topic[lidx].c_str());
+        RCLCPP_INFO(nh_ptr->get_logger(),  "Found %d pointclouds for %s topic", numClouds, lidar_topic[lidx].c_str());
 
         // Generate random number to diversify downsampler
         auto max_ds_it = std::max_element(cloud_ds.begin(), cloud_ds.end());
@@ -586,7 +574,7 @@ int main(int argc, char **argv)
             string filename = pcd_files[cidx].path().string();
 
             // Infer the time stamp
-            ros::Time timestamp = inferStamp(pcd_files[cidx]);
+            rclcpp::Time timestamp = inferStamp(pcd_files[cidx]);
 
             TicToc tt_read;
 
@@ -595,7 +583,7 @@ int main(int argc, char **argv)
 
             if (pcl::io::loadPCDFile<PointOuster>(filename, *cloudRaw) == -1)
             {
-                PCL_ERROR("Couldn't read file %s\n", filename.c_str());
+                PCL_ERROR("Couldn't read file %s", filename.c_str());
                 exit(-1);
             }
 
@@ -605,8 +593,8 @@ int main(int argc, char **argv)
 
             double sweeptime = (cloudRaw->points.back().t - cloudRaw->points.front().t)/1.0e9;
             if(fabs(sweeptime - 0.1) > 1e-3)
-                printf(KYEL "Irregular sweep time: %f, %f\n" RESET, sweeptime, fabs(sweeptime - 0.1));
-            double timebase = stamp_time[lidx] == "start" ? timestamp.toSec() : timestamp.toSec() - sweeptime;
+                RCLCPP_INFO(nh_ptr->get_logger(),  KYEL "Irregular sweep time: %f, %f\n" RESET, sweeptime, fabs(sweeptime - 0.1));
+            double timebase = stamp_time[lidx] == "start" ? timestamp.seconds() : timestamp.seconds() - sweeptime;
 
             // Preserve the start point and end point
             PointOuster pb = cloudRaw->points.front();
@@ -627,7 +615,7 @@ int main(int argc, char **argv)
                 && pb.t == cloudRaw->points.front().t))
             {
                 cloudRaw->points.insert(cloudRaw->points.begin(), pb);
-                // printf("Reinserting the front point.\n");
+                // RCLCPP_INFO(nh_ptr->get_logger(),  "Reinserting the front point.\n");
             }
 
             if ( !(pf.x == cloudRaw->points.back().x
@@ -636,7 +624,7 @@ int main(int argc, char **argv)
                 && pf.t == cloudRaw->points.back().t))
             {
                 cloudRaw->push_back(pf);
-                // printf("Reinserting the final point.\n");
+                // RCLCPP_INFO(nh_ptr->get_logger(),  "Reinserting the final point.\n");
             }
 
             // Save the cloud time stamp
@@ -656,12 +644,12 @@ int main(int argc, char **argv)
                 po.t = pi.t/1.0e9 + timebase;
                 po.intensity = pi.intensity;
 
-                // printf("t: %f, %f, %f, %f\n", po.t, po.x, po.y, po.z);
+                // RCLCPP_INFO(nh_ptr->get_logger(),  "t: %f, %f, %f, %f", po.t, po.x, po.y, po.z);
             }
 
             if (cidx % 100 == 0)
-                printf("Loading file %s at time %f. CIDX: %05d. Read Time: %f. Time: %f -> %f.\n",
-                        filename.c_str(), timestamp.toSec(), cidx, tt_read.Toc(), 
+                RCLCPP_INFO(nh_ptr->get_logger(),  "Loading file %s at time %f. CIDX: %05d. Read Time: %f. Time: %f -> %f.",
+                        filename.c_str(), timestamp.seconds(), cidx, tt_read.Toc(), 
                         clouds[lidx][cidx]->points.front().t, clouds[lidx][cidx]->points.back().t);
         }
     }
@@ -693,7 +681,7 @@ int main(int argc, char **argv)
 
             for(auto pose : temp->points)
             {
-                if (pose.t < cloudstamp.front().back().toSec())
+                if (pose.t < cloudstamp.front().back().seconds())
                 {
                     Vector3d p(pose.x, pose.y, pose.z);
                     Quaternd q(pose.qw, pose.qx, pose.qy, pose.qz);
@@ -714,7 +702,7 @@ int main(int argc, char **argv)
                 }
             }
 
-            printf("GNDTR cloud size: %d point(s)\n");
+            RCLCPP_INFO(nh_ptr->get_logger(),  "GNDTR cloud size: %d point(s)\n");
         }
     }
 
@@ -747,7 +735,7 @@ int main(int argc, char **argv)
     // Split the secondary point clouds by the primary pointcloud
     double TSTART = clouds.front().front()->points.front().t;
     double TFINAL = clouds.front().back()->points.back().t;
-    printf("TSTART, TFINAL: %f, %f\n", TSTART, TFINAL);
+    RCLCPP_INFO(nh_ptr->get_logger(),  "TSTART, TFINAL: %f, %f", TSTART, TFINAL);
 
     auto tcloudStart = [&TSTART, &deltaT](int cidx) -> double
     {
@@ -790,8 +778,8 @@ int main(int argc, char **argv)
                 // ROS_ASSERT_MSG(tcloudStart(cidx) <= point.t && point.t <= tcloudFinal(cidx),
                 //                "point.t: %f. cidx: %d. dt: %f. tcoutstart: %f. tcoutfinal: %f",
                 //                 point.t, cidx, dt, tcloudStart(cidx), tcloudFinal(cidx));
-                ROS_ASSERT_MSG(cidx < cloudsOut.size(), "%d, %d, %f, %f, %f\n", cidx, cloudsOut.size(), point.t, tstart, tfinal);
-                // ROS_ASSERT_MSG(coutidx < cloudsOut.size(), "%d %d. %f, %f, %f\n", coutidx, cloudsOut.size(), point.t, tfinal, tstart + cloudsOut.size()*dt);
+                assert(cidx < cloudsOut.size() && myprintf( "%d, %d, %f, %f, %f", cidx, cloudsOut.size(), point.t, tstart, tfinal).c_str());
+                // ROS_ASSERT_MSG(coutidx < cloudsOut.size(), "%d %d. %f, %f, %f", coutidx, cloudsOut.size(), point.t, tfinal, tstart + cloudsOut.size()*dt);
                 cloudsOut[cidx]->push_back(point);
             }
         }
@@ -802,7 +790,7 @@ int main(int argc, char **argv)
     for(int lidx = 0; lidx < Nlidar; lidx++)
     {
         splitCloud(TSTART, TFINAL, deltaT, clouds[lidx], cloudsx[lidx]);
-        printf("Split cloud: %d -> %d\n", clouds[lidx].size(), cloudsx[lidx].size());
+        RCLCPP_INFO(nh_ptr->get_logger(),  "Split cloud: %d -> %d", clouds[lidx].size(), cloudsx[lidx].size());
     }
 
 
@@ -814,7 +802,7 @@ int main(int argc, char **argv)
             // ROS_ASSERT_MSG(cloudsx[lidx][cidx]->size() != 0, "%d", cloudsx[lidx][cidx]->size());
             if(cloudsx[lidx][cidx]->size() == 0)
             {
-                // printf(KYEL "cloud[%2d][%6d] is empty with %d points.\n" RESET, cidx, lidx, cloudsx[lidx][cidx]->size());
+                // RCLCPP_INFO(nh_ptr->get_logger(),  KYEL "cloud[%2d][%6d] is empty with %d points.\n" RESET, cidx, lidx, cloudsx[lidx][cidx]->size());
 
                 PointXYZIT p;
                 p.x = 0; p.y = 0; p.z = 0; p.intensity = 0;
@@ -833,7 +821,7 @@ int main(int argc, char **argv)
     vector<vector<ImuSequence>> imusx(Nimu);
     for(int iidx = 0; iidx < Nimu; iidx++)
     {
-        printf("Split imu %d\n", iidx);
+        RCLCPP_INFO(nh_ptr->get_logger(),  "Split imu %d", iidx);
         imusx[iidx].resize(cloudsx[0].size());
         
         // #pragma omp parallel num_threads(MAX_THREADS)
@@ -855,7 +843,7 @@ int main(int argc, char **argv)
     // {
     //     for(int cidx = 0; cidx < cloudsx[0].size(); cidx++)
     //     {
-    //         printf("IMU %2d Sequence %4d, sample %3d. ImuItv: [%.3f %.3f]. CloudItv. [%.3f %.3f].\n",
+    //         RCLCPP_INFO(nh_ptr->get_logger(),  "IMU %2d Sequence %4d, sample %3d. ImuItv: [%.3f %.3f]. CloudItv. [%.3f %.3f].",
     //                 iidx, cidx, imusx[iidx][cidx].size(),
     //                 imusx[iidx][cidx].startTime(), imusx[iidx][cidx].finalTime(),
     //                 cloudsx[0][cidx]->points.front().t, cloudsx[0][cidx]->points.back().t);
@@ -877,7 +865,7 @@ int main(int argc, char **argv)
         for(int lidx = 0; lidx < Nlidar; lidx++)
         {
             // Creating the trajectory estimator
-            StateWithCov Xhat0(cloudstamp[lidx].front().toSec(), tf_W_Li0[lidx].rot, tf_W_Li0[lidx].pos, Vector3d(0, 0, 0), Vector3d(0, 0, 0), 1.0);
+            StateWithCov Xhat0(cloudstamp[lidx].front().seconds(), tf_W_Li0[lidx].rot, tf_W_Li0[lidx].pos, Vector3d(0, 0, 0), Vector3d(0, 0, 0), 1.0);
 
             i2kflo.push_back(i2EKFLOPtr(new i2EKFLO(lidx, Xhat0, UW_NOISE, UV_NOISE, 0.5*0.5, 0.4, nh_ptr, nh_mtx)));
 
@@ -926,10 +914,10 @@ int main(int argc, char **argv)
     // If there is a log, load them up
     for(int lidx = 0; lidx < Nlidar; lidx++)
     {
-        string log_file = log_dir + myprintf("/gptraj_%d.csv", lidx);
+        string log_file = log_dir + myprintf( "/gptraj_%d.csv", lidx);
         if(resume_from_log[lidx] == 1 && file_exist(log_file))
         {
-            printf("Loading traj file: %s\n", log_file.c_str());
+            RCLCPP_INFO(nh_ptr->get_logger(),  "Loading traj file: %s", log_file.c_str());
             gpmaplo[lidx]->GetTraj()->loadTrajectory(log_file);
 
             // GaussianProcessPtr &traj = gpmaplo[lidx]->GetTraj();
@@ -937,7 +925,7 @@ int main(int argc, char **argv)
             // {
             //     GPState<double> x = traj->getKnot(kidx);
             //     Quaternd q = x.R.unit_quaternion();
-            //     printf("Lidar %d. Knot: %d. XYZ: %9.3f, %9.3f, %9.3f. Q: %9.3f, %9.3f, %9.3f, %9.3f.\n",
+            //     RCLCPP_INFO(nh_ptr->get_logger(),  "Lidar %d. Knot: %d. XYZ: %9.3f, %9.3f, %9.3f. Q: %9.3f, %9.3f, %9.3f, %9.3f.",
             //             lidx, kidx, x.P.x(), x.P.y(), x.P.z(), q.x(), q.y(), q.z(), q.w());
             // }
         }
@@ -949,7 +937,7 @@ int main(int argc, char **argv)
     for(auto &lo : gpmaplo)
         trajs.push_back(lo->GetTraj());
 
-    vector<deque<geometry_msgs::PoseStamped>> extrinsic_poses(Nlidar);
+    vector<deque<RosPoseStampedMsg>> extrinsic_poses(Nlidar);
 
     /* #endregion Create the LOAM modules ---------------------------------------------------------------------------*/
  
@@ -979,7 +967,7 @@ int main(int argc, char **argv)
                 {
                     if (tcloudSinceStart < SKIPPED_TIME)
                     {
-                        printf("tcloudSinceStart %f. SKIPPED_TIME: %f. SKIPPING.\n", tcloudSinceStart, SKIPPED_TIME);
+                        RCLCPP_INFO(nh_ptr->get_logger(),  "tcloudSinceStart %f. SKIPPED_TIME: %f. SKIPPING.", tcloudSinceStart, SKIPPED_TIME);
                         
                         SW_CLOUDSTEP_NXT = SW_CLOUDSTEP;
                         cidx += SW_CLOUDSTEP_NOW;
@@ -1057,7 +1045,7 @@ int main(int argc, char **argv)
                         swCloud[lidx][swIdx] = uniformDownsample<PointXYZIT>(cloudsx[lidx][idx], cloud_ds[lidx]);
                         ProcessCloud(gpmaplo[lidx], swCloud[lidx][swIdx], swCloudUndi[lidx][swIdx], swCloudUndiInW[lidx][swIdx], swCloudCoef[lidx][swIdx]);
 
-                        // printf("%f, %d, %d, %d, %d.\n", lidarWeightUpScale, idx, SW_END, SW_CLOUDSTEP, SW_CLOUDNUM);
+                        // RCLCPP_INFO(nh_ptr->get_logger(),  "%f, %d, %d, %d, %d.", lidarWeightUpScale, idx, SW_END, SW_CLOUDSTEP, SW_CLOUDNUM);
                         // for(auto &coef : swCloudCoef[lidx][swIdx])
                         //     coef.plnrty *= (swIdx + 1);
                     }
@@ -1075,7 +1063,7 @@ int main(int argc, char **argv)
                 if (report.factors["LIDAR"] == 0)
                 {
                     loam_diverges = true;
-                    printf(KRED"LOAM DIVERGES!" RESET);
+                    RCLCPP_INFO(nh_ptr->get_logger(),  KRED"LOAM DIVERGES!" RESET);
                 }
 
 
@@ -1083,8 +1071,8 @@ int main(int argc, char **argv)
                 for(int lidx = 0; lidx < Nlidar; lidx++)
                 {
                     SE3d se3 = gpmlc->GetExtrinsics(lidx);
-                    geometry_msgs::PoseStamped pose;
-                    pose.header.stamp = ros::Time(tmax);
+                    RosPoseStampedMsg pose;
+                    pose.header.stamp = rclcpp::Time(tmax);
                     pose.header.frame_id = "lidar_0";
                     pose.pose.position.x = se3.translation().x();
                     pose.pose.position.y = se3.translation().y();
@@ -1096,17 +1084,17 @@ int main(int argc, char **argv)
 
                     if(extrinsic_poses[lidx].size() == 0)
                         extrinsic_poses[lidx].push_back(pose);
-                    else if(extrinsic_poses[lidx].back().header.stamp.toSec() != tmax)
+                    else if(rclcpp::Time(extrinsic_poses[lidx].back().header.stamp).seconds() != tmax)
                         extrinsic_poses[lidx].push_back(pose);
                 }
 
 
                 // Visualize the result on each trajectory
                 {
-                    static vector<ros::Publisher*> gdntrPub(Nlidar, nullptr);
-                    static vector<ros::Publisher*> odomPub(Nlidar, nullptr);
-                    static vector<ros::Publisher*> marker_pub(Nlidar, nullptr);
-                    static vector<nav_msgs::Odometry> odomMsg(Nlidar, nav_msgs::Odometry());
+                    static vector<rclcpp::Publisher<RosPc2Msg>::SharedPtr> gdntrPub(Nlidar, nullptr);
+                    static vector<rclcpp::Publisher<RosOdomMsg>::SharedPtr> odomPub(Nlidar, nullptr);
+                    static vector<rclcpp::Publisher<RosMarkerMsg>::SharedPtr> marker_pub(Nlidar, nullptr);
+                    static vector<RosOdomMsg> odomMsg(Nlidar, RosOdomMsg());
 
                     for(int lidx = 0; lidx < Nlidar; lidx++)
                     {
@@ -1114,7 +1102,7 @@ int main(int argc, char **argv)
 
                         // Publish an odom topic for each lidar
                         if (gdntrPub[lidx] == nullptr)
-                            gdntrPub[lidx] = new ros::Publisher(nh_ptr->advertise<sensor_msgs::PointCloud2>(myprintf("/lidar_%d/gtr_sw", lidx), 1));
+                            gdntrPub[lidx] = nh_ptr->create_publisher<RosPc2Msg>(myprintf( "/lidar_%d/gtr_sw", lidx), 1);
 
                         CloudPose gtrPose;
                         for(auto &pose : gndtrCloud[lidx]->points)
@@ -1122,17 +1110,17 @@ int main(int argc, char **argv)
                                 gtrPose.push_back(pose);
 
                         if (gtrPose.size() > 0)
-                            Util::publishCloud(*gdntrPub[lidx], gtrPose, ros::Time(gtrPose.points.back().t), "world");
+                            Util::publishCloud(gdntrPub[lidx], gtrPose, rclcpp::Time(gtrPose.points.back().t), "world");
 
                         // Publish an odom topic for each lidar
                         if (odomPub[lidx] == nullptr)
-                            odomPub[lidx] = new ros::Publisher(nh_ptr->advertise<nav_msgs::Odometry>(myprintf("/lidar_%d/odom", lidx), 1));
+                            odomPub[lidx] = nh_ptr->create_publisher<RosOdomMsg>(myprintf( "/lidar_%d/odom", lidx), 1);
 
                         double ts = tmax - trajs[lidx]->getDt()/2;
                         SE3d pose = trajs[lidx]->pose(tmax);    
-                        odomMsg[lidx].header.stamp = ros::Time(tmax);
+                        odomMsg[lidx].header.stamp = rclcpp::Time(tmax);
                         odomMsg[lidx].header.frame_id = "world";
-                        odomMsg[lidx].child_frame_id = myprintf("lidar_%d_body", lidx);
+                        odomMsg[lidx].child_frame_id = myprintf( "lidar_%d_body", lidx);
                         odomMsg[lidx].pose.pose.position.x = pose.translation().x();
                         odomMsg[lidx].pose.pose.position.y = pose.translation().y();
                         odomMsg[lidx].pose.pose.position.z = pose.translation().z();
@@ -1143,49 +1131,49 @@ int main(int argc, char **argv)
                         odomPub[lidx]->publish(odomMsg[lidx]);
 
                         // Publish a tf at the last inner iterations
-                        static tf2_ros::TransformBroadcaster br;   // Define a TransformStamped message
-                        geometry_msgs::TransformStamped transformStamped;
+                        // static tf2_ros::TransformBroadcaster br;   // Define a TransformStamped message
+                        // geometry_msgs::TransformStamped transformStamped;
                         
-                        // Populate the transform message
-                        static double last_tmax = -1;
-                        transformStamped.header.stamp    = ros::Time(tmax);
-                        transformStamped.header.frame_id = "world";
-                        transformStamped.child_frame_id  = myprintf("lidar_%d", lidx);
+                        // // Populate the transform message
+                        // static double last_tmax = -1;
+                        // transformStamped.header.stamp    = rclcpp::Time(tmax);
+                        // transformStamped.header.frame_id = "world";
+                        // transformStamped.child_frame_id  = myprintf( "lidar_%d", lidx);
 
-                        // Set the translation values
-                        transformStamped.transform.translation.x = odomMsg[lidx].pose.pose.position.x;
-                        transformStamped.transform.translation.y = odomMsg[lidx].pose.pose.position.y;
-                        transformStamped.transform.translation.z = odomMsg[lidx].pose.pose.position.z;
+                        // // Set the translation values
+                        // transformStamped.transform.translation.x = odomMsg[lidx].pose.pose.position.x;
+                        // transformStamped.transform.translation.y = odomMsg[lidx].pose.pose.position.y;
+                        // transformStamped.transform.translation.z = odomMsg[lidx].pose.pose.position.z;
 
-                        // Set the rotation as a quaternion (identity quaternion in this example)
-                        transformStamped.transform.rotation.x = odomMsg[lidx].pose.pose.orientation.x;
-                        transformStamped.transform.rotation.y = odomMsg[lidx].pose.pose.orientation.y;
-                        transformStamped.transform.rotation.z = odomMsg[lidx].pose.pose.orientation.z;
-                        transformStamped.transform.rotation.w = odomMsg[lidx].pose.pose.orientation.w;
+                        // // Set the rotation as a quaternion (identity quaternion in this example)
+                        // transformStamped.transform.rotation.x = odomMsg[lidx].pose.pose.orientation.x;
+                        // transformStamped.transform.rotation.y = odomMsg[lidx].pose.pose.orientation.y;
+                        // transformStamped.transform.rotation.z = odomMsg[lidx].pose.pose.orientation.z;
+                        // transformStamped.transform.rotation.w = odomMsg[lidx].pose.pose.orientation.w;
 
-                        // Broadcast the transform
-                        if (tmax != last_tmax)
-                        {
-                            br.sendTransform(transformStamped);
-                            last_tmax = tmax;
-                        }
+                        // // Broadcast the transform
+                        // if (tmax != last_tmax)
+                        // {
+                        //     br.sendTransform(transformStamped);
+                        //     last_tmax = tmax;
+                        // }
 
                         if (lidx == 0)
                             continue;
 
-                        // printf("Lidar %d. Pos: %f, %f, %f\n", lidx, pose.translation().x(), pose.translation().y(), pose.translation().z());
+                        // RCLCPP_INFO(nh_ptr->get_logger(),  "Lidar %d. Pos: %f, %f, %f", lidx, pose.translation().x(), pose.translation().y(), pose.translation().z());
                         if(marker_pub[lidx] == nullptr)
-                            marker_pub[lidx] = new ros::Publisher(nh_ptr->advertise<visualization_msgs::Marker>(myprintf("/lidar_%d/extr_marker", lidx), 1));
+                            marker_pub[lidx] = nh_ptr->create_publisher<RosMarkerMsg>(myprintf( "/lidar_%d/extr_marker", lidx), 1);
 
                         // Publish a line between the lidars
-                        visualization_msgs::Marker line_strip;
+                        RosMarkerMsg line_strip;
                         line_strip.header.frame_id = "world";
-                        line_strip.header.stamp = ros::Time::now();
+                        line_strip.header.stamp = rclcpp::Clock().now();
                         line_strip.ns = "lines";
-                        line_strip.action = visualization_msgs::Marker::ADD;
+                        line_strip.action = RosMarkerMsg::ADD;
                         line_strip.pose.orientation.w = 1.0;
                         line_strip.id = 0;
-                        line_strip.type = visualization_msgs::Marker::LINE_STRIP;
+                        line_strip.type = RosMarkerMsg::LINE_STRIP;
                         line_strip.scale.x = 0.05;
                         // Line strip is red
                         line_strip.color.r = 0.0;
@@ -1193,7 +1181,7 @@ int main(int argc, char **argv)
                         line_strip.color.b = 1.0;
                         line_strip.color.a = 1.0;
                         // Create the vertices for the points and lines
-                        geometry_msgs::Point p;
+                        geometry_msgs::msg::Point p;
                         p.x = odomMsg[0].pose.pose.position.x;
                         p.y = odomMsg[0].pose.pose.position.y;
                         p.z = odomMsg[0].pose.pose.position.z;
@@ -1227,7 +1215,7 @@ int main(int argc, char **argv)
                     fastP = fastP || (change_thres[3] < 0 ? false : (dPpred      > change_thres[3]));
                     fastV = fastV || (change_thres[4] < 0 ? false : (Xc.V.norm() > change_thres[4]));
                     fastA = fastA || (change_thres[5] < 0 ? false : (Xc.A.norm() > change_thres[5]));
-                    printf("Predicted Change: %.3f, %.3f,\n", dRpred, dPpred);
+                    RCLCPP_INFO(nh_ptr->get_logger(),  "Predicted Change: %.3f, %.3f,", dRpred, dPpred);
                 }
                 fastMotion = fastR || fastO || fastS || fastP || fastV || fastA;
                 if(fastMotion)
@@ -1248,9 +1236,9 @@ int main(int argc, char **argv)
                 //             {
                 //                 if (ypr(1) < pr_range[lidx][1][0] || ypr(1) > pr_range[lidx][1][1])
                 //                 {
-                //                     printf("Resetting pitch of %d traj from %f to ", lidx, ypr(1));
+                //                     RCLCPP_INFO(nh_ptr->get_logger(),  "Resetting pitch of %d traj from %f to ", lidx, ypr(1));
                 //                     ypr(1) = 0;//ypr(1)/fabs(ypr(1))*10;
-                //                     printf("%f\n", ypr(1));
+                //                     RCLCPP_INFO(nh_ptr->get_logger(),  "%f", ypr(1));
                 //                     trajs[lidx]->getKnotSO3(kidx) = SO3d(Util::YPR2Quat(ypr));
                 //                     trajs[lidx]->getKnotOmg(kidx) *= 0;
                 //                     trajs[lidx]->getKnotAlp(kidx) *= 0;
@@ -1261,9 +1249,9 @@ int main(int argc, char **argv)
                 //             {
                 //                 if (ypr(2) < pr_range[lidx][2][0] || ypr(2) > pr_range[lidx][2][1])
                 //                 {
-                //                     printf("Resetting roll %d traj from %f to ", lidx, ypr(2));
+                //                     RCLCPP_INFO(nh_ptr->get_logger(),  "Resetting roll %d traj from %f to ", lidx, ypr(2));
                 //                     ypr(2) = 0;//ypr(2)/fabs(ypr(2))*10;
-                //                     printf("%f\n", ypr(2));
+                //                     RCLCPP_INFO(nh_ptr->get_logger(),  "%f", ypr(2));
                 //                     trajs[lidx]->getKnotSO3(kidx) = SO3d(Util::YPR2Quat(ypr));
                 //                     trajs[lidx]->getKnotOmg(kidx) *= 0;
                 //                     trajs[lidx]->getKnotAlp(kidx) *= 0;
@@ -1305,10 +1293,10 @@ int main(int argc, char **argv)
                     // Set the flag when convergence has been acheived, one more iteration will be run with marginalization
                     if(convergence_count >= conv_thres && (inner_iter >= min_inner_iter))
                     {
-                        // printf("Convergent. Slide window.\n");
+                        // RCLCPP_INFO(nh_ptr->get_logger(),  "Convergent. Slide window.\n");
                         converged = true;
                     }
-                    // printf("CC: %d. Norm: %f\n", convergence_count, dX.block<3, 1>(9, 0).norm());
+                    // RCLCPP_INFO(nh_ptr->get_logger(),  "CC: %d. Norm: %f", convergence_count, dX.block<3, 1>(9, 0).norm());
                 }
     
                 // Make the report
@@ -1319,7 +1307,7 @@ int main(int argc, char **argv)
                     optnum++;
                     
                     string report_opt =
-                        myprintf("%s"
+                        myprintf( "%s"
                                  "GPXOpt# %4d.%2d.%2d: CeresIter: %d. Tbd: %3.0f. Tslv: %.0f. Tinner: %.3f. Conv: %d, %d, %d, %d, %d, %d. Count %d. dJ%: %f,\n"
                                  "TSTART: %.3f. TFIN: + %.3f. Tmin-Tmid-Tmax: +[%.3f, %.3f, %.3f]. Trun: %.3f. FASTCHG: %d, %d, %d, %d, %d, %d. Slide: %d, %d.\n"
                                  "Factor: MP2K: %3d, Cross: %4d. Ldr: %4d. MPri: %2d.\n"
@@ -1330,7 +1318,7 @@ int main(int argc, char **argv)
                                  optnum, inner_iter, outer_iter,
                                  report.ceres_iterations, report.tictocs["t_ceres_build"], report.tictocs["t_ceres_solve"], tt_inner_loop.Toc(),
                                  dRconv, dOconv, dSconv, dPconv, dVconv, dAconv, convergence_count, fabs(report.costs["J0"] - report.costs["JK"])/report.costs["J0"]*100,
-                                 TSTART, TFINAL - TSTART, tmin - TSTART, tmid - TSTART, tmax - TSTART, (ros::Time::now() - programstart).toSec(),
+                                 TSTART, TFINAL - TSTART, tmin - TSTART, tmid - TSTART, tmax - TSTART, (rclcpp::Clock().now() - programstart).seconds(),
                                  fastR, fastO, fastS, fastP, fastV, fastA, SW_CLOUDSTEP_NOW, SW_CLOUDSTEP_NXT,
                                  report.factors["MP2K"], report.factors["GPXTRZ"], report.factors["LIDAR"], report.factors["PRIOR"],
                                  report.costs["J0"], report.costs["MP2K0"], report.costs["GPXTRZ0"], report.costs["LIDAR0"], report.costs["PRIOR0"],
@@ -1341,7 +1329,7 @@ int main(int argc, char **argv)
                     {
                         dX[lidx] = report.Xt[lidx].boxminus(report.X0[lidx]);
                         report_state +=
-                        myprintf("%s"
+                        myprintf( "%s"
                                  "Traj%2d. YPR: %4.0f, %4.0f, %4.0f. XYZ: %7.3f, %7.3f, %7.3f. |O|: %6.3f, %6.3f. |S|: %6.3f, %6.3f. |V|: %6.3f, %6.3f. |A|: %6.3f, %6.3f.\n"
                                   " AftOp: YPR: %4.0f, %4.0f, %4.0f. XYZ: %7.3f, %7.3f, %7.3f. |O|: %6.3f, %6.3f. |S|: %6.3f, %6.3f. |V|: %6.3f, %6.3f. |A|: %6.3f, %6.3f.\n"
                                   " DX:   |dR|: %5.2f. |dO|: %5.2f, |dS|: %5.2f, |dP| %5.2f. |dV|: %5.2f, |dA|: %5.2f.\n"
@@ -1374,7 +1362,7 @@ int main(int argc, char **argv)
                         T_err = sqrt(T_err_1.translation().norm()*T_err_1.translation().norm()
                                      + T_err_2.translation().norm()*T_err_2.translation().norm());
                         report_xtrs += 
-                            myprintf("%s"
+                            myprintf( "%s"
                                      "T_L0_L%d. YPR: %4.0f, %4.0f, %4.0f. XYZ: %6.2f, %6.2f, %6.2f. Error: %.3f.\n"
                                      RESET,
                                      do_marginalization ? "" : KGRN,
@@ -1412,14 +1400,14 @@ int main(int argc, char **argv)
                 last_logged_time = tcloudStart(cidx);
 
                 // Create directories if they do not exist
-                string output_dir = log_dir + myprintf("/run_%02d/time_%04.0f/", outer_iter, tcloudStart(cidx)-TSTART);
+                string output_dir = log_dir + myprintf( "/run_%02d/time_%04.0f/", outer_iter, tcloudStart(cidx)-TSTART);
                 std::filesystem::create_directories(output_dir);
 
                 // Save the trajectory and estimation result
                 for(int lidx = 0; lidx < Nlidar; lidx++)
                 {
-                    // string log_file = log_dir + myprintf("/gptraj_%d.csv", lidx);
-                    printf("Exporting trajectory logs to %s.\n", output_dir.c_str());
+                    // string log_file = log_dir + myprintf( "/gptraj_%d.csv", lidx);
+                    RCLCPP_INFO(nh_ptr->get_logger(),  "Exporting trajectory logs to %s.", output_dir.c_str());
                     gpmaplo[lidx]->GetTraj()->saveTrajectory(output_dir, lidx, gndtr_ts[lidx]);
                 }
 
@@ -1433,7 +1421,7 @@ int main(int argc, char **argv)
                     xts_logfile << "t, x, y, z, qx, qy, qz, qw" << endl;
                     for(auto &pose : extrinsic_poses[1])
                     {
-                        xts_logfile << pose.header.stamp.toSec() << ","
+                        xts_logfile << rclcpp::Time(pose.header.stamp).seconds() << ","
                                     << pose.pose.position.x << ","
                                     << pose.pose.position.y << ","
                                     << pose.pose.position.z << ","
@@ -1498,13 +1486,13 @@ int main(int argc, char **argv)
 
         {
             string cloud_name = cloud_dir + "/lidar_" + to_string(lidx) + ".pcd";
-            printf("Saving cloud %s\n", cloud_name.c_str());
+            RCLCPP_INFO(nh_ptr->get_logger(),  "Saving cloud %s", cloud_name.c_str());
             pcl::io::savePCDFileBinary(cloud_name, *cloudMergedUndi);
         }
 
         {
             string cloud_name = cloud_dir + "/lidar_" + to_string(lidx) + "_raw.pcd";
-            printf("Saving cloud %s\n", cloud_name.c_str());
+            RCLCPP_INFO(nh_ptr->get_logger(),  "Saving cloud %s", cloud_name.c_str());
             pcl::io::savePCDFileBinary(cloud_name, *cloudMergedRaw);
         }
     }

@@ -229,9 +229,9 @@ private:
     CloudPosePtr trajEst;
 
     // Visualization
-    ros::Publisher assocPub;
-    ros::Publisher cloudDskPub;
-    ros::Publisher pppub;
+    rclcpp::Publisher<RosPc2Msg>::SharedPtr assocPub;
+    rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudDskPub;
+    rclcpp::Publisher<RosPc2Msg>::SharedPtr pppub;
 
     double SKIPPED_TIME = 0;
 
@@ -255,23 +255,23 @@ public:
         Rm = Rm_.asDiagonal();
 
         // Get the maximum change
-        nh_ptr->getParam("dXmax", dXmax);
+        Util::GetParam(nh_ptr, "dXmax", dXmax);
 
         // Get the number of max iterations
-        nh_ptr->getParam("MAX_ITER", MAX_ITER);
+        Util::GetParam(nh_ptr, "MAX_ITER", MAX_ITER);
 
         // Debug steps
-        nh_ptr->getParam("DEBUG_STEPS", DEBUG_STEPS);
+        Util::GetParam(nh_ptr, "DEBUG_STEPS", DEBUG_STEPS);
 
         // Skip time
-        nh_ptr->getParam("SKIPPED_TIME", SKIPPED_TIME);
+        Util::GetParam(nh_ptr, "SKIPPED_TIME", SKIPPED_TIME);
 
         nh_mtx.lock();
 
         // Advertise report
-        assocPub    = nh_ptr->advertise<sensor_msgs::PointCloud2>(myprintf("/lidar_%d/assoc_cloud",  lidx), 1);
-        cloudDskPub = nh_ptr->advertise<sensor_msgs::PointCloud2>(myprintf("/lidar_%d/clouddsk_inW", lidx), 1);
-        pppub       = nh_ptr->advertise<sensor_msgs::PointCloud2>(myprintf("/lidar_%d/kf_pose",   lidx), 1);
+        assocPub    = nh_ptr->create_publisher<RosPc2Msg>(myprintf("/lidar_%d/assoc_cloud", lidx), 1);
+        cloudDskPub = nh_ptr->create_publisher<RosPc2Msg>(myprintf("/lidar_%d/clouddsk_inW", lidx), 1);
+        pppub       = nh_ptr->create_publisher<RosPc2Msg>(myprintf("/lidar_%d/kf_pose", lidx), 1);
 
         nh_mtx.unlock();
     }
@@ -394,13 +394,13 @@ public:
     }
 
     void FindTraj(const KdFLANNPtr &kdTreeMap, const CloudXYZIPtr priormap,
-                  const vector<CloudXYZITPtr> &clouds, const vector<ros::Time> &cloudstamp, CloudPosePtr &posePrior)
+                  const vector<CloudXYZITPtr> &clouds, const vector<rclcpp::Time> &cloudstamp, CloudPosePtr &posePrior)
     {
         int Ncloud = clouds.size();
         posePrior = CloudPosePtr(new CloudPose());
         posePrior->resize(Ncloud);
 
-        for(int cidx = 0; cidx < Ncloud && ros::ok(); cidx++)
+        for(int cidx = 0; cidx < Ncloud && rclcpp::ok(); cidx++)
         {
             // Step 0: Save current state and identify the time step to be the end of the scan
             myTf tf_W_Bb(Xhat.Rot.matrix(), Xhat.Pos);
@@ -513,7 +513,7 @@ public:
                 // Visualization
                 {
                     // Pointcloud deskewed
-                    // Util::publishCloud(cloudDskPub, *cloudDeskewedInW, ros::Time::now(), "world");
+                    // Util::publishCloud(cloudDskPub, *cloudDeskewedInW, rclcpp::Time::now(), "world");
 
                     // Associated the associated points
                     CloudXYZIPtr assocCloud(new CloudXYZI());
@@ -525,7 +525,7 @@ public:
                         point.y = Coef[pidx].finW.y();
                         point.z = Coef[pidx].finW.z();
                     }
-                    // Util::publishCloud(assocPub, *assocCloud, ros::Time::now(), "world");
+                    // Util::publishCloud(assocPub, *assocCloud, rclcpp::Time::now(), "world");
 
                     printf("LIDX: %d, CIDX: %d. ITER: %d. Time: %f. Features: %d. J: %f -> %f\n",
                             lidx, cidx, iidx, Xpred.tcurr, Nf, J0, JK);
@@ -563,7 +563,7 @@ public:
 
             // Add the estimated pose to the pointcloud
             posePrior->points[cidx] = myTf(Xpred.Rot.matrix(), Xpred.Pos).Pose6D(Xpred.tcurr);
-            Util::publishCloud(pppub, *posePrior, ros::Time::now(), "world");
+            Util::publishCloud(pppub, *posePrior, rclcpp::Clock().now(), "world");
 
             // // DEBUG: Break after n steps
             // static int debug_count = 0; debug_count++;
