@@ -1,15 +1,16 @@
 # my_node_launch.py
 from launch import LaunchDescription
 from launch_ros.actions import Node
+from launch.actions import ExecuteProcess
 from ament_index_python.packages import get_package_share_directory
 
-bag_file         = "/mnt/mySataSSD1/DATASETS/UTIL_DATASETS/dataset/flight-dataset/rosbag-data/const1/const1-trial1-tdoa2.bag"
-anchor_path      = "/mnt/mySataSSD1/DATASETS/UTIL_DATASETS/dataset/flight-dataset/survey-results/anchor_const1_survey.txt"
+bag_file         = "/home/ziyu/Documents/100_dataset/util_ros2/const1/const1-trial1-tdoa2/"
+anchor_path      = "/home/ziyu/Documents/100_dataset/util_dataset/flight-dataset/survey-results/anchor_const1_survey.txt"
 result_save_path = "/home/kailai/Documents/results/gptr/c1/"
 
 def generate_launch_description():
     
-    # GPTR LO node
+    # GPTR UI node
     gptr_ui_node = Node(
         package     = 'gptr',
         executable  = 'gptr_ui',  # Name of the executable built by your package
@@ -49,15 +50,21 @@ def generate_launch_description():
         ]  # Optional: pass parameters if needed
     )
 
+    # ros2 bag 
+    bag_node = ExecuteProcess(
+                cmd=["ros2", "bag", "play", bag_file, "-r", "0.5"],
+                output="screen",
+    )     
+
     # Rviz node
     rviz_node = Node(
         package     = 'rviz2',
         executable  = 'rviz2',
         name        = 'rviz2',
         output      = 'screen',
-        arguments   = ['-d', get_package_share_directory('gptr') + '/launch/gptr_vicalib.rviz']
+        arguments   = ['-d', get_package_share_directory('gptr') + '/launch/gptr_ui.rviz']
     )
 
     # launch_arg = DeclareLaunchArgument('cartinbot_viz', required=True, description='Testing')
 
-    return LaunchDescription([gptr_ui_node, rviz_node])
+    return LaunchDescription([gptr_ui_node, rviz_node, bag_node])

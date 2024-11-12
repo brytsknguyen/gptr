@@ -431,7 +431,7 @@ int main(int argc, char **argv)
     // Initalize ros nodes
     rclcpp::init(argc, argv);
 
-    nh_ptr = rclcpp::Node::make_shared("gptrlo");
+    nh_ptr = rclcpp::Node::make_shared("gptrui");
 
     // Determine if we exit if no data is received after a while
     bool auto_exit = Util::GetBoolParam(nh_ptr, "auto_exit", false);
@@ -503,7 +503,7 @@ int main(int argc, char **argv)
         if (UIBuf.minTime() == POSINF)
         {
             this_thread::sleep_for(chrono::milliseconds(5));
-            // ros::spinOnce();
+            rclcpp::spin_some(nh_ptr);
             continue;
         }
 
