@@ -7,7 +7,7 @@
     <arg name="result_save_path" default="/home/kailai/Documents/results/gptr/c1/"/>
 
     <!-- Launch the uwb imu fusion node -->
-    <node pkg="gptr" type="gptr_gpui" name="gptr_gpui" output="screen">
+    <node pkg="gptr" type="gptr_ui" name="gptr_ui" output="screen">
         
         <param name="auto_exit"  value="1"/>
         <param name="if_save_traj" value="1"/>

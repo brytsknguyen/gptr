@@ -6,7 +6,7 @@
     <arg name="vi_data_path"            default="$(find gptr)/dataVICalib/"/>
 
     <!-- Launch the camera imu calibration node -->
-    <node pkg="gptr" type="gptr_gpvicalib" name="gptr_gpvicalib" output="log">
+    <node pkg="gptr" type="gptr_vicalib" name="gptr_vicalib" output="log">
         
         <param name="auto_exit"         value="1"/>
         <param name="if_save_traj"      value="1"/>

@@ -18,7 +18,7 @@
                                    -0.22238, -0.128724, 0.008859 ]"/>
  
     <!-- Launch the uwb imu fusion node -->
-    <node pkg="gptr" type="gptr_gpnl" name="gptr_gpnl" output="screen">
+    <node pkg="gptr" type="gptr_nl" name="gptr_nl" output="screen">
         
         <param name="auto_exit"  value="1"/>
         <param name="if_save_traj" value="1"/>

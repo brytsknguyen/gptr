@@ -155,27 +155,27 @@ include_directories(
 ## The recommended prefix ensures that target names across packages don't collidelibraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS} fmt)
 
 # Visual-inertial calibration
-add_executable(${PROJECT_NAME}_gpvicalib src/GPVICalib.cpp)
-add_dependencies(${PROJECT_NAME}_gpvicalib ${catkin_EXPORTED_TARGETS})
-target_compile_options(${PROJECT_NAME}_gpvicalib PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
-target_link_libraries(${PROJECT_NAME}_gpvicalib ${catkin_LIBRARIES} ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS})
+add_executable(${PROJECT_NAME}_vicalib src/GPVICalib.cpp)
+add_dependencies(${PROJECT_NAME}_vicalib ${catkin_EXPORTED_TARGETS})
+target_compile_options(${PROJECT_NAME}_vicalib PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
+target_link_libraries(${PROJECT_NAME}_vicalib ${catkin_LIBRARIES} ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS})
 
 # UWB fusion
-add_executable(${PROJECT_NAME}_gpnl src/GPNL.cpp)
-add_dependencies(${PROJECT_NAME}_gpnl ${catkin_EXPORTED_TARGETS})
-target_compile_options(${PROJECT_NAME}_gpnl PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
-target_link_libraries(${PROJECT_NAME}_gpnl ${catkin_LIBRARIES} ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS})
+add_executable(${PROJECT_NAME}_nl src/GPNL.cpp)
+add_dependencies(${PROJECT_NAME}_nl ${catkin_EXPORTED_TARGETS})
+target_compile_options(${PROJECT_NAME}_nl PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
+target_link_libraries(${PROJECT_NAME}_nl ${catkin_LIBRARIES} ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS})
 
 # UWB fusion
-add_executable(${PROJECT_NAME}_gpui src/GPUI.cpp)
-add_dependencies(${PROJECT_NAME}_gpui ${catkin_EXPORTED_TARGETS})
-target_compile_options(${PROJECT_NAME}_gpui PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
-target_link_libraries(${PROJECT_NAME}_gpui ${catkin_LIBRARIES} ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS})
+add_executable(${PROJECT_NAME}_ui src/GPUI.cpp)
+add_dependencies(${PROJECT_NAME}_ui ${catkin_EXPORTED_TARGETS})
+target_compile_options(${PROJECT_NAME}_ui PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
+target_link_libraries(${PROJECT_NAME}_ui ${catkin_LIBRARIES} ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS})
 
-add_executable(${PROJECT_NAME}_gpui_test src/testUI.cpp)
-add_dependencies(${PROJECT_NAME}_gpui_test ${catkin_EXPORTED_TARGETS})
-target_compile_options(${PROJECT_NAME}_gpui_test PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
-target_link_libraries(${PROJECT_NAME}_gpui_test ${catkin_LIBRARIES} ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS})
+add_executable(${PROJECT_NAME}_ui_test src/testUI.cpp)
+add_dependencies(${PROJECT_NAME}_ui_test ${catkin_EXPORTED_TARGETS})
+target_compile_options(${PROJECT_NAME}_ui_test PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
+target_link_libraries(${PROJECT_NAME}_ui_test ${catkin_LIBRARIES} ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS})
 
 # Lidar fusion
 add_executable(${PROJECT_NAME}_lo src/GPLO.cpp include/ikdTree/ikd_Tree.cpp)

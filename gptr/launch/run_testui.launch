@@ -2,6 +2,6 @@
 <launch>
 
     <!-- Launch the testui node -->
-    <node pkg="gptr" type="gptr_gpui_test" name="gptr_gpui_test" output="screen"/>
+    <node pkg="gptr" type="gptr_ui_test" name="gptr_ui_test" output="screen"/>
 
 </launch>
