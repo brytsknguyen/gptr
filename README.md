@@ -3,7 +3,7 @@
 ## Preresiquite
 
 ### ROS 1 User
-* Install Ubuntu 20.04, ROS NOETIC
+* Install Ubuntu 20.04 and ROS NOETIC
 * Checkout the master branch
 * Please catkin build [SFUISE](https://github.com/ASIG-X/SFUISE) in your workspace to have the cf_msg, which is required in gptr.
 * Please install Ceres 2.1.0 to run the examples and tests.
