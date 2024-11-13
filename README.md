@@ -3,7 +3,7 @@
 ## Preresiquite
 
 ### ROS 1 User
-* Install Ubuntu 20.04, ROS NOETIC
+* Install Ubuntu 20.04 and ROS NOETIC
 * Checkout the master branch
 * Please catkin build [SFUISE](https://github.com/ASIG-X/SFUISE) in your workspace to have the cf_msg, which is required in gptr.
 * Please install Ceres 2.1.0 to run the examples and tests.
@@ -12,6 +12,7 @@
 ### ROS2 User
 * Install Ubuntu 22.04 and ROS HUMBLE
 * Checkout ros2 branch
+* Please colcon build [SFUISE2](https://github.com/ASIG-X/SFUISE2) in your workspace to have the cf_msg.
 * Install sophus and ceres 2.0
   ```
   sudo apt install ros-humble-sophus
@@ -50,8 +51,14 @@ Please use the scripts `analysis_cathhs.ipynb` and `analysis_sim.ipynb` to evalu
 Please download the [UTIL](https://utiasdsl.github.io/util-uwb-dataset/) (TDoA-inertial) dataset.
 
 Change `bag_file` and `anchor_path` in `gptr/launch/run_util.launch` according to your own path.
+
+For ROS1 users, please run
 ```
 roslaunch gptr run_util.launch
+```
+For ROS2 users, please first convert the UTIL dataset to ROS2 bag using `ros2bag_convert_util.sh` from [SFUISE2](https://github.com/ASIG-X/SFUISE2) and run
+```
+ros2 launch gptr run_util.launch.py
 ```
 Below is an exemplary run on sequence `const2-trial4-tdoa2`
 <img src="/docs/ui_video.gif" width="600"/>
