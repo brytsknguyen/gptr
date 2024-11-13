@@ -9,7 +9,7 @@
 * Please install Ceres 2.1.0 to run the examples and tests.
 * Git clone and catkin build the repo.
 
-### ROS2 User
+### ROS 2 User
 * Install Ubuntu 22.04 and ROS HUMBLE
 * Checkout ros2 branch
 * Please colcon build [SFUISE2](https://github.com/ASIG-X/SFUISE2) in your workspace to have the cf_msg.
