@@ -20,7 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_conversions
   pcl_ros
   cf_msgs
-  nlink_parser
+  # nlink_parser
 )
 
 ## System dependencies are found with CMake's conventions
@@ -160,11 +160,11 @@ add_dependencies(${PROJECT_NAME}_vicalib ${catkin_EXPORTED_TARGETS})
 target_compile_options(${PROJECT_NAME}_vicalib PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
 target_link_libraries(${PROJECT_NAME}_vicalib ${catkin_LIBRARIES} ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS})
 
-# UWB fusion
-add_executable(${PROJECT_NAME}_nl src/GPNL.cpp)
-add_dependencies(${PROJECT_NAME}_nl ${catkin_EXPORTED_TARGETS})
-target_compile_options(${PROJECT_NAME}_nl PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
-target_link_libraries(${PROJECT_NAME}_nl ${catkin_LIBRARIES} ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS})
+# # UWB fusion
+# add_executable(${PROJECT_NAME}_nl src/GPNL.cpp)
+# add_dependencies(${PROJECT_NAME}_nl ${catkin_EXPORTED_TARGETS})
+# target_compile_options(${PROJECT_NAME}_nl PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
+# target_link_libraries(${PROJECT_NAME}_nl ${catkin_LIBRARIES} ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS})
 
 # UWB fusion
 add_executable(${PROJECT_NAME}_ui src/GPUI.cpp)

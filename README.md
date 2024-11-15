@@ -6,6 +6,7 @@
 * Install Ubuntu 20.04 and ROS NOETIC
 * Checkout the master branch
 * Please catkin build [SFUISE](https://github.com/ASIG-X/SFUISE) in your workspace to have the cf_msg, which is required in gptr.
+<!-- * Please also include the nlink_parser at `https://github.com/brytsknguyen/nlink_parser` for the nooploop type UWB. -->
 * Please install Ceres 2.1.0 to run the examples and tests.
 * Git clone and catkin build the repo.
 
@@ -13,6 +14,7 @@
 * Install Ubuntu 22.04 and ROS HUMBLE
 * Checkout ros2 branch
 * Please colcon build [SFUISE2](https://github.com/ASIG-X/SFUISE2) in your workspace to have the cf_msg.
+<!-- * Please also include the nlink_parser at `https://github.com/brytsknguyen/nlink_parser` for the nooploop type UWB. -->
 * Install sophus and ceres 2.0
   ```
   sudo apt install ros-humble-sophus
