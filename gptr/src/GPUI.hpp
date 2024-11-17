@@ -44,7 +44,7 @@ public:
         int kidxmax = usmax.first+1;
 
         // Create local parameterization for so3
-        ceres::LocalParameterization *so3parameterization = new GPSO3dLocalParameterization();
+        ceres::Manifold *so3parameterization = new GPSO3dLocalParameterization();
 
         int pidx = -1;
 

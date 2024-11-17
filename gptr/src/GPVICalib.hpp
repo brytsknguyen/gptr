@@ -42,7 +42,7 @@ public:
         int kidxmax = usmax.first+1;
 
         // Create local parameterization for so3
-        ceres::LocalParameterization *so3parameterization = new GPSO3dLocalParameterization();
+        ceres::Manifold *so3parameterization = new GPSO3dLocalParameterization();
 
         int pidx = -1;
 
@@ -284,7 +284,7 @@ public:
             paramInfoMap.insert(make_pair(XBIA.data(), ParamInfo(XBIA.data(), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1)));
             paramInfoMap.insert(make_pair(g.data(), ParamInfo(g.data(), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1)));
 
-            ceres::LocalParameterization *so3parameterization = new GPSO3dLocalParameterization();
+            ceres::Manifold *so3parameterization = new GPSO3dLocalParameterization();
 
             for (int i = 0; i < cam_calib->T_i_c.size(); i++) {
                 problem.AddParameterBlock(cam_calib->T_i_c[i].so3().data(), 4, so3parameterization);

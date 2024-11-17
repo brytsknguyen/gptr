@@ -50,20 +50,20 @@ void GetFactorJacobian(ceres::Problem &problem, FactorMeta &factorMeta,
                        double &cost, vector<double> &residual,
                        MatrixXd &Jacobian)
 {
-    // ceres::LocalParameterization *localparameterization;
-    // for(auto parameter : factorMeta.so3_parameter_blocks)
-    // {
-    //     if (local_pamaterization_type == 0)
-    //     {
-    //         localparameterization = new AutoDiffSO3Parameterization<SO3d>();
-    //         problem.SetParameterization(parameter, localparameterization);
-    //     }
-    //     else
-    //     {   
-    //         localparameterization = new GPSO3dLocalParameterization();
-    //         problem.SetParameterization(parameter, localparameterization);
-    //     }
-    // }
+    ceres::Manifold *localparameterization;
+    for(auto parameter : factorMeta.so3_parameter_blocks)
+    {
+        if (local_pamaterization_type == 0)
+        {
+            localparameterization = new AutoDiffSO3dParameterization();
+            problem.SetManifold(parameter, localparameterization);
+        }
+        else
+        {   
+            localparameterization = new GPSO3dLocalParameterization();
+            problem.SetManifold(parameter, localparameterization);
+        }
+    }
 
     ceres::Problem::EvaluateOptions e_option;
     ceres::CRSMatrix Jacobian_;
@@ -89,7 +89,7 @@ void CreateCeresProblem(ceres::Problem &problem, ceres::Solver::Options &options
     // Add the parameter blocks for rotation
     for (int kidx = 0; kidx < KNOTS; kidx++)
     {
-        problem.AddParameterBlock(swTraj->getKnotSO3(kidx).data(), 4, new ceres::EigenQuaternionManifold);
+        problem.AddParameterBlock(swTraj->getKnotSO3(kidx).data(), 4);
         problem.AddParameterBlock(swTraj->getKnotOmg(kidx).data(), 3);
         problem.AddParameterBlock(swTraj->getKnotAlp(kidx).data(), 3);
         problem.AddParameterBlock(swTraj->getKnotPos(kidx).data(), 3);
@@ -676,7 +676,7 @@ void TestAnalyticJacobian(ceres::Problem &problem, GaussianProcessPtr &swTraj, v
     // Add the extrinsic params
     SO3d R_Lx_Ly(Util::YPR2Quat(43, 57, 91));
     Vector3d P_Lx_Ly(11, 02, 19);
-    problem.AddParameterBlock(R_Lx_Ly.data(), 4, new ceres::EigenQuaternionManifold);
+    problem.AddParameterBlock(R_Lx_Ly.data(), 4);
     problem.AddParameterBlock(P_Lx_Ly.data(), 3);
     {
         double time_autodiff;

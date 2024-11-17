@@ -45,18 +45,18 @@ void GetFactorJacobian(ceres::Problem &problem, FactorMeta &factorMeta,
                        double &cost, vector<double> &residual,
                        MatrixXd &Jacobian)
 {
-    ceres::LocalParameterization *localparameterization;
+    ceres::Manifold *localparameterization;
     for(auto parameter : factorMeta.so3_parameter_blocks)
     {
         if (local_pamaterization_type == 0)
         {
-            localparameterization = new AutoDiffSO3Parameterization<SO3d>();
-            problem.SetParameterization(parameter, localparameterization);
+            localparameterization = new AutoDiffSO3dParameterization();
+            problem.SetManifold(parameter, localparameterization);
         }
         else
         {   
             localparameterization = new GPSO3dLocalParameterization();
-            problem.SetParameterization(parameter, localparameterization);
+            problem.SetManifold(parameter, localparameterization);
         }
     }
 
