@@ -67,97 +67,97 @@ message("Eigen dir ${EIGEN3_INCLUDE_DIR}")
 
 
 
-# region Visual-Inertial Fusion ---------------------------------------------------------------------------------------
+# # region Visual-Inertial Fusion ---------------------------------------------------------------------------------------
 
-# VIcalib
-add_executable(${PROJECT_NAME}_vicalib src/GPVICalib.cpp)
-target_include_directories(${PROJECT_NAME}_vicalib PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
-ament_target_dependencies(${PROJECT_NAME}_vicalib
-  rclcpp
-  pcl_conversions
-  Sophus
-  tf2_ros
-  visualization_msgs
-  sensor_msgs std_msgs geometry_msgs nav_msgs tf2_msgs
-)
-target_compile_options(${PROJECT_NAME}_vicalib PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
-target_link_libraries(${PROJECT_NAME}_vicalib ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS} fmt::fmt)
-# Link the executable to the workspace library
-install(TARGETS
-  ${PROJECT_NAME}_vicalib
-  DESTINATION lib/${PROJECT_NAME}
-)
+# # VIcalib
+# add_executable(${PROJECT_NAME}_vicalib src/GPVICalib.cpp)
+# target_include_directories(${PROJECT_NAME}_vicalib PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+# ament_target_dependencies(${PROJECT_NAME}_vicalib
+#   rclcpp
+#   pcl_conversions
+#   Sophus
+#   tf2_ros
+#   visualization_msgs
+#   sensor_msgs std_msgs geometry_msgs nav_msgs tf2_msgs
+# )
+# target_compile_options(${PROJECT_NAME}_vicalib PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
+# target_link_libraries(${PROJECT_NAME}_vicalib ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS} fmt::fmt)
+# # Link the executable to the workspace library
+# install(TARGETS
+#   ${PROJECT_NAME}_vicalib
+#   DESTINATION lib/${PROJECT_NAME}
+# )
 
-# endregion Visual-Inertial Fusion ------------------------------------------------------------------------------------
-
-
-
-# region UWB Inertial Fusion ------------------------------------------------------------------------------------------
-
-# UI Fusion
-add_executable(${PROJECT_NAME}_ui src/GPUI.cpp)
-target_include_directories(${PROJECT_NAME}_ui PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
-ament_target_dependencies(${PROJECT_NAME}_ui
-  rclcpp
-  pcl_conversions
-  Sophus
-  tf2_ros
-  cf_msgs
-  visualization_msgs
-  sensor_msgs std_msgs geometry_msgs nav_msgs tf2_msgs
-)
-target_compile_options(${PROJECT_NAME}_ui PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
-target_link_libraries(${PROJECT_NAME}_ui ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS} fmt::fmt)
-# Link the executable to the workspace library
-install(TARGETS
-  ${PROJECT_NAME}_ui
-  DESTINATION lib/${PROJECT_NAME}
-)
+# # endregion Visual-Inertial Fusion ------------------------------------------------------------------------------------
 
 
-# Test
-add_executable(${PROJECT_NAME}_ui_test src/testUI.cpp)
-target_include_directories(${PROJECT_NAME}_ui_test PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
-ament_target_dependencies(${PROJECT_NAME}_ui_test
-  rclcpp
-  pcl_conversions
-  Sophus
-  tf2_ros
-  visualization_msgs
-  sensor_msgs std_msgs geometry_msgs nav_msgs tf2_msgs
-)
-target_compile_options(${PROJECT_NAME}_ui_test PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
-target_link_libraries(${PROJECT_NAME}_ui_test ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS} fmt::fmt)
-# Link the executable to the workspace library
-install(TARGETS
-  ${PROJECT_NAME}_ui_test
-  DESTINATION lib/${PROJECT_NAME}
-)
 
-# endregion UWB Inertial Fusion ---------------------------------------------------------------------------------------
+# # region UWB Inertial Fusion ------------------------------------------------------------------------------------------
+
+# # UI Fusion
+# add_executable(${PROJECT_NAME}_ui src/GPUI.cpp)
+# target_include_directories(${PROJECT_NAME}_ui PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+# ament_target_dependencies(${PROJECT_NAME}_ui
+#   rclcpp
+#   pcl_conversions
+#   Sophus
+#   tf2_ros
+#   cf_msgs
+#   visualization_msgs
+#   sensor_msgs std_msgs geometry_msgs nav_msgs tf2_msgs
+# )
+# target_compile_options(${PROJECT_NAME}_ui PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
+# target_link_libraries(${PROJECT_NAME}_ui ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS} fmt::fmt)
+# # Link the executable to the workspace library
+# install(TARGETS
+#   ${PROJECT_NAME}_ui
+#   DESTINATION lib/${PROJECT_NAME}
+# )
+
+
+# # Test
+# add_executable(${PROJECT_NAME}_ui_test src/testUI.cpp)
+# target_include_directories(${PROJECT_NAME}_ui_test PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+# ament_target_dependencies(${PROJECT_NAME}_ui_test
+#   rclcpp
+#   pcl_conversions
+#   Sophus
+#   tf2_ros
+#   visualization_msgs
+#   sensor_msgs std_msgs geometry_msgs nav_msgs tf2_msgs
+# )
+# target_compile_options(${PROJECT_NAME}_ui_test PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
+# target_link_libraries(${PROJECT_NAME}_ui_test ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS} fmt::fmt)
+# # Link the executable to the workspace library
+# install(TARGETS
+#   ${PROJECT_NAME}_ui_test
+#   DESTINATION lib/${PROJECT_NAME}
+# )
+
+# # endregion UWB Inertial Fusion ---------------------------------------------------------------------------------------
 
 
 
 # region Lidar Fusion -------------------------------------------------------------------------------------------------
 
-# Lidar Odometry
-add_executable(${PROJECT_NAME}_lo src/GPLO.cpp)
-target_include_directories(${PROJECT_NAME}_lo PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
-ament_target_dependencies(${PROJECT_NAME}_lo
-  rclcpp
-  pcl_conversions
-  Sophus
-  tf2_ros
-  visualization_msgs
-  sensor_msgs std_msgs geometry_msgs nav_msgs tf2_msgs
-)
-target_compile_options(${PROJECT_NAME}_lo PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
-target_link_libraries(${PROJECT_NAME}_lo ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS} fmt::fmt)
-# Link the executable to the workspace library
-install(TARGETS
-  ${PROJECT_NAME}_lo
-  DESTINATION lib/${PROJECT_NAME}
-)
+# # Lidar Odometry
+# add_executable(${PROJECT_NAME}_lo src/GPLO.cpp)
+# target_include_directories(${PROJECT_NAME}_lo PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+# ament_target_dependencies(${PROJECT_NAME}_lo
+#   rclcpp
+#   pcl_conversions
+#   Sophus
+#   tf2_ros
+#   visualization_msgs
+#   sensor_msgs std_msgs geometry_msgs nav_msgs tf2_msgs
+# )
+# target_compile_options(${PROJECT_NAME}_lo PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
+# target_link_libraries(${PROJECT_NAME}_lo ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS} fmt::fmt)
+# # Link the executable to the workspace library
+# install(TARGETS
+#   ${PROJECT_NAME}_lo
+#   DESTINATION lib/${PROJECT_NAME}
+# )
 
 # Test
 add_executable(${PROJECT_NAME}_lo_test src/testLIO.cpp)
