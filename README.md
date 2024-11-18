@@ -26,6 +26,14 @@
   ```
 * Git clone and colcon build the repo.
 
+### Ceres 2.2
+
+Ceres 2.2 replaces LocalParameterization class with Manifold. We have also did some tests on ceres.2.2 on Ubuntu 22.04 and ROS HUMBLE. 
+* Install ceres from source.
+* Install sophus from source. Do `git checkout 1.24.6`. If there is a complaint about cmake version, you can manual change the cmake version in CMakeLists.txt file, for example `cmake_minimum_required(VERSION 3.22)` instead of 3.24.
+* Make sure `libfmt-dev` is installed.
+* Checkout the ceres.2.2 branch of this repo and colcon build the repo.
+
 Please raise an issue should you encounter any issue with the compilation of the package.
 
 ## Testing the lidar pipeline:
