@@ -1717,6 +1717,12 @@ inline std::string myprintf(const std::string& format, ...)
     return string(vec.begin(), vec.end() - 1);
 }
 
+template <typename... Args>
+void RINFO(NodeHandlePtr &nh, Args... args)
+{
+    RCLCPP_INFO(nh->get_logger(), args...);
+}
+
 #define yolo() myprintf("Hello line: %s:%d.", __FILE__ , __LINE__).c_str()
 #define yolos(...) (myprintf("Hello line: %s:%d. ", __FILE__, __LINE__) + myprintf(__VA_ARGS__)).c_str()
 

@@ -7,14 +7,14 @@ from ament_index_python.packages import get_package_share_directory
 sequence = 'cloud_avia_mid_dynamic_extrinsics'
 
 # Bag file
-lidar_bag_file = f'/mnt/mySataSSD1/Experiments/gptr/{sequence}'
+lidar_bag_file = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence}'
 
 # Initial pose in each sequence
 xyzypr_W_L0 =[ 0,    0,   0.70,  43,  48, 0,
               -0.3, -0.3, 0.55, -134, 0,  0 ]
 
 # Direction to log the exp
-log_dir = f'/mnt/mySataSSD1/Experiments/gptr/logs/lio/sim_exp/sim_{sequence}_gptr_two_lidar/'
+log_dir = f'/media/tmn/mySataSSD1/Experiments/gptr/logs/lio/sim_exp/sim_{sequence}_gptr_two_lidar/'
 
 def generate_launch_description():
     
@@ -29,7 +29,7 @@ def generate_launch_description():
         parameters  =
         [
             # Location of the prior map
-            {"priormap_file"  : "/mnt/mySataSSD1/Experiments/gptr/sim_priormap.pcd"},
+            {"priormap_file"  : "/media/tmn/mySataSSD1/Experiments/gptr/sim_priormap.pcd"},
             
             # Location of bag file
             {"lidar_bag_file" : lidar_bag_file},
