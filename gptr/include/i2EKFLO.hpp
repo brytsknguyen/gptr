@@ -312,7 +312,7 @@ public:
         }
     }
 
-    void Associate(const KdFLANNPtr &kdtreeMap, const CloudXYZIPtr &priormap,
+    void Associate(const ikdtreePtr &ikdTreeMap, const CloudXYZIPtr &priormap,
                    const CloudXYZIPtr &cloudInB, const CloudXYZIPtr &cloudInW, vector<LidarCoef> &Coef)
     {
         if (priormap->size() > knnSize)
@@ -336,15 +336,11 @@ public:
                     pointInB.x = 0; pointInB.y = 0; pointInB.z = 0; pointInB.intensity = 0;
                     continue;
                 }
+                
+                ikdtPointVec nbrPoints; vector<float> knnSqDis(knnSize, 0);
+                ikdTreeMap->Nearest_Search(pointInW, knnSize, nbrPoints, knnSqDis);
 
-                vector<int> knn_idx(knnSize, 0); vector<float> knn_sq_dis(knnSize, 0);
-                kdtreeMap->nearestKSearch(pointInW, knnSize, knn_idx, knn_sq_dis);
-
-                vector<PointXYZI> nbrPoints;
-                if (knn_sq_dis.back() < minKnnSqDis)
-                    for(auto &idx : knn_idx)
-                        nbrPoints.push_back(priormap->points[idx]);
-                else
+                if (nbrPoints.size() < knnSize)
                     continue;
                     
                 // Fit the plane
@@ -393,7 +389,7 @@ public:
         }
     }
 
-    void FindTraj(const KdFLANNPtr &kdTreeMap, const CloudXYZIPtr priormap,
+    void FindTraj(const ikdtreePtr &ikdTreeMap, const CloudXYZIPtr priormap,
                   const vector<CloudXYZITPtr> &clouds, const vector<rclcpp::Time> &cloudstamp, CloudPosePtr &posePrior)
     {
         int Ncloud = clouds.size();
@@ -438,7 +434,7 @@ public:
 
                 // Step 2.2: Associate pointcloud with map
                 vector<LidarCoef> Coef;
-                Associate(kdTreeMap, priormap, cloudDeskewedInB, cloudDeskewedInW, Coef);
+                Associate(ikdTreeMap, priormap, cloudDeskewedInB, cloudDeskewedInW, Coef);
 
                 // Step 2.3: Find the increment and update the states
                 int Nf = Coef.size();
@@ -527,17 +523,17 @@ public:
                     }
                     // Util::publishCloud(assocPub, *assocCloud, rclcpp::Time::now(), "world");
 
-                    printf("LIDX: %d, CIDX: %d. ITER: %d. Time: %f. Features: %d. J: %f -> %f\n",
-                            lidx, cidx, iidx, Xpred.tcurr, Nf, J0, JK);
+                    // printf("LIDX: %d, CIDX: %d. ITER: %d. Time: %f. Features: %d. J: %f -> %f\n",
+                    //         lidx, cidx, iidx, Xpred.tcurr, Nf, J0, JK);
 
-                    printf("\t|dX| %6.3f. dR : %6.3f, %6.3f, %6.3f. dP : %6.3f, %6.3f, %6.3f. dW : %6.3f, %6.3f, %6.3f. dV : %6.3f, %6.3f, %6.3f\n",
-                            dX.norm(), dX(0), dX(1), dX(2), dX(3), dX(4), dX(5), dX(6), dX(7), dX(8), dX(9), dX(10), dX(11));
+                    // printf("\t|dX| %6.3f. dR : %6.3f, %6.3f, %6.3f. dP : %6.3f, %6.3f, %6.3f. dW : %6.3f, %6.3f, %6.3f. dV : %6.3f, %6.3f, %6.3f\n",
+                    //         dX.norm(), dX(0), dX(1), dX(2), dX(3), dX(4), dX(5), dX(6), dX(7), dX(8), dX(9), dX(10), dX(11));
 
-                    printf("\tXpred: Pos: %6.3f, %6.3f, %6.3f. Rot: %6.3f, %6.3f, %6.3f. Omg: %6.3f, %6.3f, %6.3f. Vel: %6.3f, %6.3f, %6.3f.\n",
-                            Xpred.Pos(0),    Xpred.Pos(1),    Xpred.Pos(2),
-                            Xpred.YPR().x(), Xpred.YPR().y(), Xpred.YPR().z(),
-                            Xpred.Omg(0),    Xpred.Omg(1),    Xpred.Omg(2),
-                            Xpred.Vel(0),    Xpred.Vel(1),    Xpred.Vel(2));
+                    // printf("\tXpred: Pos: %6.3f, %6.3f, %6.3f. Rot: %6.3f, %6.3f, %6.3f. Omg: %6.3f, %6.3f, %6.3f. Vel: %6.3f, %6.3f, %6.3f.\n",
+                    //         Xpred.Pos(0),    Xpred.Pos(1),    Xpred.Pos(2),
+                    //         Xpred.YPR().x(), Xpred.YPR().y(), Xpred.YPR().z(),
+                    //         Xpred.Omg(0),    Xpred.Omg(1),    Xpred.Omg(2),
+                    //         Xpred.Vel(0),    Xpred.Vel(1),    Xpred.Vel(2));
                 }
 
                 if (fabs(dJ) < 1e-3)

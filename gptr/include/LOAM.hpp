@@ -93,7 +93,7 @@ public:
         traj->setKnot(0, GPState(t0, T_W_Li0));
     }
 
-    void Associate(GaussianProcessPtr &traj, const KdFLANNPtr &kdtreeMap, const CloudXYZIPtr &priormap,
+    void Associate(GaussianProcessPtr &traj, const ikdtreePtr &ikdTreeMap, const CloudXYZIPtr &priormap,
                    const CloudXYZITPtr &cloudRaw, const CloudXYZIPtr &cloudInB, const CloudXYZIPtr &cloudInW,
                    vector<LidarCoef> &Coef)
     {
@@ -129,18 +129,14 @@ public:
                 if (!traj->TimeInInterval(tpoint, 1e-6))
                     continue;
 
-                vector<int> knn_idx(knnSize, 0); vector<float> knn_sq_dis(knnSize, 0);
-                kdtreeMap->nearestKSearch(pointInW, knnSize, knn_idx, knn_sq_dis);
+                ikdtPointVec nbrPoints; vector<float> knnSqDis(knnSize, 0);
+                ikdTreeMap->Nearest_Search(pointInW, knnSize, nbrPoints, knnSqDis);
 
-                vector<PointXYZI> nbrPoints;
-                if (knn_sq_dis.back() < minKnnSqDis)
-                    for(auto &idx : knn_idx)
-                        nbrPoints.push_back(priormap->points[idx]);
-                else
+                if (nbrPoints.size() < knnSize)
                     continue;
-
+                    
                 // Fit the plane
-                if(Util::fitPlane(nbrPoints, min_planarity, max_plane_dis, Coef_[pidx].n, Coef_[pidx].plnrty))
+                if(Util::fitPlane(nbrPoints, 0.5, 0.2, Coef_[pidx].n, Coef_[pidx].plnrty))
                 {
                     // assert(tpoint >= 0);
                     Coef_[pidx].t = tpoint;

@@ -141,7 +141,7 @@ install(TARGETS
 # region Lidar Fusion -------------------------------------------------------------------------------------------------
 
 # Lidar Odometry
-add_executable(${PROJECT_NAME}_lo src/GPLO.cpp)
+add_executable(${PROJECT_NAME}_lo src/GPLO.cpp include/ikdTree/ikd_Tree.cpp)
 target_include_directories(${PROJECT_NAME}_lo PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
 ament_target_dependencies(${PROJECT_NAME}_lo
   rclcpp

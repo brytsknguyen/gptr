@@ -1684,6 +1684,29 @@ struct IMUData {
 // }
 
 
+template <typename PointType>
+void insertCloudToikdTree(ikdtreePtr &map, pcl::PointCloud<PointType> &pclCloud, bool downsample=true)
+{
+    if constexpr (std::is_same<PointType, PointXYZI>::value)
+    {
+        if(map->Root_Node == nullptr)
+            map->Build(pclCloud.points);
+        else
+            map->Add_Points(pclCloud.points, downsample);
+    }
+    else
+    {
+        CloudXYZI cloud;
+        pcl::copyPointCloud(pclCloud, cloud);
+        
+        if(map->Root_Node == nullptr)
+            map->Build(cloud.points);
+        else
+            map->Add_Points(cloud.points, downsample);
+    }
+}
+
+
 inline CloudXYZI toCloudXYZI(CloudXYZIT &inCloud)
 {
     int cloudSize = inCloud.size();
@@ -1723,8 +1746,14 @@ void RINFO(NodeHandlePtr &nh, Args... args)
     RCLCPP_INFO(nh->get_logger(), args...);
 }
 
-#define yolo() myprintf("Hello line: %s:%d.", __FILE__ , __LINE__).c_str()
-#define yolos(...) (myprintf("Hello line: %s:%d. ", __FILE__, __LINE__) + myprintf(__VA_ARGS__)).c_str()
+template <typename... Args>
+void RINFO(Args... args)
+{
+    cout << myprintf(args...) << endl;
+}
+
+#define yolo() cout << myprintf("Hello line: %s:%d.", __FILE__ , __LINE__) << endl;
+#define yolos(...) cout << (myprintf("Hello line: %s:%d. ", __FILE__, __LINE__) + myprintf(__VA_ARGS__)) << endl;
 
 inline bool file_exist(const std::string& name)
 {
