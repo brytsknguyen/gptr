@@ -9,11 +9,12 @@ using SE3d = Sophus::SE3<double>;
 
 #define GPEXT_RES_DIM 18
 
-class GPExtrinsicFactor : public ceres::CostFunction
+class GPExtrinsicFactorTMN
 {
+typedef Eigen::Matrix<double, GPEXT_RES_DIM, 4*STATE_DIM+6> MatJ;
 public:
 
-    GPExtrinsicFactor(double wR_, double wP_, GPMixerPtr gpms_, GPMixerPtr gpmf_, double ss_, double sf_)
+    GPExtrinsicFactorTMN(double wR_, double wP_, GPMixerPtr gpms_, GPMixerPtr gpmf_, double ss_, double sf_)
     :   wR          (wR_             ),
         wP          (wP_             ),
         Dts         (gpms_->getDt()  ),
@@ -23,30 +24,33 @@ public:
         ss          (ss_             ),
         sf          (sf_             )
     {
-        set_num_residuals(GPEXT_RES_DIM);
+        // set_num_residuals(GPEXT_RES_DIM);
 
-        // Add the knots
-        for(int j = 0; j < 4; j++)
-        {
-            mutable_parameter_block_sizes()->push_back(4);
-            mutable_parameter_block_sizes()->push_back(3);
-            mutable_parameter_block_sizes()->push_back(3);
-            mutable_parameter_block_sizes()->push_back(3);
-            mutable_parameter_block_sizes()->push_back(3);
-            mutable_parameter_block_sizes()->push_back(3);
-        }
+        // // Add the knots
+        // for(int j = 0; j < 4; j++)
+        // {
+        //     mutable_parameter_block_sizes()->push_back(4);
+        //     mutable_parameter_block_sizes()->push_back(3);
+        //     mutable_parameter_block_sizes()->push_back(3);
+        //     mutable_parameter_block_sizes()->push_back(3);
+        //     mutable_parameter_block_sizes()->push_back(3);
+        //     mutable_parameter_block_sizes()->push_back(3);
+        // }
 
-        // Add the extrinsics
-        mutable_parameter_block_sizes()->push_back(4);
-        mutable_parameter_block_sizes()->push_back(3);
+        // // Add the extrinsics
+        // mutable_parameter_block_sizes()->push_back(4);
+        // mutable_parameter_block_sizes()->push_back(3);
         
         // // Find the square root info
         sqrtW = Matrix<double, GPEXT_RES_DIM, GPEXT_RES_DIM>::Identity(GPEXT_RES_DIM, GPEXT_RES_DIM);
         sqrtW.block<3, 3>(0, 0) = Vector3d(wR, wR, wR).asDiagonal();
         sqrtW.block<3, 3>(9, 9) = Vector3d(wP, wP, wP).asDiagonal();
+
+        residual.setZero();
+        jacobian.setZero();
     }
 
-    GPExtrinsicFactor(GPMixerPtr gpmx, GPMixerPtr gpms_, GPMixerPtr gpmf_, double sx_, double ss_, double sf_)
+    GPExtrinsicFactorTMN(GPMixerPtr gpmx, GPMixerPtr gpms_, GPMixerPtr gpmf_, double sx_, double ss_, double sf_)
     :   Dts         (gpms_->getDt()  ),
         Dtf         (gpmf_->getDt()  ),
         gpms        (gpms_           ),
@@ -54,22 +58,22 @@ public:
         ss          (ss_             ),
         sf          (sf_             )
     {
-        set_num_residuals(GPEXT_RES_DIM);
+        // set_num_residuals(GPEXT_RES_DIM);
 
-        // Add the knots
-        for(int j = 0; j < 4; j++)
-        {
-            mutable_parameter_block_sizes()->push_back(4);
-            mutable_parameter_block_sizes()->push_back(3);
-            mutable_parameter_block_sizes()->push_back(3);
-            mutable_parameter_block_sizes()->push_back(3);
-            mutable_parameter_block_sizes()->push_back(3);
-            mutable_parameter_block_sizes()->push_back(3);
-        }
+        // // Add the knots
+        // for(int j = 0; j < 4; j++)
+        // {
+        //     mutable_parameter_block_sizes()->push_back(4);
+        //     mutable_parameter_block_sizes()->push_back(3);
+        //     mutable_parameter_block_sizes()->push_back(3);
+        //     mutable_parameter_block_sizes()->push_back(3);
+        //     mutable_parameter_block_sizes()->push_back(3);
+        //     mutable_parameter_block_sizes()->push_back(3);
+        // }
 
-        // Add the extrinsics
-        mutable_parameter_block_sizes()->push_back(4);
-        mutable_parameter_block_sizes()->push_back(3);
+        // // Add the extrinsics
+        // mutable_parameter_block_sizes()->push_back(4);
+        // mutable_parameter_block_sizes()->push_back(3);
         
         // Find the square root info
         MatrixXd Cov(GPEXT_RES_DIM, GPEXT_RES_DIM); Cov.setZero();
@@ -77,9 +81,12 @@ public:
         Cov.block<9, 9>(9, 9) += gpmx->Qnu(sx_, 3);
         sqrtW = Eigen::LLT<Matrix<double, GPEXT_RES_DIM, GPEXT_RES_DIM>>(Cov.inverse()/1e6).matrixL().transpose();
         // cout << "InvQ\n" << Cov.inverse() << endl;
+
+        residual.setZero();
+        jacobian.setZero();
     }
 
-    GPExtrinsicFactor(GPMixerPtr gpms_, GPMixerPtr gpmf_, double ss_, double sf_)
+    GPExtrinsicFactorTMN(GPMixerPtr gpms_, GPMixerPtr gpmf_, double ss_, double sf_)
     :   Dts         (gpms_->getDt()  ),
         Dtf         (gpmf_->getDt()  ),
         gpms        (gpms_           ),
@@ -87,43 +94,48 @@ public:
         ss          (ss_             ),
         sf          (sf_             )
     {
-        set_num_residuals(GPEXT_RES_DIM);
+        // set_num_residuals(GPEXT_RES_DIM);
 
-        // Add the knots
-        for(int j = 0; j < 4; j++)
-        {
-            mutable_parameter_block_sizes()->push_back(4);
-            mutable_parameter_block_sizes()->push_back(3);
-            mutable_parameter_block_sizes()->push_back(3);
-            mutable_parameter_block_sizes()->push_back(3);
-            mutable_parameter_block_sizes()->push_back(3);
-            mutable_parameter_block_sizes()->push_back(3);
-        }
+        // // Add the knots
+        // for(int j = 0; j < 4; j++)
+        // {
+        //     mutable_parameter_block_sizes()->push_back(4);
+        //     mutable_parameter_block_sizes()->push_back(3);
+        //     mutable_parameter_block_sizes()->push_back(3);
+        //     mutable_parameter_block_sizes()->push_back(3);
+        //     mutable_parameter_block_sizes()->push_back(3);
+        //     mutable_parameter_block_sizes()->push_back(3);
+        // }
 
-        // Add the extrinsics
-        mutable_parameter_block_sizes()->push_back(4);
-        mutable_parameter_block_sizes()->push_back(3);
+        // // Add the extrinsics
+        // mutable_parameter_block_sizes()->push_back(4);
+        // mutable_parameter_block_sizes()->push_back(3);
         
         MatrixXd Cov(GPEXT_RES_DIM, GPEXT_RES_DIM); Cov.setZero();
         Cov.block<9, 9>(0, 0) += gpms_->Qga(ss, 3) + gpms_->Qga(sf, 3);
         Cov.block<9, 9>(9, 9) += gpms_->Qnu(ss, 3) + gpms_->Qnu(sf, 3);
         sqrtW = Eigen::LLT<Matrix<double, GPEXT_RES_DIM, GPEXT_RES_DIM>>(Cov.inverse()/1e6).matrixL().transpose();
+
+        residual.setZero();
+        jacobian.setZero();
     }
 
-    virtual bool Evaluate(double const *const *parameters, double *residuals, double **jacobians) const
+    virtual bool Evaluate(const GPState<double> &Xsa, const GPState<double> &Xsb,
+                          const GPState<double> &Xfa, const GPState<double> &Xfb,
+                          const SO3d &Rsf, const Vec3 &Psf, bool computeJacobian=true)
     {
         /* #region Map the memory to control points -----------------------------------------------------------------*/
 
-        // Map parameters to the control point states
-        GPState Xsa(0);   gpms->MapParamToState(parameters, RsaIdx, Xsa);
-        GPState Xsb(Dts); gpms->MapParamToState(parameters, RsbIdx, Xsb);
+        // // Map parameters to the control point states
+        // GPState Xsa(0);   gpms->MapParamToState(parameters, RsaIdx, Xsa);
+        // GPState Xsb(Dts); gpms->MapParamToState(parameters, RsbIdx, Xsb);
 
-        // Map parameters to the control point states
-        GPState Xfa(0);   gpmf->MapParamToState(parameters, RfaIdx, Xfa);
-        GPState Xfb(Dtf); gpmf->MapParamToState(parameters, RfbIdx, Xfb);
+        // // Map parameters to the control point states
+        // GPState Xfa(0);   gpmf->MapParamToState(parameters, RfaIdx, Xfa);
+        // GPState Xfb(Dtf); gpmf->MapParamToState(parameters, RfbIdx, Xfb);
 
-        SO3d Rsf = Eigen::Map<SO3d const>(parameters[RsfIdx]);
-        Vec3 Psf = Eigen::Map<Vec3 const>(parameters[PsfIdx]);
+        // SO3d Rsf = Eigen::Map<SO3d const>(parameters[RsfIdx]);
+        // Vec3 Psf = Eigen::Map<Vec3 const>(parameters[PsfIdx]);
 
         /* #endregion Map the memory to control points --------------------------------------------------------------*/
 
@@ -157,13 +169,13 @@ public:
         Vec3 rA = Xft.A - Xst.A - Xst.R*SstxPsf - Xst.R*(Ostx*OstxPsf);
 
         // Residual
-        Eigen::Map<Matrix<double, GPEXT_RES_DIM, 1>> residual(residuals);
+        // Eigen::Map<Matrix<double, GPEXT_RES_DIM, 1>> residual(residuals);
         residual << rR, rO, rS, rP, rV, rA;
         residual = sqrtW*residual;
 
         /* #endregion Calculate the residual ------------------------------------------------------------------------*/
 
-        if (!jacobians)
+        if (!computeJacobian)
             return true;
 
         Mat3 Eye = Mat3::Identity();
@@ -212,10 +224,8 @@ public:
         {
             // dr_dRsa
             idx = RsaIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 4, Eigen::RowMajor>> Dr_DRsa(jacobians[idx]);
-                Dr_DRsa.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DRsa(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DRsa.block<3, 3>(0,  0) = DrR_DRst*DXst_DXsa[RIdx][RIdx];
                 Dr_DRsa.block<3, 3>(3,  0) = DrO_DOst*DXst_DXsa[OIdx][RIdx];
                 Dr_DRsa.block<3, 3>(6,  0) = DrS_DSst*DXst_DXsa[SIdx][RIdx];
@@ -227,10 +237,8 @@ public:
 
             // dr_dOsa
             idx = OsaIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DOsa(jacobians[idx]);
-                Dr_DOsa.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DOsa(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DOsa.block<3, 3>(0,  0) = DrR_DRst*DXst_DXsa[RIdx][OIdx];
                 Dr_DOsa.block<3, 3>(3,  0) = DrO_DOst*DXst_DXsa[OIdx][OIdx];
                 Dr_DOsa.block<3, 3>(6,  0) = DrS_DSst*DXst_DXsa[SIdx][OIdx];
@@ -242,10 +250,8 @@ public:
 
             // dr_dSsa
             idx = SsaIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DSsa(jacobians[idx]);
-                Dr_DSsa.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DSsa(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DSsa.block<3, 3>(0,  0) = DrR_DRst*DXst_DXsa[RIdx][SIdx];
                 Dr_DSsa.block<3, 3>(3,  0) = DrO_DOst*DXst_DXsa[OIdx][SIdx];
                 Dr_DSsa.block<3, 3>(6,  0) = DrS_DSst*DXst_DXsa[SIdx][SIdx];
@@ -257,10 +263,8 @@ public:
 
             // dr_dRsb
             idx = RsbIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 4, Eigen::RowMajor>> Dr_DRsb(jacobians[idx]);
-                Dr_DRsb.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DRsb(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DRsb.block<3, 3>(0,  0) = DrR_DRst*DXst_DXsb[RIdx][RIdx];
                 Dr_DRsb.block<3, 3>(3,  0) = DrO_DOst*DXst_DXsb[OIdx][RIdx];
                 Dr_DRsb.block<3, 3>(6,  0) = DrS_DSst*DXst_DXsb[SIdx][RIdx];
@@ -272,10 +276,8 @@ public:
 
             // dr_dOsb
             idx = OsbIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DOsb(jacobians[idx]);
-                Dr_DOsb.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DOsb(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DOsb.block<3, 3>(0,  0) = DrR_DRst*DXst_DXsb[RIdx][OIdx];
                 Dr_DOsb.block<3, 3>(3,  0) = DrO_DOst*DXst_DXsb[OIdx][OIdx];
                 Dr_DOsb.block<3, 3>(6,  0) = DrS_DSst*DXst_DXsb[SIdx][OIdx];
@@ -287,10 +289,8 @@ public:
 
             // dr_dSsb
             idx = SsbIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DsSb(jacobians[idx]);
-                Dr_DsSb.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DsSb(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DsSb.block<3, 3>(0,  0) = DrR_DRst*DXst_DXsb[RIdx][SIdx];
                 Dr_DsSb.block<3, 3>(3,  0) = DrO_DOst*DXst_DXsb[OIdx][SIdx];
                 Dr_DsSb.block<3, 3>(6,  0) = DrS_DSst*DXst_DXsb[SIdx][SIdx];
@@ -305,10 +305,8 @@ public:
         {
             // dr_dRfa
             idx = RfaIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 4, Eigen::RowMajor>> Dr_DRfa(jacobians[idx]);
-                Dr_DRfa.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DRfa(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DRfa.block<3, 3>(0, 0) = DrR_DRft*DXft_DXfa[RIdx][RIdx];
                 Dr_DRfa.block<3, 3>(3, 0) = DrO_DOft*DXft_DXfa[OIdx][RIdx];
                 Dr_DRfa.block<3, 3>(6, 0) = DrS_DSft*DXft_DXfa[SIdx][RIdx];
@@ -317,10 +315,8 @@ public:
 
             // dr_dOfa
             idx = OfaIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DOfa(jacobians[idx]);
-                Dr_DOfa.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DOfa(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DOfa.block<3, 3>(0, 0) = DrR_DRft*DXft_DXfa[RIdx][OIdx];
                 Dr_DOfa.block<3, 3>(3, 0) = DrO_DOft*DXft_DXfa[OIdx][OIdx];
                 Dr_DOfa.block<3, 3>(6, 0) = DrS_DSft*DXft_DXfa[SIdx][OIdx];
@@ -329,10 +325,8 @@ public:
 
             // dr_dSfa
             idx = SfaIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DSfa(jacobians[idx]);
-                Dr_DSfa.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DSfa(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DSfa.block<3, 3>(0, 0) = DrR_DRft*DXft_DXfa[RIdx][SIdx];
                 Dr_DSfa.block<3, 3>(3, 0) = DrO_DOft*DXft_DXfa[OIdx][SIdx];
                 Dr_DSfa.block<3, 3>(6, 0) = DrS_DSft*DXft_DXfa[SIdx][SIdx];
@@ -341,10 +335,8 @@ public:
 
             // dr_dRfb
             idx = RfbIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 4, Eigen::RowMajor>> Dr_DRfb(jacobians[idx]);
-                Dr_DRfb.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DRfb(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DRfb.block<3, 3>(0, 0) = DrR_DRft*DXft_DXfb[RIdx][RIdx];
                 Dr_DRfb.block<3, 3>(3, 0) = DrO_DOft*DXft_DXfb[OIdx][RIdx];
                 Dr_DRfb.block<3, 3>(6, 0) = DrS_DSft*DXft_DXfb[SIdx][RIdx];
@@ -353,10 +345,8 @@ public:
 
             // dr_dOfb
             idx = OfbIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DOfb(jacobians[idx]);
-                Dr_DOfb.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DOfb(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DOfb.block<3, 3>(0, 0) = DrR_DRft*DXft_DXfb[RIdx][OIdx];
                 Dr_DOfb.block<3, 3>(3, 0) = DrO_DOft*DXft_DXfb[OIdx][OIdx];
                 Dr_DOfb.block<3, 3>(6, 0) = DrS_DSft*DXft_DXfb[SIdx][OIdx];
@@ -365,10 +355,8 @@ public:
 
             // dr_dSfb
             idx = SfbIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DSfb(jacobians[idx]);
-                Dr_DSfb.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DSfb(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DSfb.block<3, 3>(0, 0) = DrR_DRft*DXft_DXfb[RIdx][SIdx];
                 Dr_DSfb.block<3, 3>(3, 0) = DrO_DOft*DXft_DXfb[OIdx][SIdx];
                 Dr_DSfb.block<3, 3>(6, 0) = DrS_DSft*DXft_DXfb[SIdx][SIdx];
@@ -379,10 +367,8 @@ public:
         // Jacobians on PVAs states
         {
             idx = PsaIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DPsa(jacobians[idx]);
-                Dr_DPsa.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DPsa(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DPsa.block<3, 3>(9,  0) = DrP_DPst*DXst_DXsa[PIdx][PIdx];
                 Dr_DPsa.block<3, 3>(12, 0) = DrV_DVst*DXst_DXsa[VIdx][PIdx];
                 Dr_DPsa.block<3, 3>(15, 0) = DrA_DAst*DXst_DXsa[AIdx][PIdx];
@@ -390,10 +376,8 @@ public:
             }
 
             idx = VsaIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DVsa(jacobians[idx]);
-                Dr_DVsa.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DVsa(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DVsa.block<3, 3>(9,  0) = DrP_DPst*DXst_DXsa[PIdx][VIdx];
                 Dr_DVsa.block<3, 3>(12, 0) = DrV_DVst*DXst_DXsa[VIdx][VIdx];
                 Dr_DVsa.block<3, 3>(15, 0) = DrA_DAst*DXst_DXsa[AIdx][VIdx];
@@ -401,10 +385,8 @@ public:
             }
 
             idx = AsaIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DAsa(jacobians[idx]);
-                Dr_DAsa.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DAsa(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DAsa.block<3, 3>(9,  0) = DrP_DPst*DXst_DXsa[PIdx][AIdx];
                 Dr_DAsa.block<3, 3>(12, 0) = DrV_DVst*DXst_DXsa[VIdx][AIdx];
                 Dr_DAsa.block<3, 3>(15, 0) = DrA_DAst*DXst_DXsa[AIdx][AIdx];
@@ -412,10 +394,8 @@ public:
             }
 
             idx = PsbIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DRsb(jacobians[idx]);
-                Dr_DRsb.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DRsb(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DRsb.block<3, 3>(9,  0) = DrP_DPst*DXst_DXsb[PIdx][PIdx];
                 Dr_DRsb.block<3, 3>(12, 0) = DrV_DVst*DXst_DXsb[VIdx][PIdx];
                 Dr_DRsb.block<3, 3>(15, 0) = DrA_DAst*DXst_DXsb[AIdx][PIdx];
@@ -423,10 +403,8 @@ public:
             }
 
             idx = VsbIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DVsb(jacobians[idx]);
-                Dr_DVsb.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DVsb(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DVsb.block<3, 3>(9,  0) = DrP_DPst*DXst_DXsb[PIdx][VIdx];
                 Dr_DVsb.block<3, 3>(12, 0) = DrV_DVst*DXst_DXsb[VIdx][VIdx];
                 Dr_DVsb.block<3, 3>(15, 0) = DrA_DAst*DXst_DXsb[AIdx][VIdx];
@@ -434,10 +412,8 @@ public:
             }
 
             idx = AsbIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DAsb(jacobians[idx]);
-                Dr_DAsb.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DAsb(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DAsb.block<3, 3>(9,  0) = DrP_DPst*DXst_DXsb[PIdx][AIdx];
                 Dr_DAsb.block<3, 3>(12, 0) = DrV_DVst*DXst_DXsb[VIdx][AIdx];
                 Dr_DAsb.block<3, 3>(15, 0) = DrA_DAst*DXst_DXsb[AIdx][AIdx];
@@ -448,10 +424,8 @@ public:
         // Jacobians on PVAf states
         {
             idx = PfaIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DPfa(jacobians[idx]);
-                Dr_DPfa.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DPfa(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DPfa.block<3, 3>(9,  0) = DrP_DPft*DXft_DXfa[PIdx][PIdx];
                 Dr_DPfa.block<3, 3>(12, 0) = DrV_DVft*DXft_DXfa[VIdx][PIdx];
                 Dr_DPfa.block<3, 3>(15, 0) = DrA_DAft*DXft_DXfa[AIdx][PIdx];
@@ -459,10 +433,8 @@ public:
             }
 
             idx = VfaIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DVfa(jacobians[idx]);
-                Dr_DVfa.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DVfa(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DVfa.block<3, 3>(9,  0) = DrP_DPft*DXft_DXfa[PIdx][VIdx];
                 Dr_DVfa.block<3, 3>(12, 0) = DrV_DVft*DXft_DXfa[VIdx][VIdx];
                 Dr_DVfa.block<3, 3>(15, 0) = DrA_DAft*DXft_DXfa[AIdx][VIdx];
@@ -470,10 +442,8 @@ public:
             }
 
             idx = AfaIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DAfa(jacobians[idx]);
-                Dr_DAfa.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DAfa(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DAfa.block<3, 3>(9,  0) = DrP_DPft*DXft_DXfa[PIdx][AIdx];
                 Dr_DAfa.block<3, 3>(12, 0) = DrV_DVft*DXft_DXfa[VIdx][AIdx];
                 Dr_DAfa.block<3, 3>(15, 0) = DrA_DAft*DXft_DXfa[AIdx][AIdx];
@@ -481,10 +451,8 @@ public:
             }
 
             idx = PfbIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DRfb(jacobians[idx]);
-                Dr_DRfb.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DRfb(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DRfb.block<3, 3>(9,  0) = DrP_DPft*DXft_DXfb[PIdx][PIdx];
                 Dr_DRfb.block<3, 3>(12, 0) = DrV_DVft*DXft_DXfb[VIdx][PIdx];
                 Dr_DRfb.block<3, 3>(15, 0) = DrA_DAft*DXft_DXfb[AIdx][PIdx];
@@ -492,10 +460,8 @@ public:
             }
 
             idx = VfbIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DVfb(jacobians[idx]);
-                Dr_DVfb.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DVfb(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DVfb.block<3, 3>(9,  0) = DrP_DPft*DXft_DXfb[PIdx][VIdx];
                 Dr_DVfb.block<3, 3>(12, 0) = DrV_DVft*DXft_DXfb[VIdx][VIdx];
                 Dr_DVfb.block<3, 3>(15, 0) = DrA_DAft*DXft_DXfb[AIdx][VIdx];
@@ -503,10 +469,8 @@ public:
             }
 
             idx = AfbIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DAfb(jacobians[idx]);
-                Dr_DAfb.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DAfb(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DAfb.block<3, 3>(9,  0) = DrP_DPft*DXft_DXfb[PIdx][AIdx];
                 Dr_DAfb.block<3, 3>(12, 0) = DrV_DVft*DXft_DXfb[VIdx][AIdx];
                 Dr_DAfb.block<3, 3>(15, 0) = DrA_DAft*DXft_DXfb[AIdx][AIdx];
@@ -517,10 +481,8 @@ public:
         // Jacobian of extrinsics
         {
             idx = RsfIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 4, Eigen::RowMajor>> Dr_DRsf(jacobians[idx]);
-                Dr_DRsf.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DRsf(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DRsf.block<3, 3>(0, 0) = DrR_DRsf;
                 Dr_DRsf.block<3, 3>(3, 0) = DrO_DRsf;
                 Dr_DRsf.block<3, 3>(6, 0) = DrS_DRsf;
@@ -528,10 +490,8 @@ public:
             }
 
             idx = PsfIdx;
-            if(jacobians[idx])
             {
-                Eigen::Map<Eigen::Matrix<double, GPEXT_RES_DIM, 3, Eigen::RowMajor>> Dr_DPsf(jacobians[idx]);
-                Dr_DPsf.setZero();
+                Eigen::Block<MatJ, GPEXT_RES_DIM, 3> Dr_DPsf(jacobian.block<GPEXT_RES_DIM, 3>(0, idx));
                 Dr_DPsf.block<3, 3>(9,  0) = DrP_DPsf;
                 Dr_DPsf.block<3, 3>(12, 0) = DrV_DPsf;
                 Dr_DPsf.block<3, 3>(15, 0) = DrA_DPsf;
@@ -541,6 +501,12 @@ public:
 
         return true;
     }
+
+    Matrix<double, 4*STATE_DIM+6, 4*STATE_DIM+6> H() { return jacobian.transpose() * jacobian; }
+    Matrix<double, 4*STATE_DIM+6, 1> b() { return -(jacobian.transpose() * residual); }
+
+    Matrix<double, GPEXT_RES_DIM, 1> residual;
+    Matrix<double, GPEXT_RES_DIM, 4*STATE_DIM+6> jacobian;
 
 private:
 
@@ -552,35 +518,35 @@ private:
     const int AIdx = 5;
     
     const int RsaIdx = 0;
-    const int OsaIdx = 1;
-    const int SsaIdx = 2;
-    const int PsaIdx = 3;
-    const int VsaIdx = 4;
-    const int AsaIdx = 5;
+    const int OsaIdx = 3;
+    const int SsaIdx = 6;
+    const int PsaIdx = 9;
+    const int VsaIdx = 12;
+    const int AsaIdx = 15;
 
-    const int RsbIdx = 6;
-    const int OsbIdx = 7;
-    const int SsbIdx = 8;
-    const int PsbIdx = 9;
-    const int VsbIdx = 10;
-    const int AsbIdx = 11;
+    const int RsbIdx = 18;
+    const int OsbIdx = 21;
+    const int SsbIdx = 24;
+    const int PsbIdx = 27;
+    const int VsbIdx = 30;
+    const int AsbIdx = 33;
 
-    const int RfaIdx = 12;
-    const int OfaIdx = 13;
-    const int SfaIdx = 14;
-    const int PfaIdx = 15;
-    const int VfaIdx = 16;
-    const int AfaIdx = 17;
+    const int RfaIdx = 36;
+    const int OfaIdx = 39;
+    const int SfaIdx = 42;
+    const int PfaIdx = 45;
+    const int VfaIdx = 48;
+    const int AfaIdx = 51;
 
-    const int RfbIdx = 18;
-    const int OfbIdx = 19;
-    const int SfbIdx = 20;
-    const int PfbIdx = 21;
-    const int VfbIdx = 22;
-    const int AfbIdx = 23;
+    const int RfbIdx = 54;
+    const int OfbIdx = 57;
+    const int SfbIdx = 60;
+    const int PfbIdx = 63;
+    const int VfbIdx = 66;
+    const int AfbIdx = 69;
 
-    const int RsfIdx = 24;
-    const int PsfIdx = 25;
+    const int RsfIdx = 72;
+    const int PsfIdx = 75;
 
     double wR;
     double wP;

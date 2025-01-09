@@ -1156,6 +1156,9 @@ namespace Util
 }; // namespace Util
 
 
+template <typename T>
+shared_ptr<T> getEigenPtr(T &X) { return shared_ptr<T>(&X, [](T *x){}); }
+
 class ImuSample
 {
 public:
@@ -1751,6 +1754,17 @@ void RINFO(Args... args)
 {
     cout << myprintf(args...) << endl;
 }
+
+#define ROS_ASSERT_MSG(expr, format, ...) \
+    do { \
+        if (!(expr)) { \
+            string msg = myprintf(format, __VA_ARGS__); \
+            RCLCPP_ERROR(rclcpp::get_logger("assertion"), \
+                         "Assertion failed: (%s) at %s:%d. Message: %s", \
+                         #expr, __FILE__, __LINE__, msg.c_str()); \
+            std::abort(); \
+        } \
+    } while (0)
 
 #define yolo() cout << myprintf("Hello line: %s:%d.", __FILE__ , __LINE__) << endl;
 #define yolos(...) cout << (myprintf("Hello line: %s:%d. ", __FILE__, __LINE__) + myprintf(__VA_ARGS__)) << endl;

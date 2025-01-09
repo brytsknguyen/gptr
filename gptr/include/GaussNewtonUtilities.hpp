@@ -30,8 +30,10 @@ class ParamInfo
 public:
     double* address = NULL; // Actual address of the param block
     ParamType type;         // Type of the param block (SO3 or RV3)
-    ParamRole role;         // What this param is used for state or extrinsics
-    // int param_size;         // Size of the param block
+    ParamRole role;         // What this param is used for, state or extrinsics
+    shared_ptr<void> ptr;   // Pointer to param directly
+
+    int xidx = -1;          // Index of the parameter in the Hessian, to be set by the ParamInfoMap
     int pidx;               // Index of the parameter in the problem
     int tidx;               // Index of the trajectory
     int kidx;               // Index of the knot
@@ -52,10 +54,8 @@ public:
         sidx = -1;
     }
 
-    ParamInfo(double* address_, ParamType type_, ParamRole role_,
-              int pidx_, int tidx_, int kidx_, int sidx_)
-        : address(address_), type(type_), role(role_),
-          pidx(pidx_), tidx(tidx_), kidx(kidx_), sidx(sidx_)
+    ParamInfo(double* address_, shared_ptr<void> ptr_, ParamType type_, ParamRole role_, int pidx_, int tidx_, int kidx_, int sidx_)
+        : address(address_), ptr(ptr_), type(type_), role(role_), pidx(pidx_), tidx(tidx_), kidx(kidx_), sidx(sidx_)
     {
         if(type == ParamType::SO3)
         {
@@ -120,6 +120,28 @@ public:
                 return false;    
             }    
         }                
+    }
+};
+
+// This one manages all params within one evaluation
+struct ParamInfoMap
+{
+    int last_xidx = -1;
+    map<double*, ParamInfo> params_info;
+    
+    // Queries
+    int  size()                         { return params_info.size(); }
+    ParamInfo& operator[](double *addr) { return params_info[addr];  }
+    bool hasParam(double *addr)         { return params_info.find(addr) != params_info.end(); }
+
+    // Modify
+    void clear()                        { params_info.clear(); last_xidx = -1;}
+    void insert(double *addr, ParamInfo info)
+    {
+        assert(params_info.find(addr) == params_info.end());
+        params_info[addr] = info;
+        last_xidx = last_xidx < 0 ? info.delta_size : last_xidx + info.delta_size;
+        params_info[addr].xidx = last_xidx - info.delta_size;
     }
 };
 
@@ -246,7 +268,7 @@ private:
 
 public:
 
-    MarginalizationFactor(MarginalizationInfoPtr margInfo_, map<double*, ParamInfo> &paramInfoMap)
+    MarginalizationFactor(MarginalizationInfoPtr margInfo_, ParamInfoMap &paramInfoMap)
     {
         margInfo = margInfo_;
         keptParamMap.clear();

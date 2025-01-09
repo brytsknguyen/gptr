@@ -21,7 +21,7 @@ private:
 
     // Map of traj-kidx and parameter id
     map<pair<int, int>, int> tk2p;
-    map<double*, ParamInfo> paramInfoMap;
+    ParamInfoMap paramInfoMap;
     MarginalizationInfoPtr margInfo;
 
 public:
@@ -34,14 +34,14 @@ public:
 
     void AddTrajParams(ceres::Problem &problem,
         GaussianProcessPtr &traj, int tidx,
-        map<double*, ParamInfo> &paramInfoMap,
+        ParamInfoMap &paramInfoMap,
         double tmin, double tmax, double tmid)
     {
         auto usmin = traj->computeTimeIndex(tmin);
         auto usmax = traj->computeTimeIndex(tmax);
 
         int kidxmin = usmin.first;
-        int kidxmax = usmax.first+1;
+        int kidxmax = min(traj->getNumKnots() - 1, usmax.first + 1);
 
         // Create local parameterization for so3
         ceres::LocalParameterization *so3parameterization = new GPSO3dLocalParameterization();
@@ -61,18 +61,18 @@ public:
             problem.AddParameterBlock(traj->getKnotAcc(kidx).data(), 3);
 
             // Log down the information of the params
-            paramInfoMap.insert(make_pair(traj->getKnotSO3(kidx).data(), ParamInfo(traj->getKnotSO3(kidx).data(), ParamType::SO3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 0)));
-            paramInfoMap.insert(make_pair(traj->getKnotOmg(kidx).data(), ParamInfo(traj->getKnotOmg(kidx).data(), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 1)));
-            paramInfoMap.insert(make_pair(traj->getKnotAlp(kidx).data(), ParamInfo(traj->getKnotAlp(kidx).data(), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 2)));
-            paramInfoMap.insert(make_pair(traj->getKnotPos(kidx).data(), ParamInfo(traj->getKnotPos(kidx).data(), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 3)));
-            paramInfoMap.insert(make_pair(traj->getKnotVel(kidx).data(), ParamInfo(traj->getKnotVel(kidx).data(), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 4)));
-            paramInfoMap.insert(make_pair(traj->getKnotAcc(kidx).data(), ParamInfo(traj->getKnotAcc(kidx).data(), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 5)));
+            paramInfoMap.insert(traj->getKnotSO3(kidx).data(), ParamInfo(traj->getKnotSO3(kidx).data(), getEigenPtr(traj->getKnotSO3(kidx)), ParamType::SO3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 0));
+            paramInfoMap.insert(traj->getKnotOmg(kidx).data(), ParamInfo(traj->getKnotOmg(kidx).data(), getEigenPtr(traj->getKnotOmg(kidx)), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 1));
+            paramInfoMap.insert(traj->getKnotAlp(kidx).data(), ParamInfo(traj->getKnotAlp(kidx).data(), getEigenPtr(traj->getKnotAlp(kidx)), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 2));
+            paramInfoMap.insert(traj->getKnotPos(kidx).data(), ParamInfo(traj->getKnotPos(kidx).data(), getEigenPtr(traj->getKnotPos(kidx)), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 3));
+            paramInfoMap.insert(traj->getKnotVel(kidx).data(), ParamInfo(traj->getKnotVel(kidx).data(), getEigenPtr(traj->getKnotVel(kidx)), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 4));
+            paramInfoMap.insert(traj->getKnotAcc(kidx).data(), ParamInfo(traj->getKnotAcc(kidx).data(), getEigenPtr(traj->getKnotAcc(kidx)), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 5));
         }
     }
 
     void AddMP2KFactorsUI(
         ceres::Problem &problem, GaussianProcessPtr &traj,
-        map<double*, ParamInfo> &paramInfoMap, FactorMeta &factorMeta,
+        ParamInfoMap &paramInfoMap, FactorMeta &factorMeta,
         double tmin, double tmax, double mp_loss_thres)
     {
         auto usmin = traj->computeTimeIndex(tmin);
@@ -130,7 +130,7 @@ public:
         for(int idx = 0; idx < margInfo->keptParamInfo.size(); idx++)
         {
             ParamInfo &param = margInfo->keptParamInfo[idx];
-            bool state_found = (paramInfoMap.find(param.address) != paramInfoMap.end());
+            bool state_found = (paramInfoMap.hasParam(param.address));
             // printf("param 0x%8x of tidx %2d kidx %4d of sidx %4d is %sfound in paramInfoMap\n",
                     // param.address, param.tidx, param.kidx, param.sidx, state_found ? "" : "NOT ");
             
@@ -292,7 +292,7 @@ public:
     void AddTDOAFactors(
         ceres::Problem &problem, GaussianProcessPtr &traj, 
         // Vector3d &XBIG, Vector3d &XBIA,
-        map<double*, ParamInfo> &paramInfo, FactorMeta &factorMeta,
+        ParamInfoMap &paramInfo, FactorMeta &factorMeta,
         const vector<TDOAData> &tdoaData, std::map<uint16_t, Eigen::Vector3d>& pos_anchors, const Vector3d &P_I_tag,
         double tmin, double tmax, double w_tdoa, double tdoa_loss_thres)
     {
@@ -351,7 +351,7 @@ public:
     }
 
     void AddIMUFactors(ceres::Problem &problem, GaussianProcessPtr &traj, Vector3d &XBIG, Vector3d &XBIA, Vector3d &g,
-        map<double*, ParamInfo> &paramInfo, FactorMeta &factorMeta,
+        ParamInfoMap &paramInfo, FactorMeta &factorMeta,
         const vector<IMUData> &imuData, double tmin, double tmax, 
         double wGyro, double wAcce, double wBiasGyro, double wBiasAcce)
     {
@@ -416,7 +416,7 @@ public:
 
     void Marginalize(ceres::Problem &problem, GaussianProcessPtr &traj,
         double tmin, double tmax, double tmid,
-        map<double*, ParamInfo> &paramInfoMap,
+        ParamInfoMap &paramInfoMap,
         FactorMeta &factorMetaMp2k, FactorMeta &factorMetaTDOA, 
         FactorMeta &factorMetaIMU, FactorMeta &factorMetaPrior)
     {
@@ -674,7 +674,7 @@ public:
 
         // Making sanity checks
         map<ceres::ResidualBlockId, int> wierdRes;
-        for(auto &param_ : paramInfoMap)
+        for(auto &param_ : paramInfoMap.params_info)
         {
             ParamInfo &param = param_.second;
             
@@ -774,13 +774,12 @@ public:
             problem.AddParameterBlock(XBIA.data(), 3);
             problem.AddParameterBlock(g.data(), 3);
 
-            paramInfoMap.insert(make_pair(XBIG.data(), ParamInfo(XBIG.data(), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1)));
-            paramInfoMap.insert(make_pair(XBIA.data(), ParamInfo(XBIA.data(), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1)));
-            paramInfoMap.insert(make_pair(g.data(), ParamInfo(g.data(), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1)));
-
+            paramInfoMap.insert(XBIG.data(), ParamInfo(XBIG.data(), getEigenPtr(XBIG), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
+            paramInfoMap.insert(XBIA.data(), ParamInfo(XBIA.data(), getEigenPtr(XBIA), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
+            paramInfoMap.insert(g.data(),    ParamInfo(g.data(),    getEigenPtr(g),    ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
             problem.SetParameterBlockConstant(g.data());
             // Sanity check
-            for(auto &param_ : paramInfoMap)
+            for(auto &param_ : paramInfoMap.params_info)
             {
                 ParamInfo param = param_.second;
 

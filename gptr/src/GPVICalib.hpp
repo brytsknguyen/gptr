@@ -19,7 +19,7 @@ private:
 
     // Map of traj-kidx and parameter id
     map<pair<int, int>, int> tk2p;
-    map<double*, ParamInfo> paramInfoMap;
+    ParamInfoMap paramInfoMap;
     MarginalizationInfoPtr margInfo;
 
 public:
@@ -32,14 +32,14 @@ public:
 
     void AddTrajParams(ceres::Problem &problem,
         GaussianProcessPtr &traj, int tidx,
-        map<double*, ParamInfo> &paramInfoMap,
+        ParamInfoMap &paramInfoMap,
         double tmin, double tmax, double tmid)
     {
         auto usmin = traj->computeTimeIndex(tmin);
         auto usmax = traj->computeTimeIndex(tmax);
 
         int kidxmin = usmin.first;
-        int kidxmax = usmax.first+1;
+        int kidxmax = min(traj->getNumKnots() - 1, usmax.first + 1);
 
         // Create local parameterization for so3
         ceres::LocalParameterization *so3parameterization = new GPSO3dLocalParameterization();
@@ -59,18 +59,18 @@ public:
             problem.AddParameterBlock(traj->getKnotAcc(kidx).data(), 3);
 
             // Log down the information of the params
-            paramInfoMap.insert(make_pair(traj->getKnotSO3(kidx).data(), ParamInfo(traj->getKnotSO3(kidx).data(), ParamType::SO3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 0)));
-            paramInfoMap.insert(make_pair(traj->getKnotOmg(kidx).data(), ParamInfo(traj->getKnotOmg(kidx).data(), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 1)));
-            paramInfoMap.insert(make_pair(traj->getKnotAlp(kidx).data(), ParamInfo(traj->getKnotAlp(kidx).data(), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 2)));
-            paramInfoMap.insert(make_pair(traj->getKnotPos(kidx).data(), ParamInfo(traj->getKnotPos(kidx).data(), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 3)));
-            paramInfoMap.insert(make_pair(traj->getKnotVel(kidx).data(), ParamInfo(traj->getKnotVel(kidx).data(), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 4)));
-            paramInfoMap.insert(make_pair(traj->getKnotAcc(kidx).data(), ParamInfo(traj->getKnotAcc(kidx).data(), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 5)));
+            paramInfoMap.insert(traj->getKnotSO3(kidx).data(), ParamInfo(traj->getKnotSO3(kidx).data(), getEigenPtr(traj->getKnotSO3(kidx)), ParamType::SO3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 0));
+            paramInfoMap.insert(traj->getKnotOmg(kidx).data(), ParamInfo(traj->getKnotOmg(kidx).data(), getEigenPtr(traj->getKnotOmg(kidx)), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 1));
+            paramInfoMap.insert(traj->getKnotAlp(kidx).data(), ParamInfo(traj->getKnotAlp(kidx).data(), getEigenPtr(traj->getKnotAlp(kidx)), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 2));
+            paramInfoMap.insert(traj->getKnotPos(kidx).data(), ParamInfo(traj->getKnotPos(kidx).data(), getEigenPtr(traj->getKnotPos(kidx)), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 3));
+            paramInfoMap.insert(traj->getKnotVel(kidx).data(), ParamInfo(traj->getKnotVel(kidx).data(), getEigenPtr(traj->getKnotVel(kidx)), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 4));
+            paramInfoMap.insert(traj->getKnotAcc(kidx).data(), ParamInfo(traj->getKnotAcc(kidx).data(), getEigenPtr(traj->getKnotAcc(kidx)), ParamType::RV3, ParamRole::GPSTATE, paramInfoMap.size(), tidx, kidx, 5));
         }
     }
 
     void AddMP2KFactorsUI(
         ceres::Problem &problem, GaussianProcessPtr &traj,
-        map<double*, ParamInfo> &paramInfoMap, FactorMeta &factorMeta,
+        ParamInfoMap &paramInfoMap, FactorMeta &factorMeta,
         double tmin, double tmax, double mp_loss_thres)
     {
         auto usmin = traj->computeTimeIndex(tmin);
@@ -120,7 +120,7 @@ public:
     }
 
     void AddIMUFactors(ceres::Problem &problem, GaussianProcessPtr &traj, Vector3d &XBIG, Vector3d &XBIA, Vector3d &g,
-        map<double*, ParamInfo> &paramInfo, FactorMeta &factorMeta,
+        ParamInfoMap &paramInfo, FactorMeta &factorMeta,
         const vector<IMUData> &imuData, double tmin, double tmax, 
         double wGyro, double wAcce, double wBiasGyro, double wBiasAcce)
     {
@@ -185,7 +185,7 @@ public:
 
     void AddProjFactors(
         ceres::Problem &problem, GaussianProcessPtr &traj, 
-        map<double*, ParamInfo> &paramInfo, FactorMeta &factorMeta,
+        ParamInfoMap &paramInfo, FactorMeta &factorMeta,
         const vector<CornerData> &corner_data_cam, std::map<int, Eigen::Vector3d> &corner_pos_3d, 
         CameraCalibration *cam_calib, int cam_id, 
         double tmin, double tmax, double w_corner, double proj_loss_thres)
@@ -278,24 +278,28 @@ public:
             AddTrajParams(problem, traj, 0, paramInfoMap, tmin, tmax, tmid);
             problem.AddParameterBlock(XBIG.data(), 3);
             problem.AddParameterBlock(XBIA.data(), 3);
-            problem.AddParameterBlock(g.data(), 3);
+            problem.AddParameterBlock(g.data(),    3);
 
-            paramInfoMap.insert(make_pair(XBIG.data(), ParamInfo(XBIG.data(), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1)));
-            paramInfoMap.insert(make_pair(XBIA.data(), ParamInfo(XBIA.data(), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1)));
-            paramInfoMap.insert(make_pair(g.data(), ParamInfo(g.data(), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1)));
+            paramInfoMap.insert(XBIG.data(), ParamInfo(XBIG.data(), getEigenPtr(XBIG), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
+            paramInfoMap.insert(XBIA.data(), ParamInfo(XBIA.data(), getEigenPtr(XBIA), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
+            paramInfoMap.insert(g.data(),    ParamInfo(g.data(),    getEigenPtr(g),    ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
 
             ceres::LocalParameterization *so3parameterization = new GPSO3dLocalParameterization();
 
-            for (int i = 0; i < cam_calib->T_i_c.size(); i++) {
-                problem.AddParameterBlock(cam_calib->T_i_c[i].so3().data(), 4, so3parameterization);
-                problem.AddParameterBlock(cam_calib->T_i_c[i].translation().data(), 3);
+            for (int i = 0; i < cam_calib->T_i_c.size(); i++)
+            {
+                SO3d &R_i_c = cam_calib->T_i_c[i].so3();
+                Vec3 &t_i_c = cam_calib->T_i_c[i].translation();
 
-                paramInfoMap.insert(make_pair(cam_calib->T_i_c[i].so3().data(), ParamInfo(cam_calib->T_i_c[i].so3().data(), ParamType::SO3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1)));
-                paramInfoMap.insert(make_pair(cam_calib->T_i_c[i].translation().data(), ParamInfo(cam_calib->T_i_c[i].translation().data(), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1)));
+                problem.AddParameterBlock(R_i_c.data(), 4, so3parameterization);
+                problem.AddParameterBlock(t_i_c.data(), 3);
+
+                paramInfoMap.insert(R_i_c.data(), ParamInfo(R_i_c.data(), getEigenPtr(R_i_c), ParamType::SO3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
+                paramInfoMap.insert(t_i_c.data(), ParamInfo(t_i_c.data(), getEigenPtr(t_i_c), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
             }
             
             // Sanity check
-            for(auto &param_ : paramInfoMap)
+            for(auto &param_ : paramInfoMap.params_info)
             {
                 ParamInfo param = param_.second;
 

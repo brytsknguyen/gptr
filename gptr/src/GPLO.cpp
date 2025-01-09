@@ -592,7 +592,7 @@ int main(int argc, char **argv)
         string topic_dir = lidar_topic[lidx]; boost::replace_all(topic_dir, "/", "__");
         string path = lidar_bag_file + "/clouds/" + topic_dir + "/";
 
-        RINFO("Looking into %s", path.c_str());
+        RINFO("Looking into %s\n", path.c_str());
         
         vector<fs::directory_entry> pcd_files;
         // Iterate through the directory and add .pcd files to the vector
@@ -714,8 +714,8 @@ int main(int argc, char **argv)
 
             if (cidx % 100 == 0)
                 RINFO("Loading file %s at time %f. CIDX: %05d. Read Time: %f. Time: %f -> %f.",
-                        filename.c_str(), timestamp.seconds(), cidx, tt_read.Toc(), 
-                        clouds[lidx][cidx]->points.front().t, clouds[lidx][cidx]->points.back().t);
+                      filename.c_str(), timestamp.seconds(), cidx, tt_read.Toc(), 
+                      clouds[lidx][cidx]->points.front().t, clouds[lidx][cidx]->points.back().t);
         }
     }
 
@@ -1294,7 +1294,7 @@ int main(int argc, char **argv)
                     fastP = fastP || (change_thres[3] < 0 ? false : (dPpred      > change_thres[3]));
                     fastV = fastV || (change_thres[4] < 0 ? false : (Xc.V.norm() > change_thres[4]));
                     fastA = fastA || (change_thres[5] < 0 ? false : (Xc.A.norm() > change_thres[5]));
-                    RINFO("Predicted Change: %.3f, %.3f,", dRpred, dPpred);
+                    RINFO("Predicted Change: %.3f, %.3f,\n", dRpred, dPpred);
                 }
                 fastMotion = fastR || fastO || fastS || fastP || fastV || fastA;
                 if(fastMotion)

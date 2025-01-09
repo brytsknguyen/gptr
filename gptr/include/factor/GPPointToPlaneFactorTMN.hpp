@@ -2,6 +2,8 @@
 #include "GaussianProcess.hpp"
 #include "utility.h"
 
+using namespace Eigen;
+
 class GPPointToPlaneFactorTMN
 {
 typedef Eigen::Matrix<double, 1, 2*STATE_DIM> MatJ;
@@ -93,7 +95,6 @@ public:
             Dr_DOa.block<1, 3>(0, 0) = w*Dr_DRt*DXt_DXa[Ridx][Oidx];
         }
 
-
         // Jacobian on Sa
         idx = SaIdx;
         {
@@ -101,7 +102,6 @@ public:
             Dr_DSa.setZero();
             Dr_DSa.block<1, 3>(0, 0) = w*Dr_DRt*DXt_DXa[Ridx][Sidx];
         }
-
 
         // Jacobian on Pa
         idx = PaIdx;
@@ -120,7 +120,6 @@ public:
             Dr_DVa.block<1, 3>(0, 0) = w*Dr_DPt*DXt_DXa[Pidx][Vidx];
         }
 
-
         // Jacobian on Aa
         idx = AaIdx;
         {
@@ -129,7 +128,6 @@ public:
             Dr_DAa.block<1, 3>(0, 0) = w*Dr_DPt*DXt_DXa[Pidx][Aidx];
         }
 
-
         // Jacobian on Rb
         idx = RbIdx;
         {
@@ -137,7 +135,6 @@ public:
             Dr_DRb.setZero();
             Dr_DRb.block<1, 3>(0, 0) = w*Dr_DRt*DXt_DXb[Ridx][Ridx];
         }
-
 
         // Jacobian on Ob
         idx = ObIdx;
@@ -182,14 +179,14 @@ public:
         return true;
     }
 
+    Matrix<double, 2*STATE_DIM, 2*STATE_DIM> H() { return jacobian.transpose() * jacobian; }
+    Matrix<double, 2*STATE_DIM, 1> b() { return -(jacobian.transpose() * residual); }
+
     // Residual and Jacobian
     double residual;
     MatJ jacobian;
 
 private:
-
-    // Feature coordinates in world frame
-    Vector3d finW;
 
     // Feature coordinates in body frame
     Vector3d f;

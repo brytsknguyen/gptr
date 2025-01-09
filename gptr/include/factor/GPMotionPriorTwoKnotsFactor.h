@@ -202,8 +202,6 @@ public:
                 Dr_DPa.setZero();
                 Dr_DPa.block<3, 3>(9,  0) = -Eye;
                 Dr_DPa = sqrtW*Dr_DPa;
-
-                // cout << "Dr_DPsa\n" << Dr_DPsa << endl;
             }
 
             idx = VaIdx;
@@ -214,8 +212,6 @@ public:
                 Dr_DVa.block<3, 3>(9,  0) = -DtI;
                 Dr_DVa.block<3, 3>(12, 0) = -Eye;
                 Dr_DVa = sqrtW*Dr_DVa;
-
-                // cout << "Dr_DVsa\n" << Dr_DVsa << endl;
             }
 
             idx = AaIdx;
@@ -237,7 +233,7 @@ public:
             {
                 Eigen::Map<Eigen::Matrix<double, STATE_DIM, 3, Eigen::RowMajor>> Dr_DPb(jacobians[idx]);
                 Dr_DPb.setZero();
-                Dr_DPb.block<3, 3>(9,  0) = Eye;
+                Dr_DPb.block<3, 3>(9, 0) = Eye;
                 Dr_DPb = sqrtW*Dr_DPb;
             }
 
@@ -246,7 +242,7 @@ public:
             {
                 Eigen::Map<Eigen::Matrix<double, STATE_DIM, 3, Eigen::RowMajor>> Dr_DVb(jacobians[idx]);
                 Dr_DVb.setZero();
-                Dr_DVb.block<3, 3>(12,  0) = Eye;
+                Dr_DVb.block<3, 3>(12, 0) = Eye;
                 Dr_DVb = sqrtW*Dr_DVb;
             }
 

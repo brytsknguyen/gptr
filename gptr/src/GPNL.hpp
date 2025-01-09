@@ -773,7 +773,7 @@ public:
 
         // Making sanity checks
         map<ceres::ResidualBlockId, int> wierdRes;
-        for (auto &param_ : paramInfoMap)
+        for (auto &param_ : paramInfoMap.params_info)
         {
             ParamInfo &param = param_.second;
 
@@ -880,7 +880,7 @@ public:
             problem.SetParameterBlockConstant(g.data());
 
             // Sanity check
-            for (auto &param_ : paramInfoMap)
+            for (auto &param_ : paramInfoMap.params_info)
             {
                 ParamInfo param = param_.second;
 

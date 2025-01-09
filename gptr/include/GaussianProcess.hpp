@@ -156,7 +156,7 @@ public:
     // Constructor
     GPMixer(double dt_, const Mat3 SigGa_, const Mat3 SigNu_) : dt(dt_), SigGa(SigGa_), SigNu(SigNu_) {};
 
-    double getDt() const { return dt; }
+    double getDt()    const { return dt;    }
     Mat3   getSigGa() const { return SigGa; }
     Mat3   getSigNu() const { return SigNu; }
 
@@ -1128,6 +1128,14 @@ public:
     inline Vec3 &getKnotAcc(size_t kidx) { return A[kidx]; }
     inline CovM &getKnotCov(size_t kidx) { return C[kidx]; }
 
+    inline shared_ptr<SO3d> getKnotSO3Ptr(size_t kidx) { return shared_ptr<SO3d>(&R[kidx], [](SO3d *X){}); }
+    inline shared_ptr<Vec3> getKnotOmgPtr(size_t kidx) { return shared_ptr<Vec3>(&O[kidx], [](Vec3 *X){}); }
+    inline shared_ptr<Vec3> getKnotAlpPtr(size_t kidx) { return shared_ptr<Vec3>(&S[kidx], [](Vec3 *X){}); }
+    inline shared_ptr<Vec3> getKnotPosPtr(size_t kidx) { return shared_ptr<Vec3>(&P[kidx], [](Vec3 *X){}); }
+    inline shared_ptr<Vec3> getKnotVelPtr(size_t kidx) { return shared_ptr<Vec3>(&V[kidx], [](Vec3 *X){}); }
+    inline shared_ptr<Vec3> getKnotAccPtr(size_t kidx) { return shared_ptr<Vec3>(&A[kidx], [](Vec3 *X){}); }
+    inline shared_ptr<CovM> getKnotCovPtr(size_t kidx) { return shared_ptr<CovM>(&C[kidx], [](CovM *X){}); }
+
     void setStartTime(double t)
     {
         t0 = t;
@@ -1247,6 +1255,30 @@ public:
         P[kidx] = Xn.P;
         V[kidx] = Xn.V;
         A[kidx] = Xn.A;
+    }
+
+    void setKnotState(int kidx, const SO3d &X)
+    {
+        R[kidx] = X;
+    }
+
+    void setKnotState(int kidx, const Vec3 &X, int sidx)
+    {
+        switch(sidx)
+        {
+            case 1:
+                O[kidx] = X; break;
+            case 2:
+                S[kidx] = X; break;
+            case 3:
+                P[kidx] = X; break;
+            case 4:
+                V[kidx] = X; break;
+            case 5:
+                A[kidx] = X; break;
+            default:
+                printf("Error. Trying to set sidx out of range 1 to 5\n");
+        }
     }
 
     void setKnotCovariance(int kidx, const CovM &Cov)
