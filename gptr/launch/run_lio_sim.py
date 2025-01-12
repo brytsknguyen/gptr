@@ -70,7 +70,7 @@ def generate_launch_description():
             {'cloud_ds'        : [0.1, 0.1]},
 
             # GN MAP optimization params
-            {'deltaT'          : 0.02204},
+            {'deltaT'          : 0.1},
 
             {'lidar_ds_rate'   : 1},
             {'lidar_weight'    : 10.0},
@@ -95,7 +95,7 @@ def generate_launch_description():
             {'max_acc'         : -5.0},
 
             # Extrinsic estimation
-            {'SW_CLOUDNUM'     : 40},
+            {'SW_CLOUDNUM'     : 6},
             {'SW_CLOUDSTEP'    : 1},
             {'max_lidarcoefs'  : 1000},
             {'XTRZ_DENSITY'    : 1},
@@ -104,17 +104,17 @@ def generate_launch_description():
             {'knnsize'         : 6},
             {'max_ceres_iter'  : 50},
             {'max_outer_iter'  : 1},
-            {'max_inner_iter'  : 40},
-            {'min_inner_iter'  : 3},
+            {'max_inner_iter'  : 3},
+            {'min_inner_iter'  : 2},
             {'conv_thres'      : 3},
             {'dJ_conv_thres'   : 10.0},
             {'conv_dX_thres'   : [-0.05, -0.5, -1.0, -0.05, -0.5, -1.0 ]},
             {'change_thres'    : [-15.0, -0.5, -1.0, -15.0, -8.0, -2.0 ]},
 
-            {'fix_time_begin'  : 0.025},
-            {'fix_time_end'    : 0.0},
-            {'fuse_marg'       : 1},
-            {'compute_cost'    : 0},
+            {'fix_time_begin'  : -0.025},
+            {'fix_time_end'    : -0.0},
+            {'fuse_marg'       :  1},
+            {'compute_cost'    :  1},
 
             # Log dir
             {'log_period'      : 5.0},

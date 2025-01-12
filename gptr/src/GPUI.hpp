@@ -145,7 +145,7 @@ public:
         // If all marginalized states are found, add the marginalized factor
         if (kept_state_present)
         {
-            MarginalizationFactor* margFactor = new MarginalizationFactor(margInfo, paramInfoMap);
+            MarginalizationFactor* margFactor = new MarginalizationFactor(margInfo);
 
             // Add the involved parameters blocks
             auto res_block = problem.AddResidualBlock(margFactor, NULL, margInfo->getAllParamBlocks());
@@ -270,7 +270,7 @@ public:
 
             // Add the factor
             {
-                MarginalizationFactor* margFactor = new MarginalizationFactor(margInfo, paramInfoMap);
+                MarginalizationFactor* margFactor = new MarginalizationFactor(margInfo);
 
                 // Add the involved parameters blocks
                 auto res_block = problem.AddResidualBlock(margFactor, NULL, margInfo->getAllParamBlocks());

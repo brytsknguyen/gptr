@@ -367,19 +367,19 @@ public:
         TicToc tt_slv;
 
         // Find the initial cost
-        Util::ComputeCeresCost(factorMetaMp2k.res,  cost_mp2k_init,  problem);
+        Util::ComputeCeresCost(factorMetaMp2k.res,     cost_mp2k_init,  problem);
         Util::ComputeCeresCost(factorMetaProjCam0.res, cost_proj_init0, problem);
         Util::ComputeCeresCost(factorMetaProjCam1.res, cost_proj_init1, problem);
-        Util::ComputeCeresCost(factorMetaIMU.res,   cost_imu_init,   problem);
+        Util::ComputeCeresCost(factorMetaIMU.res,      cost_imu_init,   problem);
 
         ceres::Solve(options, &problem, &summary);
 
         std::cout << summary.FullReport() << std::endl;
 
-        Util::ComputeCeresCost(factorMetaMp2k.res,  cost_mp2k_final,  problem);
+        Util::ComputeCeresCost(factorMetaMp2k.res,     cost_mp2k_final,  problem);
         Util::ComputeCeresCost(factorMetaProjCam0.res, cost_proj_final0, problem);
         Util::ComputeCeresCost(factorMetaProjCam1.res, cost_proj_final1, problem);
-        Util::ComputeCeresCost(factorMetaIMU.res,   cost_imu_final,   problem);
+        Util::ComputeCeresCost(factorMetaIMU.res,      cost_imu_final,   problem);
         
 
         tt_slv.Toc();
