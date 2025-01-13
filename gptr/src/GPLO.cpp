@@ -1087,10 +1087,10 @@ int main(int argc, char **argv)
             bool marginalization_done = false;
 
             // Create buffers for lidar coefficients
-            vector<deque<CloudXYZITPtr>> swCloud(Nlidar, deque<CloudXYZITPtr>(SW_CLOUDNUM_EFF));
-            vector<deque<CloudXYZIPtr >> swCloudUndi(Nlidar, deque<CloudXYZIPtr>(SW_CLOUDNUM_EFF));
-            vector<deque<CloudXYZIPtr >> swCloudUndiInW(Nlidar, deque<CloudXYZIPtr>(SW_CLOUDNUM_EFF));
-            vector<deque<vector<LidarCoef>>> swCloudCoef(Nlidar, deque<vector<LidarCoef>>(SW_CLOUDNUM_EFF));
+            vector<vector<CloudXYZITPtr>> swCloud(Nlidar, vector<CloudXYZITPtr>(SW_CLOUDNUM_EFF));
+            vector<vector<CloudXYZIPtr >> swCloudUndi(Nlidar, vector<CloudXYZIPtr>(SW_CLOUDNUM_EFF));
+            vector<vector<CloudXYZIPtr >> swCloudUndiInW(Nlidar, vector<CloudXYZIPtr>(SW_CLOUDNUM_EFF));
+            vector<vector<vector<LidarCoef>>> swCloudCoef(Nlidar, vector<vector<LidarCoef>>(SW_CLOUDNUM_EFF));
 
             // Deskew, Associate, Estimate, repeat max_inner_iter times
             for(int inner_iter = 0; inner_iter < max_inner_iter; inner_iter++)
@@ -1132,10 +1132,13 @@ int main(int argc, char **argv)
 
                 // Prepare a report
                 OptReport report;
-                
+
+                // Count the number of extracted factors
+                vector<vector<lidarFeaIdx>> featuresSelected;
+                gpmlc->SelectFeature(trajs, tmin, tmax, swCloudCoef, featuresSelected);
 
                 // Optimize
-                gpmlc->Evaluate(inner_iter, outer_iter, trajs, tmin, tmax, tmid, swCloudCoef, inner_iter >= max_inner_iter - 1 || converged, report);
+                gpmlc->Evaluate(inner_iter, outer_iter, trajs, tmin, tmax, tmid, swCloudCoef, featuresSelected, inner_iter >= max_inner_iter - 1 || converged, report);
 
 
                 // Exit if divergent

@@ -70,7 +70,7 @@ def generate_launch_description():
             {'cloud_ds'        : [0.1, 0.1]},
 
             # GN MAP optimization params
-            {'deltaT'          : 0.1},
+            {'deltaT'          : 0.02204},
 
             {'lidar_ds_rate'   : 1},
             {'lidar_weight'    : 10.0},
@@ -95,9 +95,9 @@ def generate_launch_description():
             {'max_acc'         : -5.0},
 
             # Extrinsic estimation
-            {'SW_CLOUDNUM'     : 6},
+            {'SW_CLOUDNUM'     : 40},
             {'SW_CLOUDSTEP'    : 1},
-            {'max_lidarcoefs'  : 1000},
+            {'max_lidarcoefs'  : 4000},
             {'XTRZ_DENSITY'    : 1},
             {'min_planarity'   : 0.5},
             {'max_plane_dis'   : 0.5},

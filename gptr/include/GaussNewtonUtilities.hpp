@@ -127,7 +127,7 @@ public:
 // This one manages all params within one evaluation
 struct ParamInfoMap
 {
-    int last_xidx = -1;
+    int XSIZE = -1;
     map<double*, ParamInfo> params_info;
     
     // Queries
@@ -136,13 +136,13 @@ struct ParamInfoMap
     bool hasParam(double *addr)         { return params_info.find(addr) != params_info.end(); }
 
     // Modify
-    void clear()                        { params_info.clear(); last_xidx = -1;}
+    void clear()                        { params_info.clear(); XSIZE = -1;}
     void insert(double *addr, ParamInfo info)
     {
         assert(params_info.find(addr) == params_info.end());
         params_info[addr] = info;
-        last_xidx = last_xidx < 0 ? info.delta_size : last_xidx + info.delta_size;
-        params_info[addr].xidx = last_xidx - info.delta_size;
+        XSIZE = XSIZE < 0 ? info.delta_size : XSIZE + info.delta_size;
+        params_info[addr].xidx = XSIZE - info.delta_size;
     }
 };
 
@@ -153,10 +153,11 @@ public:
     vector<double> stamp; // Time of the factor
     vector<ceres::ResidualBlockId> res;
     vector<vector<ParamInfo>> coupled_params;
+    vector<shared_ptr<void>> coupled_coef;
 
     FactorMeta() {};
     FactorMeta(const FactorMeta &other)
-        : res(other.res), coupled_params(other.coupled_params), stamp(other.stamp)
+        : res(other.res), coupled_params(other.coupled_params), coupled_coef(other.coupled_coef), stamp(other.stamp)
     {};
 
     // FactorMeta(int knots_coupled_)
@@ -175,13 +176,14 @@ public:
         added.stamp.insert(added.stamp.end(), other.stamp.begin(), other.stamp.end());
         added.res.insert(added.res.end(), other.res.begin(), other.res.end());
         added.coupled_params.insert(added.coupled_params.end(), other.coupled_params.begin(), other.coupled_params.end());
+        added.coupled_coef.insert(added.coupled_coef.end(), other.coupled_coef.begin(), other.coupled_coef.end());
 
         return added;
     }
 
     int size()
     {
-        return res.size();
+        return coupled_params.size();
     }
 };
 

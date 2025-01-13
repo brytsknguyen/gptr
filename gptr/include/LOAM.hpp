@@ -192,7 +192,7 @@ public:
         }
     }
 
-    void Visualize(double tmin, double tmax, deque<vector<LidarCoef>> &swCloudCoef, CloudXYZIPtr &cloudUndiInW, bool publish_full_traj=false)
+    void Visualize(double tmin, double tmax, vector<vector<LidarCoef>> &swCloudCoef, CloudXYZIPtr &cloudUndiInW, bool publish_full_traj=false)
     {
         if (publish_full_traj)
         {

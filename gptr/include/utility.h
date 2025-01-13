@@ -1617,7 +1617,7 @@ public:
 struct LidarCoef
 {
     double   t     = -1;  // Time stamp
-    double   t_    = -1;
+    // double   t_    = -1;
     int      ptIdx = -1;  // Index of points in the pointcloud
     Vector3d f;           // Coordinate of point in body frame
     Vector3d fdsk;        // Coordinate of point in body frame, deskewed
@@ -1752,7 +1752,7 @@ void RINFO(NodeHandlePtr &nh, Args... args)
 template <typename... Args>
 void RINFO(Args... args)
 {
-    cout << myprintf(args...) << endl;
+    cout << myprintf(args...);
 }
 
 #define ROS_ASSERT_MSG(expr, format, ...) \
