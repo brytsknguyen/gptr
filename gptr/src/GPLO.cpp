@@ -213,7 +213,7 @@ void getInitPose(int lidx,
     int Norg = pc0[lidx]->size();
     // Downsample the pointcloud
     pc0[lidx] = uniformDownsample<PointXYZI>(pc0[lidx], pmap_leaf_size);
-    RINFO("Intial cloud of lidar %d, Points: %d -> %d", lidx, Norg, pc0[lidx]->size());
+    RINFO("Intial cloud of lidar %d, Points: %d -> %d\n", lidx, Norg, pc0[lidx]->size());
     // Find ICP alignment and refine
     CloudMatcher cm(0.1, 0.1);
     // Set the original position of the anchors
@@ -228,7 +228,7 @@ void getInitPose(int lidx,
     // bool     icpconverged = cm.CheckICP(priormap, pc0[lidx], tf_W_L0.cast<float>().tfMat(), tfm_W_Li0, 0.2, 10, 1.0, icpFitness, icpTime);
     
     // tf_W_L0 = myTf(tfm_W_Li0);
-    // RINFO("Lidar %d initial pose. %s. Time: %f. Fn: %f. XYZ: %f, %f, %f. YPR: %f, %f, %f.",
+    // RINFO("Lidar %d initial pose. %s. Time: %f. Fn: %f. XYZ: %f, %f, %f. YPR: %f, %f, %f.\n",
     //       lidx, icpconverged ? "Conv" : "Not Conv", icpTime, icpFitness,
     //       tf_W_L0.pos.x(), tf_W_L0.pos.y(), tf_W_L0.pos.z(),
     //       tf_W_L0.yaw(), tf_W_L0.pitch(), tf_W_L0.roll());
@@ -242,7 +242,7 @@ void getInitPose(int lidx,
     IOASummary ioaSum;
     ioaSum.final_tf = ioaOpt.init_tf;
     cm.IterateAssociateOptimize(ioaOpt, ioaSum, priormap, pc0[lidx]);
-    RINFO("Refined: ");
+    RINFO("Refined: \n");
     cout << ioaSum.final_tf.tfMat() << endl;
     
     // Save the result to external buffer
@@ -295,7 +295,7 @@ void syncLidar(const vector<CloudXYZITPtr> &cloudbufi, const vector<CloudXYZITPt
             
             last_cloud_j = cidxj;
 
-            // RINFO("cloudj %d is split. Cloudx of cloudi %d now has %d points", last_cloudj, cidx1, cloudx->size());
+            // RINFO("cloudj %d is split. Cloudx of cloudi %d now has %d points\n", last_cloudj, cidx1, cloudx->size());
         }
     }
 }
@@ -328,11 +328,11 @@ void VisualizeGndtr(vector<CloudPosePtr> &gndtrCloud)
         {
             if(gndtrCloud[lidx]->size() == 0)
             {
-                // RINFO(KYEL "GND pose is empty" RESET);
+                // RINFO(KYEL "GND pose is empty\n" RESET);
                 continue;
             }
 
-            // RINFO("Publish GND pose cloud of %d points", gndtrCloud[lidx]->size());
+            // RINFO("Publish GND pose cloud of %d points\n", gndtrCloud[lidx]->size());
             Util::publishCloud(gndtrPub[lidx], *gndtrCloud[lidx], rclcpp::Clock().now(), "world");
         }
 
@@ -406,7 +406,7 @@ int main(int argc, char **argv)
 
     // Knot length
     Util::GetParam(nh_ptr, "deltaT", deltaT);
-    RINFO("Gaussian process with knot length: %f", deltaT);
+    RINFO("Gaussian process with knot length: %f\n", deltaT);
 
     Util::GetParam(nh_ptr, "kf_min_dis", kf_min_dis);
 
@@ -453,16 +453,16 @@ int main(int argc, char **argv)
     Util::GetParam(nh_ptr, "log_period", log_period);
 
     // Some notifications
-    RINFO("Get bag at %s and prior map at %s.", lidar_bag_file.c_str(), priormap_file.c_str());
+    RINFO("Get bag at %s and prior map at %s.\n", lidar_bag_file.c_str(), priormap_file.c_str());
     RINFO("Lidar info: \n");
     for(int lidx = 0; lidx < Nlidar; lidx++)
-        RINFO("Type: %s.\tDs: %f. Topic %s.", lidar_type[lidx].c_str(), cloud_ds[lidx], lidar_topic[lidx].c_str());
-    RINFO("Maximum number of clouds: %d", MAX_CLOUDS);
+        RINFO("Type: %s.\tDs: %f. Topic %s.\n", lidar_type[lidx].c_str(), cloud_ds[lidx], lidar_topic[lidx].c_str());
+    RINFO("Maximum number of clouds: %d\n", MAX_CLOUDS);
 
     RINFO("IMU info: \n");
     int imuCount = 0;
     for(int iidx = 0; iidx < Nimu; iidx++)
-        RINFO("Topic %s.", imu_topic[iidx].c_str());
+        RINFO("Topic %s.\n", imu_topic[iidx].c_str());
 
     // Get the initial position of the lidars
     vector<double> xyzypr_W_L0(Nlidar*6, 0.0);
@@ -1489,7 +1489,7 @@ int main(int argc, char **argv)
                 for(int lidx = 0; lidx < Nlidar; lidx++)
                 {
                     // string log_file = log_dir + myprintf( "/gptraj_%d.csv", lidx);
-                    RINFO("Exporting trajectory logs to %s.", output_dir.c_str());
+                    RINFO("Exporting trajectory logs to %s.\n", output_dir.c_str());
                     gpmaplo[lidx]->GetTraj()->saveTrajectory(output_dir, lidx, gndtr_ts[lidx]);
                 }
 
