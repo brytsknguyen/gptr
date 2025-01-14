@@ -169,7 +169,7 @@ public:
     //     tidx.resize(kidx.size(), vector<int>(knots_coupled, idx));
     // }
 
-    FactorMeta operator+(const FactorMeta other)
+    FactorMeta operator+(const FactorMeta &other)
     {
         FactorMeta added(*this);
         
@@ -181,11 +181,23 @@ public:
         return added;
     }
 
+    FactorMeta &operator+=(const FactorMeta &other)
+    {
+        stamp.insert(stamp.end(), other.stamp.begin(), other.stamp.end());
+        res.insert(res.end(), other.res.begin(), other.res.end());
+        coupled_params.insert(coupled_params.end(), other.coupled_params.begin(), other.coupled_params.end());
+        coupled_coef.insert(coupled_coef.end(), other.coupled_coef.begin(), other.coupled_coef.end());
+
+        return *this;
+    }
+
     int size()
     {
         return coupled_params.size();
     }
 };
+
+typedef std::shared_ptr<FactorMeta> FactorMetaPtr;
 
 class MarginalizationInfo
 {
