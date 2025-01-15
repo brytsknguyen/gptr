@@ -6,18 +6,12 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /Lidar01
-        - /Lidar01/GPTraj1
-        - /Lidar01/GTTraj1
         - /Lidar01/Odometry1/Shape1
         - /Lidar01/Odometry1/Covariance1
-        - /Lidar11
-        - /Lidar11/GTTraj1
-        - /Lidar11/Odometry1
         - /Lidar11/Odometry1/Shape1
         - /Marker1
-      Splitter Ratio: 0.3071160912513733
-    Tree Height: 363
+      Splitter Ratio: 0.22324159741401672
+    Tree Height: 540
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -172,7 +166,7 @@ Visualization Manager:
           Class: rviz_default_plugins/PointCloud2
           Color: 0; 126; 255
           Color Transformer: FlatColor
-          Decay Time: 5
+          Decay Time: 0
           Enabled: true
           Invert Rainbow: true
           Max Color: 255; 255; 255
@@ -521,25 +515,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 7.049413681030273
+      Distance: 0.5325793027877808
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.020715758204460144
-        Y: 0.9568048715591431
-        Z: 0.6912777423858643
+        X: 0.5917739272117615
+        Y: 0.9854165315628052
+        Z: 0.8265068531036377
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.17479418218135834
+      Pitch: 0.5197939276695251
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.6440982222557068
+      Yaw: 2.0241003036499023
     Saved: ~
 Window Geometry:
   Displays:

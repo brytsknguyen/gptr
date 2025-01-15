@@ -258,7 +258,7 @@ public:
     }
 
     // Convert the H, b matrices to J, r matrices
-    void HbToJr(const MatrixXd &H, const VectorXd &b, MatrixXd &J, VectorXd &r)
+    void HbToJr(const MatrixXd &H, const VectorXd &b, MatrixXd &J, VectorXd &r) const
     {
         Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes(H);
 
