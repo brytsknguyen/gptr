@@ -1134,11 +1134,15 @@ int main(int argc, char **argv)
                 OptReport report;
 
                 // Count the number of extracted factors
+                TicToc tt_selectfeature;
                 vector<vector<lidarFeaIdx>> featuresSelected;
                 gpmlc->SelectFeature(trajs, tmin, tmax, swCloudCoef, featuresSelected);
+                report.tictocs["t_select_feature"] = tt_selectfeature.Toc();
 
                 // Optimize
-                gpmlc->Evaluate(inner_iter, outer_iter, trajs, tmin, tmax, tmid, swCloudCoef, featuresSelected, inner_iter >= max_inner_iter - 1 || converged, report);
+                gpmlc->Evaluate(inner_iter, outer_iter, trajs, tmin, tmax, tmid, swCloudCoef,
+                                featuresSelected, inner_iter >= max_inner_iter - 1 || converged,
+                                report);
 
 
                 // Exit if divergent
@@ -1297,7 +1301,7 @@ int main(int argc, char **argv)
                     fastP = fastP || (change_thres[3] < 0 ? false : (dPpred      > change_thres[3]));
                     fastV = fastV || (change_thres[4] < 0 ? false : (Xc.V.norm() > change_thres[4]));
                     fastA = fastA || (change_thres[5] < 0 ? false : (Xc.A.norm() > change_thres[5]));
-                    RINFO("Predicted Change: %.3f, %.3f,\n", dRpred, dPpred);
+                    // RINFO("Predicted Change: %.3f, %.3f,\n", dRpred, dPpred);
                 }
                 fastMotion = fastR || fastO || fastS || fastP || fastV || fastA;
                 if(fastMotion)
@@ -1390,7 +1394,7 @@ int main(int argc, char **argv)
                     
                     string report_opt =
                         myprintf( "%s"
-                                 "GPXOpt# %4d.%2d.%2d: CeresIter: %d. Tbd: %3.0f. Tslv: %.0f. Tinner: %.3f. Conv: %d, %d, %d, %d, %d, %d. Count %d. dJ%: %f,\n"
+                                 "GPXOpt# %4d.%2d.%2d: CeresIter: %d. Tfs: %3.0f. Tbd: %3.0f. Tslv: %.0f. Tinner: %.3f. Conv: %d, %d, %d, %d, %d, %d. Count %d. dJ%: %f,\n"
                                  "TSTART: %.3f. TFIN: + %.3f. Tmin-Tmid-Tmax: +[%.3f, %.3f, %.3f]. Trun: %.3f. FASTCHG: %d, %d, %d, %d, %d, %d. Slide: %d, %d.\n"
                                  "Factor: MP2K: %3d, Cross: %4d. Ldr: %4d. MPri: %2d.\n"
                                  "J0: %12.3f. MP2k: %9.3f. Xtrs: %9.3f. LDR: %9.3f. MPri: %9.3f\n"
@@ -1398,7 +1402,7 @@ int main(int argc, char **argv)
                                  RESET,
                                  do_marginalization ? "" : KGRN,
                                  optnum, inner_iter, outer_iter,
-                                 report.ceres_iterations, report.tictocs["t_ceres_build"], report.tictocs["t_ceres_solve"], tt_inner_loop.Toc(),
+                                 report.ceres_iterations, report.tictocs["t_select_feature"], report.tictocs["t_ceres_build"], report.tictocs["t_ceres_solve"], tt_inner_loop.Toc(),
                                  dRconv, dOconv, dSconv, dPconv, dVconv, dAconv, convergence_count, fabs(report.costs["J0"] - report.costs["JK"])/report.costs["J0"]*100,
                                  TSTART, TFINAL - TSTART, tmin - TSTART, tmid - TSTART, tmax - TSTART, (rclcpp::Clock().now() - programstart).seconds(),
                                  fastR, fastO, fastS, fastP, fastV, fastA, SW_CLOUDSTEP_NOW, SW_CLOUDSTEP_NXT,
