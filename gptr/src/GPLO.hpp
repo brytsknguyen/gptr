@@ -159,12 +159,9 @@ public:
         int kidxmin = usmin.first;
         int kidxmax = min(traj->getNumKnots() - 1, usmax.first + 1);
 
-        // Create local parameterization for so3
-        ceres::LocalParameterization *so3parameterization = new GPSO3dLocalParameterization();
-
         for (int kidx = kidxmin; kidx <= kidxmax; kidx++)
         {
-            problem.AddParameterBlock(traj->getKnotSO3(kidx).data(), 4, so3parameterization);
+            problem.AddParameterBlock(traj->getKnotSO3(kidx).data(), 4, new GPSO3dLocalParameterization());
             problem.AddParameterBlock(traj->getKnotOmg(kidx).data(), 3);
             problem.AddParameterBlock(traj->getKnotAlp(kidx).data(), 3);
             problem.AddParameterBlock(traj->getKnotPos(kidx).data(), 3);
@@ -266,9 +263,6 @@ public:
         int kidxmin = usmin.first;
         int kidxmax = min(traj->getNumKnots() - 1, usmax.first + 1);
 
-        // Create local parameterization for so3
-        ceres::LocalParameterization *so3parameterization = new GPSO3dLocalParameterization();
-
         for (int kidx = kidxmin; kidx < kidxmax; kidx++)
         {
             vector<double *> factor_param_blocks;
@@ -293,6 +287,9 @@ public:
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx_).data()]);
             }
 
+            // Record the time stamp of the factor
+            factorMeta.stamp.push_back(traj->getKnotTime(kidx+1));
+
             // Create the factors
             ceres::LossFunction *mp_loss_function = mp_loss_thres <= 0 ? NULL : new ceres::HuberLoss(mp_loss_thres);
             ceres::CostFunction *cost_function = new GPMotionPriorTwoKnotsFactor(traj->getGPMixerPtr());
@@ -300,9 +297,6 @@ public:
             
             // Record the residual block
             factorMeta.res.push_back(res_block);
-            
-            // Record the time stamp of the factor
-            factorMeta.stamp.push_back(traj->getKnotTime(kidx+1));
         }
     }
 
@@ -381,7 +375,10 @@ public:
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotVel(kidx).data()]);
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);
             }
-            
+
+            // Record the time stamp of the factor
+            factorMeta.stamp.push_back(coef.t);
+
             // double lidar_loss_thres = -1.0;
             ceres::LossFunction *lidar_loss_function = ld_loss_thres == -1 ? NULL : new ceres::HuberLoss(ld_loss_thres);
             ceres::CostFunction *cost_function = new GPPointToPlaneFactor(coef.f, coef.n, lidar_weight*coef.plnrty, traj->getGPMixerPtr(), s);
@@ -389,55 +386,6 @@ public:
 
             // Record the residual block
             factorMeta.res.push_back(res);
-
-            // Record the time stamp of the factor
-            factorMeta.stamp.push_back(coef.t);
-        }
-    }
-
-    void EvaluateLidarFactors(
-        vector<GaussianProcessPtr> &trajs,
-        ParamInfoMap &paramInfoMap, FactorMeta &factorMeta,
-        const vector<vector<vector<LidarCoef>>> &cloudCoef, const vector<vector<lidarFeaIdx>> &featuresSelected,
-        double tmin, double tmax, MatrixXd &J, VectorXd &r)
-    {
-        int LDR_COUNT = factorMeta.size();
-        int RES_LSIZE = 1;
-        int RES_GSIZE = RES_LSIZE*LDR_COUNT;
-        J = MatrixXd(RES_GSIZE, paramInfoMap.XSIZE);
-        r = VectorXd(RES_GSIZE, 1);
-        J.setZero();
-        r.setZero();
-
-        for(int lidx = 0; lidx < featuresSelected.size(); lidx++)
-        {
-            GaussianProcessPtr &traj = trajs[lidx];
-            int RES_BASE = lidx == 0 ? 0 : featuresSelected[lidx - 1].size();
-
-            #pragma omp parallel for num_threads(MAX_THREADS)
-            for(int lfidx = 0; lfidx < featuresSelected[lidx].size(); lfidx++)
-            {
-                auto &lf = featuresSelected[lidx][lfidx];
-                auto &coef = cloudCoef[lidx][lf.cidx][lf.fidx];
-
-                // Skip if lidar coef is not assigned                 
-                auto   us = traj->computeTimeIndex(coef.t);
-                int    u  = us.first;
-                double s  = us.second;
-                
-                assert(tmin < traj->getKnotTime(u) || traj->getKnotTime(u+1) < tmax);
-                assert(coef.t >= 0);
-                assert(traj->TimeInInterval(coef.t, 1e-6));  
-                
-                // Calculate the factor with eigen method
-                GPPointToPlaneFactorTMN ldFactor(coef.f, coef.n, lidar_weight*coef.plnrty, traj->getGPMixerPtr(), s);
-                ldFactor.Evaluate(traj->getKnot(u), traj->getKnot(u+1));
-
-                int row = RES_BASE + lfidx*RES_LSIZE;
-                int col = paramInfoMap[traj->getKnotSO3(u).data()].xidx;
-                J.block<1, 2*STATE_DIM>(row, col) = ldFactor.jacobian;
-                r.block<1, 1          >(row, 0)  << ldFactor.residual;
-            }
         }
     }
 
@@ -559,6 +507,9 @@ public:
                 assert(paramInfoMap.hasParam(R_Lx_Ly.data()));
                 assert(paramInfoMap.hasParam(P_Lx_Ly.data()));
                 
+                // Record the time stamp of the factor
+                factorMeta.stamp.push_back(t);
+
                 // Create the factors
                 ceres::LossFunction *xtz_loss_function = xt_loss_thres <= 0 ? NULL : new ceres::HuberLoss(xt_loss_thres);
                 ceres::CostFunction *cost_function = new GPExtrinsicFactor(gpmextr, gpmx, gpmy, 1.0, ss, sf);
@@ -566,63 +517,7 @@ public:
 
                 // Save the residual block
                 factorMeta.res.push_back(res_block);
-
-                // Record the time stamp of the factor
-                factorMeta.stamp.push_back(t);
             }
-        }
-    }
-
-    void EvaluateGPExtrinsicFactors(
-        vector<GaussianProcessPtr> &trajs, vector<SO3d> &R_Lx_Ly, vector<Vec3> &P_Lx_Ly,
-        ParamInfoMap &paramInfo, FactorMeta &factorMeta,
-        MatrixXd &J, VectorXd &r)
-    {
-        int GPX_COUNT = factorMeta.size();
-        int RES_LSIZE = STATE_DIM;
-        int RES_GSIZE = RES_LSIZE*GPX_COUNT;
-        J = MatrixXd(RES_GSIZE, paramInfoMap.XSIZE);
-        r = VectorXd(RES_GSIZE, 1);
-        J.setZero();
-        r.setZero();
-        
-        #pragma omp parallel for num_threads(MAX_THREADS)
-        for(int fidx = 0; fidx < GPX_COUNT; fidx++)
-        {
-            double t = factorMeta.stamp[fidx];
-            GaussianProcessPtr &trajx = trajs[factorMeta.coupled_params[fidx][0].tidx];
-            GaussianProcessPtr &trajy = trajs[factorMeta.coupled_params[fidx][12].tidx];
-            int xtzidx = factorMeta.coupled_params[fidx][12].tidx;
-
-            pair<int, double> uss, usf;
-            uss = trajx->computeTimeIndex(t);
-            usf = trajy->computeTimeIndex(t);
-
-            int umins = uss.first;
-            int uminf = usf.first;
-            double ss = uss.second;
-            double sf = usf.second;
-
-            GPMixerPtr gpmx = trajx->getGPMixerPtr();
-            GPMixerPtr gpmy = trajy->getGPMixerPtr();
-            GPMixerPtr gpmextr(new GPMixer(gpmx->getDt(), (xtSigGa*Vec3(1.0, 1.0, 1.0)).asDiagonal(), (xtSigNu*Vec3(1.0, 1.0, 1.0)).asDiagonal()));
-
-            // Calculate the factor with eigen method
-            GPExtrinsicFactorTMN xtFactor(gpmextr, gpmx, gpmy, 1.0, ss, sf);
-            xtFactor.Evaluate(trajx->getKnot(umins), trajx->getKnot(umins+1),
-                              trajy->getKnot(uminf), trajy->getKnot(uminf+1), R_Lx_Ly[xtzidx], P_Lx_Ly[xtzidx]);
-
-            // Add the factor to the block
-            const int GPX2SIZE = 2*STATE_DIM; const int XTRZSIZE = 6;
-            int row  = fidx*RES_LSIZE;
-            int cols = paramInfoMap[trajx->getKnotSO3(umins).data()].xidx;
-            int colf = paramInfoMap[trajy->getKnotSO3(uminf).data()].xidx;
-            int colx = paramInfoMap[R_Lx_Ly[xtzidx].data()].xidx;
-
-            J.block<GPEXT_RES_DIM, 2*STATE_DIM>(row, cols) = xtFactor.jacobian.block<GPEXT_RES_DIM, 2*STATE_DIM>(0, 0);
-            J.block<GPEXT_RES_DIM, 2*STATE_DIM>(row, colf) = xtFactor.jacobian.block<GPEXT_RES_DIM, 2*STATE_DIM>(0, GPX2SIZE);
-            J.block<GPEXT_RES_DIM, XTRZSIZE   >(row, colx) = xtFactor.jacobian.block<GPEXT_RES_DIM, XTRZSIZE   >(0, GPX2SIZE + GPX2SIZE);
-            r.block<GPEXT_RES_DIM, 1          >(row, 0)   << xtFactor.residual;
         }
     }
 
@@ -763,6 +658,9 @@ public:
         if(margInfo->keptParamInfo.size() != 0)
         // Add the factor
         {
+            // Record the time stamp of the factor
+            factorMeta.stamp.push_back(tmin);
+
             MarginalizationFactor* margFactor = new MarginalizationFactor(margInfo);
 
             // Add the involved parameters blocks
@@ -773,76 +671,108 @@ public:
 
             // Add the coupled param
             factorMeta.coupled_params.push_back(margInfo->keptParamInfo);
-
-            // Record the time stamp of the factor
-            factorMeta.stamp.push_back(tmin);
-
-            
-
-
-            // // Calculate the factor with eigen method
-            // MarginalizationFactorTMN priFactor(margInfo);
-            // priFactor.Evaluate();
-
-            // // Calculate the H and b of this one factor
-            // MatrixXd H_ = priFactor.H();
-            // MatrixXd b_ = priFactor.b();
-
-            // // Add the marginalization blocks into the global H and b
-            // int XA_LBASE = 0; int XB_LBASE = 0;
-            // for (int aidx = 0; aidx < margInfo->keptParamInfo.size(); aidx++)
-            // {
-            //     ParamInfo &xa = margInfo->keptParamInfo[aidx];
-            //     int XA_GBASE = paramInfoMap[xa.address].xidx;
-
-            //     XB_LBASE = 0;
-            //     for (int bidx = 0; bidx < margInfo->keptParamInfo.size(); bidx++)
-            //     {
-            //         ParamInfo &xb = margInfo->keptParamInfo[bidx];
-            //         int XB_GBASE = paramInfoMap[xb.address].xidx;
-
-            //         H.block(XA_GBASE, XB_GBASE, xa.delta_size, xb.delta_size)
-            //             = H_.block(XA_LBASE, XB_LBASE, xa.delta_size, xb.delta_size);
-                    
-            //         XB_LBASE += xb.delta_size;
-            //     }
-
-            //     b.block(XA_GBASE, 0, xa.delta_size, 1) = b_.block(XA_LBASE, 0, xa.delta_size, 1);
-            //     XA_LBASE += xa.delta_size;
-
-            // }
-            
-
-            // // Add the marginalization blocks into the global J and r
-            // {
-            //     int XA_LBASE = 0; int XB_LBASE = 0;
-            //     for (int aidx = 0; aidx < margInfo->keptParamInfo.size(); aidx++)
-            //     {
-            //         ParamInfo &xa = margInfo->keptParamInfo[aidx];
-            //         int XA_GBASE = paramInfoMap[xa.address].xidx;
-            //         int row = J.rows();
-            //         InsertZeroRow(J, row, xa.delta_size);
-            //         InsertZeroRow(r, row, xa.delta_size);
-
-            //         XB_LBASE = 0;
-            //         for (int bidx = 0; bidx < margInfo->keptParamInfo.size(); bidx++)
-            //         {
-            //             ParamInfo &xb = margInfo->keptParamInfo[bidx];
-            //             int XB_GBASE = paramInfoMap[xb.address].xidx;
-
-            //             J.block(row, XB_GBASE, xa.delta_size, xb.delta_size)
-            //                 = priFactor.jacobian.block(XA_LBASE, XB_LBASE, xa.delta_size, xb.delta_size);
-
-            //             XB_LBASE += xb.delta_size;
-            //         }
-
-            //         r.block(row, 0, xa.delta_size, 1) = priFactor.residual.block(XA_LBASE, 0, xa.delta_size, 1);
-            //         XA_LBASE += xa.delta_size;
-            //     }
-            // }
         }
         else
             printf(KYEL "All kept params in marginalization missing. Please check\n" RESET);
+    }
+
+    void EvaluateLidarFactors(
+        vector<GaussianProcessPtr> &trajs,
+        ParamInfoMap &paramInfoMap, FactorMeta &factorMeta,
+        const vector<vector<vector<LidarCoef>>> &cloudCoef, const vector<vector<lidarFeaIdx>> &featuresSelected,
+        double tmin, double tmax, MatrixXd &J, VectorXd &r)
+    {
+        int LDR_COUNT = factorMeta.size();
+        int RES_LSIZE = 1;
+        int RES_GSIZE = RES_LSIZE*LDR_COUNT;
+        J = MatrixXd(RES_GSIZE, paramInfoMap.XSIZE);
+        r = VectorXd(RES_GSIZE, 1);
+        J.setZero();
+        r.setZero();
+
+        for(int lidx = 0; lidx < featuresSelected.size(); lidx++)
+        {
+            GaussianProcessPtr &traj = trajs[lidx];
+            int RES_BASE = lidx == 0 ? 0 : featuresSelected[lidx - 1].size();
+
+            #pragma omp parallel for num_threads(MAX_THREADS)
+            for(int lfidx = 0; lfidx < featuresSelected[lidx].size(); lfidx++)
+            {
+                auto &lf = featuresSelected[lidx][lfidx];
+                auto &coef = cloudCoef[lidx][lf.cidx][lf.fidx];
+
+                // Skip if lidar coef is not assigned                 
+                auto   us = traj->computeTimeIndex(coef.t);
+                int    u  = us.first;
+                double s  = us.second;
+                
+                assert(tmin < traj->getKnotTime(u) || traj->getKnotTime(u+1) < tmax);
+                assert(coef.t >= 0);
+                assert(traj->TimeInInterval(coef.t, 1e-6));  
+                
+                // Calculate the factor with eigen method
+                GPPointToPlaneFactorTMN ldFactor(coef.f, coef.n, lidar_weight*coef.plnrty, traj->getGPMixerPtr(), s);
+                ldFactor.Evaluate(traj->getKnot(u), traj->getKnot(u+1));
+
+                int row = RES_BASE + lfidx*RES_LSIZE;
+                int col = paramInfoMap[traj->getKnotSO3(u).data()].xidx;
+                J.block<1, 2*STATE_DIM>(row, col) = ldFactor.jacobian;
+                r.block<1, 1          >(row, 0)  << ldFactor.residual;
+            }
+        }
+    }
+
+    void EvaluateGPExtrinsicFactors(
+        vector<GaussianProcessPtr> &trajs, vector<SO3d> &R_Lx_Ly, vector<Vec3> &P_Lx_Ly,
+        ParamInfoMap &paramInfo, FactorMeta &factorMeta,
+        MatrixXd &J, VectorXd &r)
+    {
+        int GPX_COUNT = factorMeta.size();
+        int RES_LSIZE = STATE_DIM;
+        int RES_GSIZE = RES_LSIZE*GPX_COUNT;
+        J = MatrixXd(RES_GSIZE, paramInfoMap.XSIZE);
+        r = VectorXd(RES_GSIZE, 1);
+        J.setZero();
+        r.setZero();
+        
+        #pragma omp parallel for num_threads(MAX_THREADS)
+        for(int fidx = 0; fidx < GPX_COUNT; fidx++)
+        {
+            double t = factorMeta.stamp[fidx];
+            GaussianProcessPtr &trajx = trajs[factorMeta.coupled_params[fidx][0].tidx];
+            GaussianProcessPtr &trajy = trajs[factorMeta.coupled_params[fidx][12].tidx];
+            int xtzidx = factorMeta.coupled_params[fidx][12].tidx;
+
+            pair<int, double> uss, usf;
+            uss = trajx->computeTimeIndex(t);
+            usf = trajy->computeTimeIndex(t);
+
+            int umins = uss.first;
+            int uminf = usf.first;
+            double ss = uss.second;
+            double sf = usf.second;
+
+            GPMixerPtr gpmx = trajx->getGPMixerPtr();
+            GPMixerPtr gpmy = trajy->getGPMixerPtr();
+            GPMixerPtr gpmextr(new GPMixer(gpmx->getDt(), (xtSigGa*Vec3(1.0, 1.0, 1.0)).asDiagonal(), (xtSigNu*Vec3(1.0, 1.0, 1.0)).asDiagonal()));
+
+            // Calculate the factor with eigen method
+            GPExtrinsicFactorTMN xtFactor(gpmextr, gpmx, gpmy, 1.0, ss, sf);
+            xtFactor.Evaluate(trajx->getKnot(umins), trajx->getKnot(umins+1),
+                              trajy->getKnot(uminf), trajy->getKnot(uminf+1), R_Lx_Ly[xtzidx], P_Lx_Ly[xtzidx]);
+
+            // Add the factor to the block
+            const int GPX2SIZE = 2*STATE_DIM; const int XTRZSIZE = 6;
+            int row  = fidx*RES_LSIZE;
+            int cols = paramInfoMap[trajx->getKnotSO3(umins).data()].xidx;
+            int colf = paramInfoMap[trajy->getKnotSO3(uminf).data()].xidx;
+            int colx = paramInfoMap[R_Lx_Ly[xtzidx].data()].xidx;
+
+            J.block<GPEXT_RES_DIM, 2*STATE_DIM>(row, cols) = xtFactor.jacobian.block<GPEXT_RES_DIM, 2*STATE_DIM>(0, 0);
+            J.block<GPEXT_RES_DIM, 2*STATE_DIM>(row, colf) = xtFactor.jacobian.block<GPEXT_RES_DIM, 2*STATE_DIM>(0, GPX2SIZE);
+            J.block<GPEXT_RES_DIM, XTRZSIZE   >(row, colx) = xtFactor.jacobian.block<GPEXT_RES_DIM, XTRZSIZE   >(0, GPX2SIZE + GPX2SIZE);
+            r.block<GPEXT_RES_DIM, 1          >(row, 0)   << xtFactor.residual;
+        }
     }
 
     void EvaluatePriorFactor(
@@ -1095,199 +1025,76 @@ public:
         const vector<FactorMetaPtr> &factorMetas,
         const VectorXd RESIDUAL, const MatrixXd JACOBIAN)
     {
-
         FactorMeta factorMetaRmvd, factorMetaRtnd;
         vector<ParamInfo> removed_params, priored_params;
         CheckParamMarginalization(tmin, tmax, tmid, paramInfoMap, factorMetas, factorMetaRmvd, factorMetaRtnd, removed_params, priored_params);
 
-        // {
-            // Extract all collumns corresponding to the marginalized states
-            int MARG_SIZE = 0; for(auto &param : removed_params) MARG_SIZE += param.delta_size;
-            int KEPT_SIZE = 0; for(auto &param : priored_params) KEPT_SIZE += param.delta_size;
+        // Calculate the global H and b
+        typedef SparseMatrix<double> SMd;
+        SMd r = RESIDUAL.sparseView(); r.makeCompressed();
+        SMd J = JACOBIAN.sparseView(); J.makeCompressed();
+        MatrixXd H = ( J.transpose()*J).toDense();
+        VectorXd b = (-J.transpose()*r).toDense();
 
-            MatrixXd Jmk = MatrixXd::Zero(JACOBIAN.rows(), MARG_SIZE + KEPT_SIZE);
+        // Find the size of the marginalization
+        int REMOVED_SIZE = 0; for(auto &param : removed_params) REMOVED_SIZE += param.delta_size;
+        int PRIORED_SIZE = 0; for(auto &param : priored_params) PRIORED_SIZE += param.delta_size;
 
-            auto CopyCol = [](string msg, MatrixXd &Jtarg, const MatrixXd &Jsrc, ParamInfo param, int BASE_TARGET) -> void
+        MatrixXd Hrr(REMOVED_SIZE, REMOVED_SIZE);
+        MatrixXd Hrp(REMOVED_SIZE, PRIORED_SIZE);
+        MatrixXd Hpr(PRIORED_SIZE, REMOVED_SIZE);
+        MatrixXd Hpp(PRIORED_SIZE, PRIORED_SIZE);
+
+        auto CopyParamBlock = [](const vector<ParamInfo> &paramsi, const vector<ParamInfo> &paramsj, MatrixXd &Mtarg, const MatrixXd &Msrc) ->void
+        {
+            int RBASE = 0;
+            for(int piidx = 0; piidx < paramsi.size(); piidx++)
             {
-                int XBASE = param.xidx;
-                for (int c = 0; c < param.delta_size; c++)
+                const ParamInfo &pi = paramsi[piidx];
+
+                int CBASE = 0;
+                for(int pjidx = 0; pjidx < paramsj.size(); pjidx++)
                 {
-                    // printf("%d. %d. %d. %d. %d\n", Jtarg.cols(), Jsrc.cols(), BASE_TARGET, XBASE, c);
-
-                    // Copy the column from source to target
-                    Jtarg.col(BASE_TARGET + c) << Jsrc.col(XBASE + c);
-
-                    // Zero out this column
-                    // Jsrc.col(XBASE + c).setZero();
+                    const ParamInfo &pj = paramsj[pjidx];
+                    Mtarg.block(RBASE, CBASE, pi.delta_size, pj.delta_size) = Msrc.block(pi.xidx, pj.xidx, pi.delta_size, pj.delta_size);
+                    CBASE += pj.delta_size;
                 }
-            };
 
-            int MARG_BASE = 0;
-            int KEPT_BASE = MARG_SIZE;
-
-            int TARGET_BASE = 0;
-            // Copy the Jacobians of marginalized states
-            for(int idx = 0; idx < removed_params.size(); idx++)
-            {
-                CopyCol(string("marg"), Jmk, JACOBIAN, removed_params[idx], TARGET_BASE);
-                TARGET_BASE += removed_params[idx].delta_size;
+                RBASE += pi.delta_size;
             }
-            assert(TARGET_BASE == KEPT_BASE);
-            // Copy the Jacobians of kept states
-            for(int idx = 0; idx < priored_params.size(); idx++)
+        };
+
+        CopyParamBlock(removed_params, removed_params, Hrr, H);
+        CopyParamBlock(removed_params, priored_params, Hrp, H);
+        CopyParamBlock(priored_params, removed_params, Hpr, H);
+        CopyParamBlock(priored_params, priored_params, Hpp, H);
+
+        VectorXd br(REMOVED_SIZE, 1);
+        VectorXd bp(PRIORED_SIZE, 1);
+
+        auto CopyRowBlock = [](const vector<ParamInfo> &params, VectorXd &btarg, const VectorXd &bsrc) -> void
+        {
+            int RBASE = 0;
+            for(int pidx = 0; pidx < params.size(); pidx++)
             {
-                CopyCol(string("kept"), Jmk, JACOBIAN, priored_params[idx], TARGET_BASE);
-                TARGET_BASE += priored_params[idx].delta_size;
+                ParamInfo param = params[pidx];
+                btarg.block(RBASE, 0, param.delta_size, 1) = bsrc.block(param.xidx, 0, param.delta_size, 1);
+                RBASE += param.delta_size;
             }
+        };
 
-            // // Copy the Jacobians of the extrinsic states
-            // Jmkx.rightCols(XTRS_SIZE) = Jacobian.rightCols(XTRS_SIZE);
-            // Jacobian.rightCols(XTRS_SIZE).setZero();
+        CopyRowBlock(removed_params, br, b);
+        CopyRowBlock(priored_params, bp, b);
 
-            // Calculate the Hessian
-            typedef SparseMatrix<double> SMd;
-            SMd r_old = RESIDUAL.sparseView(); r_old.makeCompressed();
-            SMd J_old = Jmk.sparseView(); J_old.makeCompressed();
-            SMd H_old = J_old.transpose()*J_old;
-            SMd b_old = J_old.transpose()*r_old;
-
-            // // Divide the Hessian into corner blocks
-            // int MARG_SIZE = RMVD_SIZE;
-            // int KEEP_SIZE = KEPT_SIZE + XTRS_SIZE;
-
-            SMd Hmm = H_old.block(0, 0, MARG_SIZE, MARG_SIZE);
-            SMd Hmk = H_old.block(0, MARG_SIZE, MARG_SIZE, KEPT_SIZE);
-            SMd Hkm = H_old.block(MARG_SIZE, 0, KEPT_SIZE, MARG_SIZE);
-            SMd Hkk = H_old.block(MARG_SIZE, MARG_SIZE, KEPT_SIZE, KEPT_SIZE);
-
-            SMd bm = b_old.block(0, 0, MARG_SIZE, 1);
-            SMd bk = b_old.block(MARG_SIZE, 0, KEPT_SIZE, 1);
-
-            // Create the Schur Complement
-            MatrixXd Hmminv    = Hmm.toDense().inverse();
-            MatrixXd HkmHmminv = Hkm*Hmminv;
-            MatrixXd Hkeep     = Hkk - HkmHmminv*Hmk;
-            MatrixXd bkeep     = bk  - HkmHmminv*bm;
-
-            MatrixXd Jkeep; VectorXd rkeep;
-            margInfo->HbToJr(Hkeep, bkeep, Jkeep, rkeep);
-
-            // printf("Jacobian %d x %d. Jmkx: %d x %d. Params: %d.\n"
-            //        "Jkeep: %d x %d. rkeep: %d x %d. Keep size: %d.\n"
-            //        "Hkeepmax: %f. bkeepmap: %f. rkeep^2: %f. mcost: %f. Ratio: %f\n",
-            //         Jacobian.rows(), Jacobian.cols(), Jmk.rows(), Jmk.cols(), tk2p.size(),
-            //         Jkeep.rows(), Jkeep.cols(), rkeep.rows(), rkeep.cols(), KEPT_SIZE,
-            //         Hkeep.cwiseAbs().maxCoeff(), bkeep.cwiseAbs().maxCoeff(),
-            //         0.5*pow(rkeep.norm(), 2), marg_cost, marg_cost/(0.5*pow(rkeep.norm(), 2)));
-        // }
+        // Create the Schur Complement
+        MatrixXd Hrrinv    = Hrr.inverse();
+        MatrixXd HprHrrinv = Hpr*Hrrinv;
+        
+        MatrixXd Hpriored = Hpp - HprHrrinv*Hrp;
+        VectorXd bpriored = bp  - HprHrrinv*br;
 
         MatrixXd Jpriored; VectorXd rpriored;
-        MatrixXd Hpriored; VectorXd bpriored;
-        {
-            // Calculate the global H and b
-            typedef SparseMatrix<double> SMd;
-            SMd r = RESIDUAL.sparseView(); r.makeCompressed();
-            SMd J = JACOBIAN.sparseView(); J.makeCompressed();
-            MatrixXd H = ( J.transpose()*J).toDense();
-            VectorXd b = (-J.transpose()*r).toDense();
-
-            // Find the size of the marginalization
-            int REMOVED_SIZE = 0; for(auto &param : removed_params) REMOVED_SIZE += param.delta_size;
-            int PRIORED_SIZE = 0; for(auto &param : priored_params) PRIORED_SIZE += param.delta_size;
-
-            MatrixXd Hrr(REMOVED_SIZE, REMOVED_SIZE);
-            MatrixXd Hrp(REMOVED_SIZE, PRIORED_SIZE);
-            MatrixXd Hpr(PRIORED_SIZE, REMOVED_SIZE);
-            MatrixXd Hpp(PRIORED_SIZE, PRIORED_SIZE);
-
-            auto CopyParamBlock = [](const vector<ParamInfo> &paramsi, const vector<ParamInfo> &paramsj, MatrixXd &Mtarg, const MatrixXd &Msrc) ->void
-            {
-                int RBASE = 0;
-                for(int piidx = 0; piidx < paramsi.size(); piidx++)
-                {
-                    const ParamInfo &pi = paramsi[piidx];
-
-                    int CBASE = 0;
-                    for(int pjidx = 0; pjidx < paramsj.size(); pjidx++)
-                    {
-                        const ParamInfo &pj = paramsj[pjidx];
-                        Mtarg.block(RBASE, CBASE, pi.delta_size, pj.delta_size) = Msrc.block(pi.xidx, pj.xidx, pi.delta_size, pj.delta_size);
-                        CBASE += pj.delta_size;
-                    }
-
-                    RBASE += pi.delta_size;
-                }
-            };
-
-            CopyParamBlock(removed_params, removed_params, Hrr, H);
-            CopyParamBlock(removed_params, priored_params, Hrp, H);
-            CopyParamBlock(priored_params, removed_params, Hpr, H);
-            CopyParamBlock(priored_params, priored_params, Hpp, H);
-
-            VectorXd br(REMOVED_SIZE, 1);
-            VectorXd bp(PRIORED_SIZE, 1);
-
-            auto CopyRowBlock = [](const vector<ParamInfo> &params, VectorXd &btarg, const VectorXd &bsrc) -> void
-            {
-                int RBASE = 0;
-                for(int pidx = 0; pidx < params.size(); pidx++)
-                {
-                    ParamInfo param = params[pidx];
-                    btarg.block(RBASE, 0, param.delta_size, 1) = bsrc.block(param.xidx, 0, param.delta_size, 1);
-                    RBASE += param.delta_size;
-                }
-            };
-
-            CopyRowBlock(removed_params, br, b);
-            CopyRowBlock(priored_params, bp, b);
-
-            // Create the Schur Complement
-            MatrixXd Hrrinv    = Hrr.inverse();
-            MatrixXd HprHrrinv = Hpr*Hrrinv;
-            
-            Hpriored  = Hpp - HprHrrinv*Hrp;
-            bpriored  = bp  - HprHrrinv*br;
-
-            margInfo->HbToJr(Hpriored, bpriored, Jpriored, rpriored);
-
-            MatrixXd Jrp = MatrixXd::Zero(r.rows(), REMOVED_SIZE + PRIORED_SIZE);
-            int CBASE = 0;
-            // Copy the Jacobians of marginalized states
-            for(int idx = 0; idx < removed_params.size(); idx++)
-            {
-                CopyCol(string("rmvd"), Jrp, JACOBIAN, removed_params[idx], CBASE);
-                CBASE += removed_params[idx].delta_size;
-            }
-            assert(CBASE == REMOVED_SIZE);
-            // Copy the Jacobians of kept states
-            for(int idx = 0; idx < priored_params.size(); idx++)
-            {
-                CopyCol(string("prrd"), Jrp, JACOBIAN, priored_params[idx], CBASE);
-                CBASE += priored_params[idx].delta_size;
-            }
-
-            RINFO("H: %05d, %05d. H_old: %05d, %05d. Jrp: %05d, %05d. rrp: %05d. %05d.\n", H.rows(), H.cols(), H_old.rows(), H_old.cols(), Jrp.rows(), Jrp.cols(), r.rows(),     r.cols()    );
-            RINFO("b: %05d, %05d. b_old: %05d, %05d. Jmk: %05d, %05d. r  : %05d. %05d.\n", b.rows(), b.cols(), b_old.rows(), b_old.cols(), Jmk.rows(), Jmk.cols(), r_old.rows(), r_old.cols());
-
-            MatrixXd brp = Jrp.transpose()*r; 
-
-            RINFO("r    error: %f\n", (r   - r_old).toDense().cwiseAbs().maxCoeff());
-            RINFO("Jrp  error: %f\n", (Jrp - Jmk).cwiseAbs().maxCoeff());
-            RINFO("brp  error: %f\n", (brp - b_old.toDense()).cwiseAbs().maxCoeff());
-
-            RINFO("Hrr error: %f\n", (Hrr - Hmm.toDense()).cwiseAbs().maxCoeff());
-            RINFO("Hrp error: %f\n", (Hrp - Hmk.toDense()).cwiseAbs().maxCoeff());
-            RINFO("Hpr error: %f\n", (Hpr - Hkm.toDense()).cwiseAbs().maxCoeff());
-            RINFO("Hpp error: %f\n", (Hpp - Hkk.toDense()).cwiseAbs().maxCoeff());
-
-            RINFO("br  error: %f\n", (br  - bm.toDense()).cwiseAbs().maxCoeff());
-            RINFO("bp  error: %f\n", (bp  - bk.toDense()).cwiseAbs().maxCoeff());
-
-            RINFO("Hpriored error: %f\n", (Hpriored  - Hkeep).cwiseAbs().maxCoeff());
-            RINFO("bpriored error: %f\n", (bpriored  - bkeep).cwiseAbs().maxCoeff());
-            RINFO("Jpriored error: %f\n", (Jpriored  - Jkeep).cwiseAbs().maxCoeff());
-            RINFO("rpriored error: %f\n", (rpriored  - rkeep).cwiseAbs().maxCoeff());
-        }
+        margInfo->HbToJr(Hpriored, bpriored, Jpriored, rpriored);
 
         // Save the marginalization factors and states
         if (margInfo == nullptr)
@@ -1433,6 +1240,15 @@ public:
 
         int Nlidar = trajs.size();
 
+        static bool traj_sufficient_length = false;
+        auto pose_tmin = trajs[0]->pose(tmin);
+        auto pose_tmax = trajs[0]->pose(tmax);
+        auto trans = (pose_tmin.inverse()*pose_tmax).translation();
+        if (trans.norm() > 0.2)
+            traj_sufficient_length = true;
+
+        // Build the problem
+
         // Ceres problem
         ceres::Problem problem;
         ceres::Solver::Options options;
@@ -1443,13 +1259,6 @@ public:
         options.num_threads = MAX_THREADS;
         options.max_num_iterations = max_ceres_iter;
 
-        static bool traj_sufficient_length = false;
-        auto pose_tmin = trajs[0]->pose(tmin);
-        auto pose_tmax = trajs[0]->pose(tmax);
-        auto trans = (pose_tmin.inverse()*pose_tmax).translation();
-        if (trans.norm() > 0.2)
-            traj_sufficient_length = true;
-            
         // Documenting the parameter blocks
         paramInfoMap.clear();
         // Add the parameter blocks
@@ -1544,23 +1353,13 @@ public:
             // printf("lidar_factor_ds[%d]: %d\n", tidx, lidar_factor_ds[tidx]);
         }
 
-        // Creating H and b matrices
-        int XSIZE = 0; int mp2kFactor = -trajs.size();
-        for(auto &param : paramInfoMap.params_info)
-        {
-            XSIZE += param.second.delta_size;
-            if (param.second.tidx != -1 && param.second.sidx == 0)
-                mp2kFactor++;
-        }
-
-        // Confirm the size of the variables
-        assert(XSIZE == paramInfoMap.XSIZE);
-
+        TicToc tt_addmp2k;
         // Add the motion prior factor
         FactorMeta factorMetaMp2k; MatrixXd Jmp2k; VectorXd rmp2k;
         double cost_mp2k_init = -1, cost_mp2k_final = -1;
         for(int tidx = 0; tidx < trajs.size(); tidx++)
             AddMP2KFactors(problem, trajs[tidx], paramInfoMap, factorMetaMp2k, tmin, tmax);
+        RINFO("tt_addmp2k: %f\n", tt_addmp2k.Toc());
 
         {
             TicToc tt_mp2k;
@@ -1581,6 +1380,7 @@ public:
             RINFO("Jmp2k error: %f\n", (Jmp2k - Jmp2k_ceres).cwiseAbs().maxCoeff());
         }
 
+        TicToc tt_addldr;
         // Add the lidar factors
         FactorMeta factorMetaLidar; MatrixXd Jldr; VectorXd rldr;
         double cost_lidar_init = -1; double cost_lidar_final = -1;
@@ -1604,15 +1404,17 @@ public:
             RINFO("rldr error: %f. Max value: %f.\n", (rldr - rldr_ceres).norm(), rldr.cwiseAbs().maxCoeff());
             RINFO("Jldr error: %f\n", (Jldr - Jldr_ceres).cwiseAbs().maxCoeff());
         }
+        RINFO("tt_addldr: %f\n", tt_addldr.Toc());
 
+        TicToc tt_addgpx;
         // Add the extrinsics factors
         FactorMeta factorMetaGpx; MatrixXd Jgpx; VectorXd rgpx;
         double cost_gpx_init = -1; double cost_gpx_final = -1;
-
         // Check if each trajectory is sufficiently long
         for(int tidxx = 0; tidxx < trajs.size(); tidxx++)
             for(int tidxy = tidxx+1; tidxy < trajs.size(); tidxy++)
                 AddGPExtrinsicFactors(problem, trajs[tidxx], trajs[tidxy], R_Lx_Ly[tidxy], P_Lx_Ly[tidxy], paramInfoMap, factorMetaGpx, tmin, tmax);
+        RINFO("tt_addgpx: %f\n", tt_addgpx.Toc());
 
         {
             TicToc tt_gpx;
@@ -1637,7 +1439,9 @@ public:
         double cost_prior_init = -1; double cost_prior_final = -1;
         if (margInfo != NULL && fuse_marg)
         {
+            TicToc tt_pri;
             AddPriorFactor(problem, trajs, paramInfoMap, margInfo, factorMetaPrior, tmin, tmax);
+            RINFO("tt_pri: %f\n", tt_pri.Toc());
 
             // Cross check the jacobian
             {
@@ -1829,7 +1633,6 @@ public:
 
             Marginalize(problem, trajs, tmin, tmax, tmid, paramInfoMap, factorMetas, RESIDUAL, JACOBIAN);
             report.marginalization_done = true;
-
         }
         else
         {
