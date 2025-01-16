@@ -96,18 +96,18 @@ def generate_launch_description():
 
             # Extrinsic estimation
             {'SW_CLOUDNUM'     : 20},
-            {'SW_CLOUDSTEP'    : 1},
+            {'SW_CLOUDSTEP'    : 4},
             {'max_lidarcoefs'  : 8000},
             {'XTRZ_DENSITY'    : 1},
             {'min_planarity'   : 0.5},
             {'max_plane_dis'   : 0.5},
             {'knnsize'         : 6},
             
-            {'use_ceres'       : 0},
+            {'use_ceres'       : 1},
             {'max_ceres_iter'  : 50},
             {'max_outer_iter'  : 1},
-            {'max_inner_iter'  : 6},
-            {'min_inner_iter'  : 6},
+            {'max_inner_iter'  : 3},
+            {'min_inner_iter'  : 3},
             {'conv_thres'      : 3},
             {'dJ_conv_thres'   : 10.0},
             {'conv_dX_thres'   : [-0.05, -0.5, -1.0, -0.05, -0.5, -1.0 ]},
@@ -116,6 +116,8 @@ def generate_launch_description():
             {'fix_time_end'    : -0.0},
             {'fuse_marg'       :  1},
             {'compute_cost'    :  1},
+            {'lambda'          :  1.0},
+            {'dXM'             :  0.1},
 
             # Log dir
             {'log_period'      : 5.0},

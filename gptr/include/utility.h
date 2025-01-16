@@ -1752,7 +1752,7 @@ void RINFO(NodeHandlePtr &nh, Args... args)
 template <typename... Args>
 void RINFO(Args... args)
 {
-    cout << myprintf(args...);
+    cout << myprintf(args...) << endl;
 }
 
 #define ROS_ASSERT_MSG(expr, format, ...) \
