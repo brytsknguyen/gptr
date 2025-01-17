@@ -72,8 +72,6 @@ public:
         auto usmin = traj->computeTimeIndex(tmin);
         auto usmax = traj->computeTimeIndex(tmax);
 
-        RINFO("usmin: %d, %f.\n", usmin.first, usmin.second);
-
         int kidxmin = usmin.first;
         int kidxmax = min(traj->getNumKnots() - 1, usmax.first + 1);
 
@@ -110,7 +108,6 @@ public:
 
         for (int kidx = kidxmin; kidx < kidxmax; kidx++)
         {
-
             vector<double *> factor_param_blocks;
             factorMeta.coupled_params.push_back(vector<ParamInfo>());
 
@@ -144,67 +141,6 @@ public:
             // Record the residual block
             factorMeta.res.push_back(res_block);
 
-        }
-    }
-
-    void AddTDOAFactors(
-        ceres::Problem &problem, double tmin, double tmax,
-        GaussianProcessPtr &traj,
-        const vector<TDOAData> &tdoaData, std::map<uint16_t, Eigen::Vector3d>& pos_anchors, const Vector3d &P_I_tag, double w_tdoa, double tdoa_loss_thres,
-        ParamInfoMap &paramInfo, FactorMeta &factorMeta)
-    {
-        auto usmin = traj->computeTimeIndex(tmin);
-        auto usmax = traj->computeTimeIndex(tmax);
-
-        int kidxmin = usmin.first;
-        int kidxmax = min(traj->getNumKnots() - 1, usmax.first + 1);
-
-        for (auto &tdoa : tdoaData)
-        {
-            if (!traj->TimeInInterval(tdoa.t, 1e-6))
-                continue;
-            
-            auto   us = traj->computeTimeIndex(tdoa.t);
-            int    u  = us.first;
-            double s  = us.second;
-
-            if (u < kidxmin || u + 1 >= kidxmax)
-                continue;
-
-            Eigen::Vector3d pos_an_A = pos_anchors[tdoa.idA];
-            Eigen::Vector3d pos_an_B = pos_anchors[tdoa.idB];          
-
-            vector<double *> factor_param_blocks;
-            factorMeta.coupled_params.push_back(vector<ParamInfo>());
-            
-            // Add the parameter blocks for rotation
-            for (int kidx = u; kidx < u + 2; kidx++)
-            {
-                factor_param_blocks.push_back(traj->getKnotSO3(kidx).data());
-                factor_param_blocks.push_back(traj->getKnotOmg(kidx).data());
-                factor_param_blocks.push_back(traj->getKnotAlp(kidx).data());
-                factor_param_blocks.push_back(traj->getKnotPos(kidx).data());
-                factor_param_blocks.push_back(traj->getKnotVel(kidx).data());
-                factor_param_blocks.push_back(traj->getKnotAcc(kidx).data());
-
-                // Record the param info
-                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotSO3(kidx).data()]);
-                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotOmg(kidx).data()]);
-                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAlp(kidx).data()]);
-                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotPos(kidx).data()]);
-                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotVel(kidx).data()]);
-                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);             
-            }
-
-            // Record the time stamp of the factor
-            factorMeta.stamp.push_back(tdoa.t);
-
-            ceres::LossFunction *tdoa_loss_function = tdoa_loss_thres == -1 ? NULL : new ceres::HuberLoss(tdoa_loss_thres);
-            ceres::CostFunction *cost_function = new GPTDOAFactor(tdoa.data, pos_an_A, pos_an_B, P_I_tag, w_tdoa, traj->getGPMixerPtr(), s);
-            auto res = problem.AddResidualBlock(cost_function, tdoa_loss_function, factor_param_blocks);
-            
-            // Record the residual block
-            factorMeta.res.push_back(res);
         }
     }
 
@@ -268,6 +204,67 @@ public:
             ceres::CostFunction *cost_function = new GPIMUFactor(imu.acc, imu.gyro, XBIA, XBIG, wGyro, wAcce, wBiasGyro, wBiasAcce, traj->getGPMixerPtr(), s);
             auto res = problem.AddResidualBlock(cost_function, imu_loss_function, factor_param_blocks);
 
+            // Record the residual block
+            factorMeta.res.push_back(res);
+        }
+    }
+
+    void AddTDOAFactors(
+        ceres::Problem &problem, double tmin, double tmax,
+        GaussianProcessPtr &traj,
+        const vector<TDOAData> &tdoaData, std::map<uint16_t, Eigen::Vector3d>& pos_anchors, const Vector3d &P_I_tag, double w_tdoa, double tdoa_loss_thres,
+        ParamInfoMap &paramInfo, FactorMeta &factorMeta)
+    {
+        auto usmin = traj->computeTimeIndex(tmin);
+        auto usmax = traj->computeTimeIndex(tmax);
+
+        int kidxmin = usmin.first;
+        int kidxmax = min(traj->getNumKnots() - 1, usmax.first + 1);
+
+        for (auto &tdoa : tdoaData)
+        {
+            if (!traj->TimeInInterval(tdoa.t, 1e-6))
+                continue;
+            
+            auto   us = traj->computeTimeIndex(tdoa.t);
+            int    u  = us.first;
+            double s  = us.second;
+
+            if (u < kidxmin || u + 1 >= kidxmax)
+                continue;
+
+            Eigen::Vector3d pos_an_A = pos_anchors[tdoa.idA];
+            Eigen::Vector3d pos_an_B = pos_anchors[tdoa.idB];          
+
+            vector<double *> factor_param_blocks;
+            factorMeta.coupled_params.push_back(vector<ParamInfo>());
+            
+            // Add the parameter blocks for rotation
+            for (int kidx = u; kidx < u + 2; kidx++)
+            {
+                factor_param_blocks.push_back(traj->getKnotSO3(kidx).data());
+                factor_param_blocks.push_back(traj->getKnotOmg(kidx).data());
+                factor_param_blocks.push_back(traj->getKnotAlp(kidx).data());
+                factor_param_blocks.push_back(traj->getKnotPos(kidx).data());
+                factor_param_blocks.push_back(traj->getKnotVel(kidx).data());
+                factor_param_blocks.push_back(traj->getKnotAcc(kidx).data());
+
+                // Record the param info
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotSO3(kidx).data()]);
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotOmg(kidx).data()]);
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAlp(kidx).data()]);
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotPos(kidx).data()]);
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotVel(kidx).data()]);
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);             
+            }
+
+            // Record the time stamp of the factor
+            factorMeta.stamp.push_back(tdoa.t);
+
+            ceres::LossFunction *tdoa_loss_function = tdoa_loss_thres == -1 ? NULL : new ceres::HuberLoss(tdoa_loss_thres);
+            ceres::CostFunction *cost_function = new GPTDOAFactor(tdoa.data, pos_an_A, pos_an_B, P_I_tag, w_tdoa, traj->getGPMixerPtr(), s);
+            auto res = problem.AddResidualBlock(cost_function, tdoa_loss_function, factor_param_blocks);
+            
             // Record the residual block
             factorMeta.res.push_back(res);
         }
@@ -643,11 +640,12 @@ public:
 
     }
 
-    void Evaluate(GaussianProcessPtr &traj, Vector3d &XBIG, Vector3d &XBIA, Vector3d &g,
+    void Evaluate(
         double tmin, double tmax, double tmid,
+        GaussianProcessPtr &traj, Vector3d &XBIG, Vector3d &XBIA, Vector3d &g,
         const vector<TDOAData> &tdoaData, const vector<IMUData> &imuData,
         std::map<uint16_t, Eigen::Vector3d>& pos_anchors, const Vector3d &P_I_tag, 
-        bool do_marginalization, double w_tdoa, double wGyro, double wAcce, double wBiasGyro, double wBiasAcce, double tdoa_loss_thres, double mp_loss_thres)
+        double w_tdoa, double wGyro, double wAcce, double wBiasGyro, double wBiasAcce, double tdoa_loss_thres, double mp_loss_thres, bool do_marginalization)
     {
         static int cnt = 0;
         TicToc tt_build;
@@ -662,9 +660,9 @@ public:
         options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
         options.num_threads = MAX_THREADS;
         options.max_num_iterations = 100;
-        // options.check_gradients = false;
+        options.check_gradients = false;
         
-        // options.gradient_check_relative_precision = 0.02;  
+        options.gradient_check_relative_precision = 0.02;  
 
         // Documenting the parameter blocks
         paramInfoMap.clear();
@@ -732,14 +730,14 @@ public:
         double cost_mp2k_init = -1, cost_mp2k_final = -1;
         AddMP2KFactors(problem, tmin, tmax, traj, mp_loss_thres, paramInfoMap, factorMetaMp2k);
 
+        FactorMeta factorMetaIMU;
+        double cost_imu_init = -1; double cost_imu_final = -1;
+        AddIMUFactors(problem, tmin, tmax, traj, XBIG, XBIA, g, imuData, wGyro, wAcce, wBiasGyro, wBiasAcce, paramInfoMap, factorMetaIMU);
+
         // Add the TDOA factors
         FactorMeta factorMetaTDOA;
         double cost_tdoa_init = -1; double cost_tdoa_final = -1;
         AddTDOAFactors(problem, tmin, tmax, traj, tdoaData, pos_anchors, P_I_tag, w_tdoa, tdoa_loss_thres, paramInfoMap, factorMetaTDOA);
-
-        FactorMeta factorMetaIMU;
-        double cost_imu_init = -1; double cost_imu_final = -1;
-        AddIMUFactors(problem, tmin, tmax, traj, XBIG, XBIA, g, imuData, wGyro, wAcce, wBiasGyro, wBiasAcce, paramInfoMap, factorMetaIMU);
 
         // Add the prior factor
         FactorMeta factorMetaPrior;

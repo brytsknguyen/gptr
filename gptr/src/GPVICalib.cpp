@@ -301,9 +301,8 @@ void processData(GaussianProcessPtr traj, GPMVICalibPtr gpmui, std::map<int, Eig
         double tmax = traj->getKnotTime(traj->getNumKnots() - 1) + 1e-3; // End time of the sliding window
         double tmid = tmin + SLIDE_SIZE * traj->getDt() + 1e-3;          // Next start time of the sliding window,
                                                                          // also determines the marginalization time limit
-        gpmui->Evaluate(traj, bg, ba, g, cam_calib, tmin, tmax, tmid, CIBuf.corner_data_cam0, CIBuf.corner_data_cam1, CIBuf.imu_data,
-                        corner_pos_3d, false,
-                        w_corner, GYR_N, ACC_N, GYR_W, ACC_W, corner_loss_thres, mp_loss_thres);
+        gpmui->Evaluate(tmin, tmax, tmid, traj, bg, ba, g, cam_calib, CIBuf.imu_data,
+                        CIBuf.corner_data_cam0, CIBuf.corner_data_cam1, corner_pos_3d, w_corner, GYR_N, ACC_N, GYR_W, ACC_W, corner_loss_thres, mp_loss_thres, false);
         tt_solve.Toc();
 
         //         // Step 4: Report, visualize
@@ -312,9 +311,9 @@ void processData(GaussianProcessPtr traj, GPMVICalibPtr gpmui, std::map<int, Eig
         //                 UIBuf.tdoaBuf.size(), UIBuf.tofBuf.size(), UIBuf.imuBuf.size(), traj->getNumKnots());
         for (int i = 0; i < 2; i++)
         {
-            std::cout << "Ric" << i << ": " << cam_calib->T_i_c[i].so3().matrix() << std::endl;
-            std::cout << "tic" << i << ": " << cam_calib->T_i_c[i].translation().transpose() << std::endl;
-            std::cout << "param" << i << ": " << cam_calib->intrinsics[i].getParam().transpose() << std::endl;
+            std::cout << "Ric"   << i << ": \n" << cam_calib->T_i_c[i].so3().matrix() << std::endl;
+            std::cout << "tic"   << i << ": \n" << cam_calib->T_i_c[i].translation().transpose() << std::endl;
+            std::cout << "param" << i << ": \n" << cam_calib->intrinsics[i].getParam().transpose() << std::endl;
         }
         std::cout << "ba: " << ba.transpose() << " bg: " << bg.transpose() << " g: " << g.transpose() << std::endl;
 
@@ -478,9 +477,7 @@ int main(int argc, char **argv)
 
     // Step 2: Extend the trajectory
     if (traj->getMaxTime() < newMaxTime && (newMaxTime - traj->getMaxTime()) > gpDt * 0.01)
-    {
         traj->extendKnotsTo(newMaxTime, GPState(t0, initial_pose));
-    }
 
     // Start polling and processing the data
     thread pdthread(processData, traj, gpmui, corner_pos_3d, &cam_calib);

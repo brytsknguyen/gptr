@@ -321,13 +321,14 @@ void processData(GaussianProcessPtr traj, GPUIPtr gpmui, std::map<uint16_t, Eige
         double tmax = traj->getKnotTime(traj->getNumKnots() - 1) + 1e-3;           // End time of the sliding window
         double tmid = tmin + SLIDE_SIZE * traj->getDt() + 1e-3;                    // Next start time of the sliding window,
                                                                                    // also determines the marginalization time limit
-        gpmui->Evaluate(traj, bg, ba, g, tmin, tmax, tmid, swUIBuf.tdoa_data, swUIBuf.imu_data,
-                        anchor_list, P_I_tag, traj->getNumKnots() >= WINDOW_SIZE,
-                        w_tdoa, GYR_N, ACC_N, GYR_W, ACC_W, tdoa_loss_thres, mp_loss_thres);
+        gpmui->Evaluate(tmin, tmax, tmid, traj, bg, ba, g,
+                        swUIBuf.tdoa_data, swUIBuf.imu_data,
+                        anchor_list, P_I_tag, w_tdoa, GYR_N, ACC_N, GYR_W, ACC_W,
+                        tdoa_loss_thres, mp_loss_thres, traj->getNumKnots() >= WINDOW_SIZE);
         tt_solve.Toc();
 
         // Step 4: Report, visualize
-        RINFO("Traj: %f. Sw: %.3f -> %.3f. Buf: %d, %d, %d. Num knots: %d",
+        RINFO("Traj: %.6f. Sw: %.3f -> %.3f. Buf: %4d, %4d, %4d. Num knots: %d",
                traj->getMaxTime(), swUIBuf.minTime(), swUIBuf.maxTime(),
                UIBuf.tdoaBuf.size(), UIBuf.tofBuf.size(), UIBuf.imuBuf.size(), traj->getNumKnots());
 
