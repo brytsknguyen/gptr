@@ -34,7 +34,7 @@ struct lidarFeaIdx
 
 class MLCME
 {
-    typedef SparseMatrix<double> SMd;
+typedef SparseMatrix<double> SMd;
 
 private:
 
@@ -970,89 +970,7 @@ public:
         // Compare the params following a hierarchy: traj0 knot < traj1 knots < extrinsics
         auto compareParam = [](const ParamInfo &a, const ParamInfo &b) -> bool
         {
-            bool abpidx = a.pidx < b.pidx;
-
-            if (a.tidx == -1 && b.tidx != -1)
-            {
-                assert(abpidx == false);
-                return false;
-            }
-
-            if (a.tidx != -1 && b.tidx == -1)
-            {
-                assert(abpidx == true);
-                return true;
-            }
-            
-            if ((a.tidx != -1 && b.tidx != -1) && (a.tidx < b.tidx))
-            {
-                assert(abpidx == true);
-                return true;
-            }
-            
-            if ((a.tidx != -1 && b.tidx != -1) && (a.tidx > b.tidx))
-            {
-                assert(abpidx == false);
-                return false;
-            }
-
-            // Including the situation that two knots are 01
-            if (a.tidx == b.tidx)
-            {
-                if (a.kidx == -1 && b.kidx != -1)
-                {
-                    assert(abpidx == false);
-                    return false;
-                }
-
-                if (a.kidx != -1 && b.kidx == -1)
-                {
-                    assert(abpidx == true);
-                    return true;
-                }
-
-                if ((a.kidx != -1 && b.kidx != -1) && (a.kidx < b.kidx))
-                {
-                    assert(abpidx == true);
-                    return true;
-                }
-
-                if ((a.kidx != -1 && b.kidx != -1) && (a.kidx > b.kidx))
-                {
-                    assert(abpidx == false);
-                    return false;
-                }
-
-                if (a.kidx == b.kidx)
-                {
-                    if (a.sidx == -1 && b.sidx != -1)
-                    {
-                        assert(abpidx == false);
-                        return false;
-                    }
-
-                    if (a.sidx != -1 && b.sidx == -1)
-                    {
-                        assert(abpidx == true);
-                        return true;
-                    }
-
-                    if ((a.sidx != -1 && b.sidx != -1) && (a.sidx < b.sidx))
-                    {
-                        assert(abpidx == true);
-                        return true;
-                    }
-                    
-                    if ((a.sidx != -1 && b.sidx != -1) && (a.sidx > b.sidx))
-                    {
-                        assert(abpidx == false);
-                        return false;
-                    }
-
-                    assert(abpidx == false);
-                    return false;    
-                }
-            }
+            return a.xidx < b.xidx;
         };
 
         std::sort(removed_params.begin(), removed_params.end(), compareParam);

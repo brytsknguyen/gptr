@@ -3,7 +3,7 @@
 #include "DoubleSphereCameraModel.hpp"
 #include "GaussNewtonUtilities.hpp"
 
-#include "factor/GPMotionPriorTwoKnotsFactorUI.h"
+#include "factor/GPMotionPriorTwoKnotsFactor.h"
 #include "factor/GPIMUFactor.h"
 #include "factor/GPProjectionFactor.h"
 
@@ -68,7 +68,7 @@ public:
         }
     }
 
-    void AddMP2KFactorsUI(
+    void AddMP2KFactors(
         ceres::Problem &problem, GaussianProcessPtr &traj,
         ParamInfoMap &paramInfoMap, FactorMeta &factorMeta,
         double tmin, double tmax, double mp_loss_thres)
@@ -108,7 +108,7 @@ public:
             
             // Create the factors
             ceres::LossFunction *mp_loss_function = mp_loss_thres <= 0 ? NULL : new ceres::HuberLoss(mp_loss_thres);
-            ceres::CostFunction *cost_function = new GPMotionPriorTwoKnotsFactorUI(traj->getGPMixerPtr());
+            ceres::CostFunction *cost_function = new GPMotionPriorTwoKnotsFactor(traj->getGPMixerPtr());
             auto res_block = problem.AddResidualBlock(cost_function, mp_loss_function, factor_param_blocks);
             
             // Record the residual block
@@ -347,7 +347,7 @@ public:
         // Add the motion prior factor
         FactorMeta factorMetaMp2k;
         double cost_mp2k_init = -1, cost_mp2k_final = -1;
-        AddMP2KFactorsUI(problem, traj, paramInfoMap, factorMetaMp2k, tmin, tmax, mp_loss_thres);
+        AddMP2KFactors(problem, traj, paramInfoMap, factorMetaMp2k, tmin, tmax, mp_loss_thres);
 
         // Add the projection factors
         FactorMeta factorMetaProjCam0;

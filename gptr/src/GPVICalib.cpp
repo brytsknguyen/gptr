@@ -1,5 +1,5 @@
 #include "unistd.h"
-#include <algorithm>  // for std::sort
+#include <algorithm> // for std::sort
 
 // // PCL utilities
 // #include <pcl/kdtree/kdtree_flann.h>
@@ -26,7 +26,7 @@ using namespace std;
 
 NodeHandlePtr nh_ptr;
 
-std::map<int, Eigen::Vector3d> getCornerPosition3D(const std::string& data_path)
+std::map<int, Eigen::Vector3d> getCornerPosition3D(const std::string &data_path)
 {
     std::map<int, Eigen::Vector3d> corner_list;
     std::ifstream infile(data_path);
@@ -34,7 +34,7 @@ std::map<int, Eigen::Vector3d> getCornerPosition3D(const std::string& data_path)
     while (std::getline(infile, line))
     {
         int idx;
-        double x,y,z;
+        double x, y, z;
         char comma;
         std::istringstream iss(line);
         iss >> idx >> comma >> x >> comma >> y >> comma >> z;
@@ -46,17 +46,19 @@ std::map<int, Eigen::Vector3d> getCornerPosition3D(const std::string& data_path)
     return corner_list;
 }
 
-void getCornerPosition2D(const std::string& data_path, vector<CornerData> &corner_meas)
+void getCornerPosition2D(const std::string &data_path, vector<CornerData> &corner_meas)
 {
     corner_meas.clear();
     std::string line;
     std::ifstream infile;
     infile.open(data_path);
-    if (!infile) {
+    if (!infile)
+    {
         std::cerr << "Unable to open file: " << data_path << std::endl;
         exit(1);
     }
-    while (std::getline(infile, line)) {
+    while (std::getline(infile, line))
+    {
         std::istringstream iss(line);
 
         double t_s, px, py;
@@ -66,8 +68,10 @@ void getCornerPosition2D(const std::string& data_path, vector<CornerData> &corne
         vector<Eigen::Vector2d> corners;
         vector<int> ids;
         int idx = 0;
-        for (; iss >> px >> comma >> py; iss >> comma) {
-            if (px < 0 || py < 0) {
+        for (; iss >> px >> comma >> py; iss >> comma)
+        {
+            if (px < 0 || py < 0)
+            {
                 idx++;
                 continue;
             }
@@ -81,11 +85,11 @@ void getCornerPosition2D(const std::string& data_path, vector<CornerData> &corne
     std::cout << "loaded " << corner_meas.size() << " images wih corner positions" << std::endl;
 }
 
-void getCameraModel(const std::string& data_path, CameraCalibration &cam_calib)
+void getCameraModel(const std::string &data_path, CameraCalibration &cam_calib)
 {
     cv::FileStorage fsSettings(data_path, cv::FileStorage::READ);
 
-    if(!fsSettings.isOpened())
+    if (!fsSettings.isOpened())
     {
         std::cerr << "ERROR: Wrong path to settings " << data_path << std::endl;
         return;
@@ -96,9 +100,9 @@ void getCameraModel(const std::string& data_path, CameraCalibration &cam_calib)
     cv::FileNode intrinsics = root["intrinsics"];
     cv::FileNode resolution = root["resolution"];
 
-
-    for (int i = 0; i < 2; i++) {
-        double x,y,z;
+    for (int i = 0; i < 2; i++)
+    {
+        double x, y, z;
         x = T_imu_cam[i]["px"];
         y = T_imu_cam[i]["py"];
         z = T_imu_cam[i]["pz"];
@@ -139,8 +143,10 @@ void getIMUMeasurements(const std::string &data_path, vector<IMUData> &imu_meas)
     imu_meas.clear();
     std::ifstream infile(data_path + "imu_data.csv");
     std::string line;
-    while (std::getline(infile, line)) {
-        if (line[0] == '#') continue;
+    while (std::getline(infile, line))
+    {
+        if (line[0] == '#')
+            continue;
 
         std::stringstream ss(line);
 
@@ -149,7 +155,7 @@ void getIMUMeasurements(const std::string &data_path, vector<IMUData> &imu_meas)
         Eigen::Vector3d gyro, accel;
 
         ss >> timestamp >> tmp >> gyro[0] >> tmp >> gyro[1] >> tmp >> gyro[2] >>
-        tmp >> accel[0] >> tmp >> accel[1] >> tmp >> accel[2];
+            tmp >> accel[0] >> tmp >> accel[1] >> tmp >> accel[2];
 
         double t_s = timestamp * 1e-9;
 
@@ -166,8 +172,10 @@ void getGT(const std::string &data_path, RosPathMsg &gt_path)
 
     std::ifstream infile(data_path + "cam_pose.csv");
     std::string line;
-    while (std::getline(infile, line)) {
-        if (line[0] == '#') continue;
+    while (std::getline(infile, line))
+    {
+        if (line[0] == '#')
+            continue;
 
         std::stringstream ss(line);
 
@@ -188,13 +196,13 @@ void getGT(const std::string &data_path, RosPathMsg &gt_path)
         traj_msg.pose.orientation.x = q.x();
         traj_msg.pose.orientation.y = q.y();
         traj_msg.pose.orientation.z = q.z();
-        gt_path.poses.push_back(traj_msg);          
+        gt_path.poses.push_back(traj_msg);
     }
     infile.close();
     std::cout << "loaded " << gt_path.poses.size() << " gt data" << std::endl;
 }
 
-const double POSINF =  std::numeric_limits<double>::infinity();
+const double POSINF = std::numeric_limits<double>::infinity();
 const double NEGINF = -std::numeric_limits<double>::infinity();
 
 double gpDt = 0.02;
@@ -202,8 +210,8 @@ Matrix3d gpQr;
 Matrix3d gpQc;
 
 bool auto_exit;
-int  WINDOW_SIZE = 4;
-int  SLIDE_SIZE  = 2;
+int WINDOW_SIZE = 4;
+int SLIDE_SIZE = 2;
 double w_corner = 0.1;
 double GYR_N = 10;
 double GYR_W = 10;
@@ -261,7 +269,7 @@ rclcpp::Publisher<RosPc2Msg>::SharedPtr corner_pub;
 
 Eigen::Vector3d bg = Eigen::Vector3d::Zero();
 Eigen::Vector3d ba = Eigen::Vector3d::Zero();
-Eigen::Vector3d g  = Eigen::Vector3d(0, 0, 9.81);
+Eigen::Vector3d g = Eigen::Vector3d(0, 0, 9.81);
 
 bool if_save_traj;
 std::string traj_save_path;
@@ -270,7 +278,8 @@ void publishCornerPos(std::map<int, Eigen::Vector3d> &corner_pos_3d)
 {
     RosPc2Msg corners_msg;
     pcl::PointCloud<pcl::PointXYZ> pc_corners;
-    for (const auto& iter : corner_pos_3d) {
+    for (const auto &iter : corner_pos_3d)
+    {
         Eigen::Vector3d pos_i = iter.second;
         pc_corners.points.push_back(pcl::PointXYZ(pos_i[0], pos_i[1], pos_i[2]));
     }
@@ -281,94 +290,99 @@ void publishCornerPos(std::map<int, Eigen::Vector3d> &corner_pos_3d)
 }
 
 void processData(GaussianProcessPtr traj, GPMVICalibPtr gpmui, std::map<int, Eigen::Vector3d> corner_pos_3d,
-                CameraCalibration* cam_calib)
+                 CameraCalibration *cam_calib)
 {
     // Loop and optimize
-    while(rclcpp::ok())
+    while (rclcpp::ok())
     {
         // Step: Optimization
-        TicToc tt_solve;          
-        double tmin = traj->getKnotTime(0) + 1e-3;     // Start time of the sliding window
-        double tmax = traj->getKnotTime(traj->getNumKnots() - 1) + 1e-3;      // End time of the sliding window              
-        double tmid = tmin + SLIDE_SIZE*traj->getDt() + 1e-3;     // Next start time of the sliding window,
-                                               // also determines the marginalization time limit          
-        gpmui->Evaluate(traj, bg, ba, g, cam_calib, tmin, tmax, tmid, CIBuf.corner_data_cam0, CIBuf.corner_data_cam1, CIBuf.imu_data, 
-                        corner_pos_3d, false, 
+        TicToc tt_solve;
+        double tmin = traj->getKnotTime(0) + 1e-3;                       // Start time of the sliding window
+        double tmax = traj->getKnotTime(traj->getNumKnots() - 1) + 1e-3; // End time of the sliding window
+        double tmid = tmin + SLIDE_SIZE * traj->getDt() + 1e-3;          // Next start time of the sliding window,
+                                                                         // also determines the marginalization time limit
+        gpmui->Evaluate(traj, bg, ba, g, cam_calib, tmin, tmax, tmid, CIBuf.corner_data_cam0, CIBuf.corner_data_cam1, CIBuf.imu_data,
+                        corner_pos_3d, false,
                         w_corner, GYR_N, ACC_N, GYR_W, ACC_W, corner_loss_thres, mp_loss_thres);
         tt_solve.Toc();
 
-//         // Step 4: Report, visualize
-//         printf("Traj: %f. Sw: %.3f -> %.3f. Buf: %d, %d, %d. Num knots: %d\n",
-//                 traj->getMaxTime(), swUIBuf.minTime(), swUIBuf.maxTime(),
-//                 UIBuf.tdoaBuf.size(), UIBuf.tofBuf.size(), UIBuf.imuBuf.size(), traj->getNumKnots());
-        for (int i = 0; i < 2; i++) {
-            std::cout << "Ric" << i  << ": " << cam_calib->T_i_c[i].so3().matrix() << std::endl;
-            std::cout << "tic" << i  << ": " << cam_calib->T_i_c[i].translation().transpose() << std::endl;
-            std::cout << "param" << i  << ": " << cam_calib->intrinsics[i].getParam().transpose() << std::endl;
+        //         // Step 4: Report, visualize
+        //         printf("Traj: %f. Sw: %.3f -> %.3f. Buf: %d, %d, %d. Num knots: %d\n",
+        //                 traj->getMaxTime(), swUIBuf.minTime(), swUIBuf.maxTime(),
+        //                 UIBuf.tdoaBuf.size(), UIBuf.tofBuf.size(), UIBuf.imuBuf.size(), traj->getNumKnots());
+        for (int i = 0; i < 2; i++)
+        {
+            std::cout << "Ric" << i << ": " << cam_calib->T_i_c[i].so3().matrix() << std::endl;
+            std::cout << "tic" << i << ": " << cam_calib->T_i_c[i].translation().transpose() << std::endl;
+            std::cout << "param" << i << ": " << cam_calib->intrinsics[i].getParam().transpose() << std::endl;
         }
         std::cout << "ba: " << ba.transpose() << " bg: " << bg.transpose() << " g: " << g.transpose() << std::endl;
-        
+
         // Visualize knots
         pcl::PointCloud<pcl::PointXYZ> est_knots;
-        for (int i = 0; i < traj->getNumKnots(); i++) {   
+        for (int i = 0; i < traj->getNumKnots(); i++)
+        {
             Eigen::Vector3d knot_pos = traj->getKnotPose(i).translation();
             est_knots.points.push_back(pcl::PointXYZ(knot_pos.x(), knot_pos.y(), knot_pos.z()));
         }
         RosPc2Msg knot_msg;
         pcl::toROSMsg(est_knots, knot_msg);
         knot_msg.header.stamp = rclcpp::Clock().now();
-        knot_msg.header.frame_id = "map";        
-        knot_pub->publish(knot_msg);           
+        knot_msg.header.frame_id = "map";
+        knot_pub->publish(knot_msg);
 
-        gt_path_pub->publish(gt_path);    
+        gt_path_pub->publish(gt_path);
         publishCornerPos(corner_pos_3d);
         break;
     }
-    
 }
 
 void saveTraj(GaussianProcessPtr traj)
 {
-    if (!std::filesystem::is_directory(traj_save_path) || !std::filesystem::exists(traj_save_path)) {
+    if (!std::filesystem::is_directory(traj_save_path) || !std::filesystem::exists(traj_save_path))
+    {
         std::filesystem::create_directories(traj_save_path);
     }
     std::string traj_file_name = traj_save_path + "traj.txt";
-    std::ofstream f_traj(traj_file_name);    
-    for (int i = 0; i < gt_path.poses.size(); i++) {
+    std::ofstream f_traj(traj_file_name);
+    for (int i = 0; i < gt_path.poses.size(); i++)
+    {
         double t_gt = rclcpp::Time(gt_path.poses[i].header.stamp).seconds();
-        auto   us = traj->computeTimeIndex(t_gt);
-        int    u  = us.first;
-        double s  = us.second;
+        auto us = traj->computeTimeIndex(t_gt);
+        int u = us.first;
+        double s = us.second;
 
-        if (u < 0 || u+1 >= traj->getNumKnots()) {
+        if (u < 0 || u + 1 >= traj->getNumKnots())
+        {
             continue;
-        }        
-        auto est_pose = traj->pose(t_gt);     
+        }
+        auto est_pose = traj->pose(t_gt);
         Eigen::Vector3d est_pos = est_pose.translation();
-        Eigen::Quaterniond est_ort = est_pose.unit_quaternion();    
-        f_traj << std::fixed << t_gt << std::setprecision(7) 
-               << " " << est_pos.x() << " " << est_pos.y() << " " << est_pos.z() 
-               << " " << est_ort.x() << " " << est_ort.y() << " " << est_ort.z()  << " " << est_ort.w() << std::endl;
+        Eigen::Quaterniond est_ort = est_pose.unit_quaternion();
+        f_traj << std::fixed << t_gt << std::setprecision(7)
+               << " " << est_pos.x() << " " << est_pos.y() << " " << est_pos.z()
+               << " " << est_ort.x() << " " << est_ort.y() << " " << est_ort.z() << " " << est_ort.w() << std::endl;
     }
     f_traj.close();
 
     std::string gt_file_name = traj_save_path + "gt.txt";
-    std::ofstream f_gt(gt_file_name);    
-    for (int i = 0; i < gt_path.poses.size(); i++) {
+    std::ofstream f_gt(gt_file_name);
+    for (int i = 0; i < gt_path.poses.size(); i++)
+    {
         double t_gt = rclcpp::Time(gt_path.poses[i].header.stamp).seconds();
-    
-        f_gt << std::fixed << t_gt << std::setprecision(7) 
+
+        f_gt << std::fixed << t_gt << std::setprecision(7)
              << " " << gt_path.poses[i].pose.position.x << " " << gt_path.poses[i].pose.position.y << " " << gt_path.poses[i].pose.position.z
-             << " " << gt_path.poses[i].pose.orientation.x << " " << gt_path.poses[i].pose.orientation.y << " " << gt_path.poses[i].pose.orientation.z  << " " << gt_path.poses[i].pose.orientation.w << std::endl;
+             << " " << gt_path.poses[i].pose.orientation.x << " " << gt_path.poses[i].pose.orientation.y << " " << gt_path.poses[i].pose.orientation.z << " " << gt_path.poses[i].pose.orientation.w << std::endl;
     }
-    f_gt.close();    
+    f_gt.close();
 }
 
 int main(int argc, char **argv)
 {
     // Initialize the node
     rclcpp::init(argc, argv);
-    
+
     nh_ptr = rclcpp::Node::make_shared("gpvicalib");
 
     // Determine if we exit if no data is received after a while
@@ -376,16 +390,16 @@ int main(int argc, char **argv)
 
     // Parameters for the GP trajectory
     double gpQr_ = 1.0, gpQc_ = 1.0;
-    Util::GetParam(nh_ptr, "gpDt", gpDt );
+    Util::GetParam(nh_ptr, "gpDt", gpDt);
     Util::GetParam(nh_ptr, "gpQr", gpQr_);
     Util::GetParam(nh_ptr, "gpQc", gpQc_);
-    gpQr = gpQr_*Matrix3d::Identity(3, 3);
-    gpQc = gpQc_*Matrix3d::Identity(3, 3);
+    gpQr = gpQr_ * Matrix3d::Identity(3, 3);
+    gpQc = gpQc_ * Matrix3d::Identity(3, 3);
 
     // Find the path to data
     string data_path;
     Util::GetParam(nh_ptr, "data_path", data_path);
-    
+
     // Load the corner positions in 3D and measurements
     string corner3d_path = data_path + "corners3D.csv";
     std::cout << "data_path: " << data_path << " corner3d_path: " << corner3d_path << std::endl;
@@ -394,7 +408,7 @@ int main(int argc, char **argv)
     string corner2d_path0 = data_path + "corners2D_cam0.csv";
     getCornerPosition2D(corner2d_path0, CIBuf.corner_data_cam0);
     string corner2d_path1 = data_path + "corners2D_cam1.csv";
-    getCornerPosition2D(corner2d_path1, CIBuf.corner_data_cam1);    
+    getCornerPosition2D(corner2d_path1, CIBuf.corner_data_cam1);
 
     CameraCalibration cam_calib;
 
@@ -422,12 +436,12 @@ int main(int argc, char **argv)
     Util::GetParam(nh_ptr, "GYR_N", GYR_N);
     Util::GetParam(nh_ptr, "GYR_W", GYR_W);
     Util::GetParam(nh_ptr, "ACC_N", ACC_N);
-    Util::GetParam(nh_ptr, "ACC_W", ACC_W);    
+    Util::GetParam(nh_ptr, "ACC_W", ACC_W);
     Util::GetParam(nh_ptr, "corner_loss_thres", corner_loss_thres);
     Util::GetParam(nh_ptr, "mp_loss_thres", mp_loss_thres);
     if_save_traj = Util::GetBoolParam(nh_ptr, "if_save_traj", if_save_traj);
     Util::GetParam(nh_ptr, "traj_save_path", traj_save_path);
-    
+
     // Create the trajectory
     traj = GaussianProcessPtr(new GaussianProcess(gpDt, gpQr, gpQc, true));
     GPMVICalibPtr gpmui(new GPMVICalib(nh_ptr));
@@ -449,9 +463,11 @@ int main(int argc, char **argv)
             0.0627571, -0.06752980, 0.9957420,
             0.0129251,  0.99768000, 0.0668466;
 
-    for (size_t i = 0; i < CIBuf.imu_data.size(); i++) {
+    for (size_t i = 0; i < CIBuf.imu_data.size(); i++)
+    {
         const Eigen::Vector3d ad = CIBuf.imu_data[i].acc;
-        if (std::abs(CIBuf.imu_data[i].t - CIBuf.corner_data_cam0[1].t) < 3000000*1e-9) {
+        if (std::abs(CIBuf.imu_data[i].t - CIBuf.corner_data_cam0[1].t) < 3000000 * 1e-9)
+        {
             g = rai * ad;
             std::cout << "g_a initialized with " << g.transpose() << std::endl;
             break;
@@ -461,9 +477,10 @@ int main(int argc, char **argv)
     double newMaxTime = min(CIBuf.imu_data.back().t, CIBuf.corner_data_cam0.back().t);
 
     // Step 2: Extend the trajectory
-    if (traj->getMaxTime() < newMaxTime && (newMaxTime - traj->getMaxTime()) > gpDt*0.01) {
+    if (traj->getMaxTime() < newMaxTime && (newMaxTime - traj->getMaxTime()) > gpDt * 0.01)
+    {
         traj->extendKnotsTo(newMaxTime, GPState(t0, initial_pose));
-    }    
+    }
 
     // Start polling and processing the data
     thread pdthread(processData, traj, gpmui, corner_pos_3d, &cam_calib);

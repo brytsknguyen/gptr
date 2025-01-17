@@ -4,9 +4,9 @@ from launch_ros.actions import Node
 from launch.actions import ExecuteProcess
 from ament_index_python.packages import get_package_share_directory
 
-bag_file         = "/home/ziyu/Documents/100_dataset/util_ros2/const1/const1-trial1-tdoa2/"
-anchor_path      = "/home/ziyu/Documents/100_dataset/util_dataset/flight-dataset/survey-results/anchor_const1_survey.txt"
-result_save_path = "/home/kailai/Documents/results/gptr/c1/"
+bag_file         = "/media/tmn/mySataSSD1/DATASETS/UTIL_DATASETS/dataset/flight-dataset/ros2bag-data/const1/const1-trial1-tdoa2"
+anchor_path      = "/media/tmn/mySataSSD1/DATASETS/UTIL_DATASETS/dataset/flight-dataset/survey-results/anchor_const1_survey.txt"
+result_save_path = "/home/tmn/Documents/results/gptr/c1/"
 
 def generate_launch_description():
     
@@ -15,6 +15,7 @@ def generate_launch_description():
         package     = 'gptr',
         executable  = 'gptr_ui',  # Name of the executable built by your package
         name        = 'gptr_ui',  # Optional: gives the node instance a name
+        # prefix      = ['gdb -ex run --args'],
         output      = 'screen',   # Print the node output to the screen
         parameters  =
         [
@@ -51,10 +52,7 @@ def generate_launch_description():
     )
 
     # ros2 bag 
-    bag_node = ExecuteProcess(
-                cmd=["ros2", "bag", "play", bag_file, "-r", "0.5"],
-                output="screen",
-    )     
+    bag_node = ExecuteProcess( cmd=["ros2", "bag", "play", bag_file, "-r", "0.5"], output="screen", )     
 
     # Rviz node
     rviz_node = Node(

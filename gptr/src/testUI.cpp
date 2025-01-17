@@ -1,7 +1,7 @@
 #include "utility.h"
 #include "GaussianProcess.hpp"
 
-#include "factor/GPMotionPriorTwoKnotsFactorUI.h"
+#include "factor/GPMotionPriorTwoKnotsFactor.h"
 #include "factor/GPMotionPriorTwoKnotsFactorAutodiff.h"
 
 #include "factor/GPIMUFactorAutodiff.h"
@@ -200,7 +200,7 @@ void AddAnalyticGPMP2KFactor(GaussianProcessPtr &traj, ceres::Problem &problem, 
         double mp_loss_thres = -1;
         // nh_ptr->getParam("mp_loss_thres", mp_loss_thres);
         ceres::LossFunction *mp_loss_function = mp_loss_thres <= 0 ? NULL : new ceres::HuberLoss(mp_loss_thres);
-        ceres::CostFunction *cost_function = new GPMotionPriorTwoKnotsFactorUI(traj->getGPMixerPtr());
+        ceres::CostFunction *cost_function = new GPMotionPriorTwoKnotsFactor(traj->getGPMixerPtr());
         auto res_block = problem.AddResidualBlock(cost_function, mp_loss_function, factor_param_blocks);
         res_ids_gp.push_back(res_block);
     }

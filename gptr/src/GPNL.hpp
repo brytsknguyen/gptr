@@ -79,7 +79,7 @@ public:
         }
     }
 
-    void AddMP2KFactorsUI(
+    void AddMP2KFactors(
         ceres::Problem &problem, GaussianProcessPtr &traj,
         map<double *, ParamInfo> &paramInfoMap, FactorMeta &factorMeta,
         double tmin, double tmax, double mp_loss_thres)
@@ -928,7 +928,7 @@ public:
         // Add the motion prior factor
         FactorMeta factorMetaMp2k;
         double cost_mp2k_init = -1, cost_mp2k_final = -1;
-        AddMP2KFactorsUI(problem, traj, paramInfoMap, factorMetaMp2k, tmin, tmax, mp_loss_thres);
+        AddMP2KFactors(problem, traj, paramInfoMap, factorMetaMp2k, tmin, tmax, mp_loss_thres);
 
         // Add the TDOA factors
         FactorMeta factorMetaTwr;

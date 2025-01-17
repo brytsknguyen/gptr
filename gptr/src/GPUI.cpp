@@ -231,21 +231,21 @@ void tdoaCb(const TdoaMsgPtr msg)
 {
     lock_guard<mutex> lg(UIBuf.tdoaBuf_mtx);
     UIBuf.tdoaBuf.push_back(msg);
-    // printf(KCYN "Receive tdoa\n" RESET);
+    // RINFO(KCYN "Receive tdoa" RESET);
 }
 
 void tofCb(const TofMsgPtr msg)
 {
     lock_guard<mutex> lg(UIBuf.tofBuf_mtx);
     UIBuf.tofBuf.push_back(msg);
-    // printf(KBLU "Receive tof\n" RESET);
+    // RINFO(KBLU "Receive tof" RESET);
 }
 
 void imuCb(const ImuMsgPtr msg)
 {
     lock_guard<mutex> lg(UIBuf.imuBuf_mtx);
     UIBuf.imuBuf.push_back(msg);
-    // printf(KMAG "Receive imu\n" RESET);
+    // RINFO(KMAG "Receive imu" RESET);
 }
 
 void gtCb(const PoseCovStamped::SharedPtr gt_msg)
@@ -297,7 +297,7 @@ void processData(GaussianProcessPtr traj, GPUIPtr gpmui, std::map<uint16_t, Eige
         {
             if (auto_exit && (rclcpp::Clock().now() - timeout).seconds() > 20.0)
             {
-                printf("Polling time out exiting.\n");
+                RINFO("Polling time out exiting.");
                 exit(-1);
             }
             static int msWait = int(SLIDE_SIZE * gpDt * 1000);
@@ -317,7 +317,7 @@ void processData(GaussianProcessPtr traj, GPUIPtr gpmui, std::map<uint16_t, Eige
 
         // Step 3: Optimization
         TicToc tt_solve;
-        double tmin = traj->getKnotTime(traj->getNumKnots() - WINDOW_SIZE) + 1e-3; // Start time of the sliding window
+        double tmin = max(traj->getMinTime(), traj->getKnotTime(traj->getNumKnots() - WINDOW_SIZE) + 1e-3); // Start time of the sliding window
         double tmax = traj->getKnotTime(traj->getNumKnots() - 1) + 1e-3;           // End time of the sliding window
         double tmid = tmin + SLIDE_SIZE * traj->getDt() + 1e-3;                    // Next start time of the sliding window,
                                                                                    // also determines the marginalization time limit
@@ -327,7 +327,7 @@ void processData(GaussianProcessPtr traj, GPUIPtr gpmui, std::map<uint16_t, Eige
         tt_solve.Toc();
 
         // Step 4: Report, visualize
-        printf("Traj: %f. Sw: %.3f -> %.3f. Buf: %d, %d, %d. Num knots: %d\n",
+        RINFO("Traj: %f. Sw: %.3f -> %.3f. Buf: %d, %d, %d. Num knots: %d",
                traj->getMaxTime(), swUIBuf.minTime(), swUIBuf.maxTime(),
                UIBuf.tdoaBuf.size(), UIBuf.tofBuf.size(), UIBuf.imuBuf.size(), traj->getNumKnots());
 
@@ -516,7 +516,8 @@ int main(int argc, char **argv)
         traj->setKnot(0, GPState(t0, initial_pose));
         break;
     }
-    printf(KGRN "Start time: %f\n" RESET, traj->getMinTime());
+
+    RINFO(KGRN "Start time: %f" RESET, traj->getMinTime());
 
     // Start polling and processing the data
     thread pdthread(processData, traj, gpmui, anc_pose_);
