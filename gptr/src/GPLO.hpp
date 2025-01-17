@@ -26,10 +26,10 @@
 
 struct lidarFeaIdx
 {
-    lidarFeaIdx(int &cidx_, int &fidx_, int absidx_)
-        : cidx(cidx_), fidx(fidx_), absidx(absidx_) {};
+    lidarFeaIdx(int lidx_, int &cidx_, int &fidx_, int absidx_)
+        : lidx(lidx_), cidx(cidx_), fidx(fidx_), absidx(absidx_) {};
 
-    int cidx; int fidx; int absidx;
+    int lidx; int cidx; int fidx; int absidx;
 };
 
 class MLCME
@@ -86,20 +86,6 @@ protected:
     double dXM = 0.1;
 
 public:
-
-//     // Destructor
-//    ~MLCME() {};
-
-    // void InsertZeroRow(MatrixXd &M, int row, int size)
-    // {
-    //     int Mrow = M.rows();
-    //     int Mcol = M.cols();
-
-    //     MatrixXd M_(Mrow + size, Mcol);
-    //     M_ << M.topRows(row), MatrixXd::Zero(size, Mcol), M.bottomRows(Mrow - row);
-    //     M.resize(Mrow + size, Mcol);
-    //     M = M_;
-    // }
 
     Eigen::MatrixXd CRSToEigenDense(ceres::CRSMatrix &J)
     {
@@ -158,11 +144,10 @@ public:
     };
 
     void AddTrajParams(
-        ceres::Problem &problem, vector<GaussianProcessPtr> &trajs, int &tidx,
-        ParamInfoMap &paramInfoMap, double tmin, double tmax, double tmid)
+        ceres::Problem &problem, double tmin, double tmax, double tmid,
+        GaussianProcessPtr &traj, int tidx,
+        ParamInfoMap &paramInfoMap)
     {
-        GaussianProcessPtr &traj = trajs[tidx];
-
         auto usmin = traj->computeTimeIndex(tmin);
         auto usmax = traj->computeTimeIndex(tmax);
 
@@ -263,9 +248,10 @@ public:
     }
 
     void AddMP2KFactors(
-        ceres::Problem &problem, GaussianProcessPtr &traj,
-        ParamInfoMap &paramInfoMap, FactorMeta &factorMeta,
-        double tmin, double tmax)
+        ceres::Problem &problem, double tmin, double tmax,
+        GaussianProcessPtr &traj,
+        double mp_loss_thres,
+        ParamInfoMap &paramInfoMap, FactorMeta &factorMeta)
     {
         auto usmin = traj->computeTimeIndex(tmin);
         auto usmax = traj->computeTimeIndex(tmax);
@@ -314,12 +300,12 @@ public:
     }
 
     void AddLidarFactors(
-        ceres::Problem &problem, GaussianProcessPtr &traj,
-        ParamInfoMap &paramInfoMap, FactorMeta &factorMeta,
+        ceres::Problem &problem, double tmin, double tmax,
+        GaussianProcessPtr &traj,
         const vector<vector<LidarCoef>> &cloudCoef, const vector<lidarFeaIdx> &featuresSelected,
-        double tmin, double tmax)
+        ParamInfoMap &paramInfoMap, FactorMeta &factorMeta)
     {
-        for(auto lf : featuresSelected)
+        for(auto &lf : featuresSelected)
         {
             const vector<LidarCoef> &Coef = cloudCoef[lf.cidx];
             const LidarCoef &coef = Coef[lf.fidx];
@@ -335,7 +321,7 @@ public:
 
             vector<double *> factor_param_blocks;
             factorMeta.coupled_params.push_back(vector<ParamInfo>());
-            // factorMeta.coupled_coef.push_back(getEigenPtr(&coef));
+            factorMeta.coupled_coef.push_back(getEigenPtr(lf));
 
             // Add the parameter blocks for rotation
             for (int kidx = u; kidx < u + 2; kidx++)
@@ -356,7 +342,7 @@ public:
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);
             }
 
-            // Record the time stamp of the factor
+            // Record the time stamp and the coef of the factor
             factorMeta.stamp.push_back(coef.t);
 
             if(use_ceres)
@@ -373,9 +359,9 @@ public:
     }
 
     void AddGPExtrinsicFactors(
-        ceres::Problem &problem, GaussianProcessPtr &trajx, GaussianProcessPtr &trajy, SO3d &R_Lx_Ly, Vec3 &P_Lx_Ly,
-        ParamInfoMap &paramInfoMap, FactorMeta &factorMeta,
-        double tmin, double tmax)
+        ceres::Problem &problem, double tmin, double tmax,
+        GaussianProcessPtr &trajx, GaussianProcessPtr &trajy, SO3d &R_Lx_Ly, Vec3 &P_Lx_Ly,
+        ParamInfoMap &paramInfoMap, FactorMeta &factorMeta)
     {
         GPMixerPtr gpmx = trajx->getGPMixerPtr();
         GPMixerPtr gpmy = trajy->getGPMixerPtr();
@@ -508,9 +494,9 @@ public:
     }
 
     void AddPriorFactor(
-        ceres::Problem &problem, vector<GaussianProcessPtr> &trajs,
-        ParamInfoMap &paramInfo, MarginalizationInfoPtr &margInfo, FactorMeta &factorMeta,
-        double tmin, double tmax)
+        ceres::Problem &problem, double tmin, double tmax,
+        vector<GaussianProcessPtr> &trajs,
+        MarginalizationInfoPtr &margInfo, ParamInfoMap &paramInfo, FactorMeta &factorMeta)
     {
         // Check if kept states are still in the param list
         bool all_kept_states_found = true;
@@ -707,6 +693,7 @@ public:
         const vector<vector<vector<LidarCoef>>> &cloudCoef, const vector<vector<lidarFeaIdx>> &featuresSelected,
         double tmin, double tmax, MatrixXd &J, VectorXd &r, double &cost)
     {
+
         int LDR_COUNT = factorMeta.size();
         int RES_LSIZE = 1;
         int RES_GSIZE = RES_LSIZE*LDR_COUNT;
@@ -715,36 +702,67 @@ public:
         J.setZero();
         r.setZero();
 
-        for(int lidx = 0; lidx < featuresSelected.size(); lidx++)
+        ROS_ASSERT_MSG(factorMeta.coupled_coef.size() == factorMeta.size(), "Size: %d, %d.\n", factorMeta.coupled_coef.size(), factorMeta.size());
+
+        // #pragma omp parallel for num_threads(MAX_THREADS)
+        for(int lfidx = 0; lfidx < LDR_COUNT; lfidx++)
         {
+
+            auto lf = static_pointer_cast<const lidarFeaIdx>(factorMeta.coupled_coef[lfidx]);
+            const int  &lidx = lf->lidx;
+            const auto &coef = cloudCoef[lidx][lf->cidx][lf->fidx];
             GaussianProcessPtr &traj = trajs[lidx];
-            int RES_BASE = lidx == 0 ? 0 : featuresSelected[lidx - 1].size();
 
-            #pragma omp parallel for num_threads(MAX_THREADS)
-            for(int lfidx = 0; lfidx < featuresSelected[lidx].size(); lfidx++)
-            {
-                auto &lf = featuresSelected[lidx][lfidx];
-                auto &coef = cloudCoef[lidx][lf.cidx][lf.fidx];
+            // Skip if lidar coef is not assigned                 
+            auto   us = traj->computeTimeIndex(coef.t);
+            int    u  = us.first;
+            double s  = us.second;
 
-                // Skip if lidar coef is not assigned                 
-                auto   us = traj->computeTimeIndex(coef.t);
-                int    u  = us.first;
-                double s  = us.second;
-                
-                assert(tmin < traj->getKnotTime(u) || traj->getKnotTime(u+1) < tmax);
-                assert(coef.t >= 0);
-                assert(traj->TimeInInterval(coef.t, 1e-6));  
-                
-                // Calculate the factor with eigen method
-                GPPointToPlaneFactorTMN ldFactor(coef.f, coef.n, lidar_weight*coef.plnrty, traj->getGPMixerPtr(), s);
-                ldFactor.Evaluate(traj->getKnot(u), traj->getKnot(u+1));
+            assert(tmin < traj->getKnotTime(u) || traj->getKnotTime(u+1) < tmax);
+            assert(coef.t >= 0);
+            assert(traj->TimeInInterval(coef.t, 1e-6));  
 
-                int row = RES_BASE + lfidx*RES_LSIZE;
-                int col = paramInfoMap[traj->getKnotSO3(u).data()].xidx;
-                J.block<1, 2*STATE_DIM>(row, col) = ldFactor.jacobian;
-                r.block<1, 1          >(row, 0)  << ldFactor.residual;
-            }
+            // Calculate the factor with eigen method
+            GPPointToPlaneFactorTMN ldFactor(coef.f, coef.n, lidar_weight*coef.plnrty, traj->getGPMixerPtr(), s);
+            ldFactor.Evaluate(traj->getKnot(u), traj->getKnot(u+1));
+
+            int row = lfidx*RES_LSIZE;
+            int col = paramInfoMap[traj->getKnotSO3(u).data()].xidx;
+            J.block<1, 2*STATE_DIM>(row, col) = ldFactor.jacobian;
+            r.block<1, 1          >(row, 0)  << ldFactor.residual;
+
         }
+
+        // for(int lidx = 0; lidx < featuresSelected.size(); lidx++)
+        // {
+        //     GaussianProcessPtr &traj = trajs[lidx];
+        //     int RES_BASE = lidx == 0 ? 0 : featuresSelected[lidx - 1].size();
+
+        //     #pragma omp parallel for num_threads(MAX_THREADS)
+        //     for(int lfidx = 0; lfidx < featuresSelected[lidx].size(); lfidx++)
+        //     {
+        //         auto &lf = featuresSelected[lidx][lfidx];
+        //         auto &coef = cloudCoef[lidx][lf.cidx][lf.fidx];
+
+        //         // Skip if lidar coef is not assigned                 
+        //         auto   us = traj->computeTimeIndex(coef.t);
+        //         int    u  = us.first;
+        //         double s  = us.second;
+                
+        //         assert(tmin < traj->getKnotTime(u) || traj->getKnotTime(u+1) < tmax);
+        //         assert(coef.t >= 0);
+        //         assert(traj->TimeInInterval(coef.t, 1e-6));  
+                
+        //         // Calculate the factor with eigen method
+        //         GPPointToPlaneFactorTMN ldFactor(coef.f, coef.n, lidar_weight*coef.plnrty, traj->getGPMixerPtr(), s);
+        //         ldFactor.Evaluate(traj->getKnot(u), traj->getKnot(u+1));
+
+        //         int row = RES_BASE + lfidx*RES_LSIZE;
+        //         int col = paramInfoMap[traj->getKnotSO3(u).data()].xidx;
+        //         J.block<1, 2*STATE_DIM>(row, col) = ldFactor.jacobian;
+        //         r.block<1, 1          >(row, 0)  << ldFactor.residual;
+        //     }
+        // }
 
         if (compute_cost)
             cost = r.dot(r);
@@ -864,10 +882,11 @@ public:
             cost = r.dot(r);
     }
     
-    void CheckParamMarginalization(
-        double tmin, double tmax, double tmid, ParamInfoMap &paramInfo,
+    void CheckMarginalizedResAndParams(
+        double tmid, ParamInfoMap &paramInfo,
         const vector<FactorMetaPtr> &factorMetas,
-        FactorMeta &factorMetaRmvd, FactorMeta &factorMetaRtnd,
+        vector<FactorMeta> &factorMetasRmvd, vector<FactorMeta> &factorMetasRtnd,
+        FactorMeta &factorsRmvd, FactorMeta &factorsRtnd,
         vector<ParamInfo> &removed_params, vector<ParamInfo> &priored_params
     )
     {
@@ -878,7 +897,7 @@ public:
                     assert(paramInfoMap.hasParam(cp.address));
 
         // Determine removed factors
-        auto FindRemovedFactors = [&tmid](FactorMeta &factorMeta, FactorMeta &factorMetaRemoved, FactorMeta &factorMetaRetained) -> void
+        auto FindRemovedFactors = [&tmid](const FactorMeta &factorMeta, FactorMeta &factorMetaRemoved, FactorMeta &factorMetaRetained) -> void
         {
             for(int ridx = 0; ridx < factorMeta.stamp.size(); ridx++)
             {
@@ -889,9 +908,10 @@ public:
                 if (removed)
                 {
                     // factorMetaRemoved.knots_coupled = factorMeta.res[ridx].knots_coupled;
-                    if (factorMeta.res.size() != 0) factorMetaRemoved.res.push_back(factorMeta.res[ridx]);
-                    factorMetaRemoved.coupled_params.push_back(factorMeta.coupled_params[ridx]);
                     factorMetaRemoved.stamp.push_back(factorMeta.stamp[ridx]);
+                    factorMetaRemoved.coupled_params.push_back(factorMeta.coupled_params[ridx]);
+                    if (factorMeta.res.size() != 0) factorMetaRemoved.res.push_back(factorMeta.res[ridx]);
+                    if (factorMeta.coupled_coef.size() != 0) factorMetaRemoved.coupled_coef.push_back(factorMeta.coupled_coef[ridx]);
 
                     // for(int coupling_idx = 0; coupling_idx < KC; coupling_idx++)
                     // {
@@ -903,24 +923,25 @@ public:
                 }
                 else
                 {
-                    if (factorMeta.res.size() != 0) factorMetaRetained.res.push_back(factorMeta.res[ridx]);
-                    factorMetaRetained.coupled_params.push_back(factorMeta.coupled_params[ridx]);
                     factorMetaRetained.stamp.push_back(factorMeta.stamp[ridx]);
+                    factorMetaRetained.coupled_params.push_back(factorMeta.coupled_params[ridx]);
+                    if (factorMeta.res.size() != 0) factorMetaRetained.res.push_back(factorMeta.res[ridx]);
+                    if (factorMeta.coupled_coef.size() != 0) factorMetaRetained.coupled_coef.push_back(factorMeta.coupled_coef[ridx]);
                 }
             }
         };
 
-        for(auto &factorMeta : factorMetas)
+        for(int gidx = 0; gidx < factorMetas.size(); gidx++)
         {
-            FactorMeta factorMetaRmvd_, factorMetaRtnd_;
-            FindRemovedFactors(*factorMeta, factorMetaRmvd_, factorMetaRtnd_);
-            factorMetaRmvd += factorMetaRmvd_;
-            factorMetaRtnd += factorMetaRtnd_;
+            const FactorMetaPtr &factorMeta = factorMetas[gidx];
+            FindRemovedFactors(*factorMeta, factorMetasRmvd[gidx], factorMetasRtnd[gidx]);
+            factorsRmvd += factorMetasRmvd[gidx];
+            factorsRtnd += factorMetasRtnd[gidx];
         }
 
         // Find the set of params belonging to removed factors
         map<double*, ParamInfo> removed_factors_params;
-        for(auto &cpset : factorMetaRmvd.coupled_params)
+        for(auto &cpset : factorsRmvd.coupled_params)
             for(auto &cp : cpset)
             {
                 assert(paramInfoMap.hasParam(cp.address));
@@ -929,7 +950,7 @@ public:
 
         // Find the set of params belonging to the retained factors
         map<double*, ParamInfo> retained_factors_params;
-        for(auto &cpset : factorMetaRtnd.coupled_params)
+        for(auto &cpset : factorsRtnd.coupled_params)
             for(auto &cp : cpset)
             {
                 assert(paramInfoMap.hasParam(cp.address));
@@ -1054,15 +1075,9 @@ public:
     }
 
     void Marginalize(
-        ceres::Problem &problem, vector<GaussianProcessPtr> &trajs,
-        double tmin, double tmax, double tmid, ParamInfoMap &paramInfoMap,
-        const vector<FactorMetaPtr> &factorMetas,
+        vector<ParamInfo> &removed_params, vector<ParamInfo> &priored_params,
         const VectorXd RESIDUAL, const MatrixXd JACOBIAN)
     {
-        FactorMeta factorMetaRmvd, factorMetaRtnd;
-        vector<ParamInfo> removed_params, priored_params;
-        CheckParamMarginalization(tmin, tmax, tmid, paramInfoMap, factorMetas, factorMetaRmvd, factorMetaRtnd, removed_params, priored_params);
-
         // Calculate the global H and b
         SMd r = RESIDUAL.sparseView(); r.makeCompressed();
         SMd J = JACOBIAN.sparseView(); J.makeCompressed();
@@ -1147,6 +1162,19 @@ public:
             margInfo->keptParamPrior[param.address] = vector<double>();
             for(int idx = 0; idx < param.param_size; idx++)
                 margInfo->keptParamPrior[param.address].push_back(param.address[idx]);
+
+            if(param.type == ParamType::SO3)
+            {
+                Vec3 error = ((*static_pointer_cast<SO3d>(param.ptr)).inverse()
+                            *(margInfo->DoubleToSO3<double>(margInfo->keptParamPrior[param.address]))).log();
+                ROS_ASSERT_MSG(error.norm() == 0, "error.norm(): %f\n", error.norm());
+            }
+            
+            if(param.type == ParamType::RV3)
+            {
+                Vec3 error = (*static_pointer_cast<Vec3>(param.ptr) - margInfo->DoubleToRV3<double>(margInfo->keptParamPrior[param.address]));
+                ROS_ASSERT_MSG(error.norm() == 0, "error.norm(): %f\n", error.norm());
+            }
         }
 
     }
@@ -1163,7 +1191,7 @@ public:
         int max_coef_per_lidar = int(double(max_lidarcoefs)/Nlidar);
 
         // Find feature for each lidar
-        for(int lidx = 0; lidx < SwCloudCoef.size(); lidx++)
+        for(int lidx = 0; lidx < Nlidar; lidx++)
         {
             GaussianProcessPtr &traj = trajs[lidx];
 
@@ -1209,7 +1237,7 @@ public:
                         continue;
 
                     total_selected++;
-                    featureBySwStep[cidx].push_back(lidarFeaIdx(cidx, fidx, total_selected));    
+                    featureBySwStep[cidx].push_back(lidarFeaIdx(lidx, cidx, fidx, total_selected));    
                 }
             }
 
@@ -1299,7 +1327,7 @@ public:
         {
             // Add the parameter blocks for rotation
             for(int tidx = 0; tidx < trajs.size(); tidx++)
-                AddTrajParams(problem, trajs, tidx, paramInfoMap, tmin, tmax, tmid);
+                AddTrajParams(problem, tmin, tmax, tmid, trajs[tidx], tidx, paramInfoMap);
 
             // Only add extrinsic if there are multiple trajectories
             if (trajs.size() > 1)
@@ -1392,7 +1420,7 @@ public:
         FactorMeta factorMetaMp2k; MatrixXd Jmp2k; VectorXd rmp2k;
         double cost_mp2k_init = -1, cost_mp2k_final = -1;
         for(int tidx = 0; tidx < trajs.size(); tidx++)
-            AddMP2KFactors(problem, trajs[tidx], paramInfoMap, factorMetaMp2k, tmin, tmax);
+            AddMP2KFactors(problem, tmin, tmax, trajs[tidx], mp_loss_thres, paramInfoMap, factorMetaMp2k);
         // RINFO("tt_addmp2k: %f", tt_addmp2k.Toc());
 
         TicToc tt_addldr;
@@ -1400,7 +1428,7 @@ public:
         FactorMeta factorMetaLidar; MatrixXd Jldr; VectorXd rldr;
         double cost_lidar_init = -1; double cost_lidar_final = -1;
         for(int tidx = 0; tidx < trajs.size(); tidx++)
-            AddLidarFactors(problem, trajs[tidx], paramInfoMap, factorMetaLidar, cloudCoef[tidx], featuresSelected[tidx], tmin, tmax);
+            AddLidarFactors(problem, tmin, tmax, trajs[tidx], cloudCoef[tidx], featuresSelected[tidx], paramInfoMap, factorMetaLidar);
         // RINFO("tt_addldr: %f", tt_addldr.Toc());
 
         TicToc tt_addgpx;
@@ -1410,7 +1438,7 @@ public:
         // Check if each trajectory is sufficiently long
         for(int tidxx = 0; tidxx < trajs.size(); tidxx++)
             for(int tidxy = tidxx+1; tidxy < trajs.size(); tidxy++)
-                AddGPExtrinsicFactors(problem, trajs[tidxx], trajs[tidxy], R_Lx_Ly[tidxy], P_Lx_Ly[tidxy], paramInfoMap, factorMetaGpx, tmin, tmax);
+                AddGPExtrinsicFactors(problem, tmin, tmax, trajs[tidxx], trajs[tidxy], R_Lx_Ly[tidxy], P_Lx_Ly[tidxy], paramInfoMap, factorMetaGpx);
         // RINFO("tt_addgpx: %f", tt_addgpx.Toc());
 
         // Add the prior factor
@@ -1419,7 +1447,7 @@ public:
         if (fuse_marg && margInfo != NULL)
         {
             TicToc tt_pri;
-            AddPriorFactor(problem, trajs, paramInfoMap, margInfo, factorMetaPrior, tmin, tmax);
+            AddPriorFactor(problem, tmin, tmax, trajs, margInfo, paramInfoMap, factorMetaPrior);
             // RINFO("tt_pri: %f", tt_pri.Toc());
         }
 
@@ -1443,10 +1471,10 @@ public:
             // Find the initial cost
             if(compute_cost)
             {
-                Util::ComputeCeresCost(factorMetaMp2k.res,  cost_mp2k_init,  problem);
-                Util::ComputeCeresCost(factorMetaLidar.res, cost_lidar_init, problem);
-                Util::ComputeCeresCost(factorMetaGpx.res,   cost_gpx_init,   problem);
-                Util::ComputeCeresCost(factorMetaPrior.res, cost_prior_init, problem);
+                Util::ComputeCeresCost(factorMetaMp2k.res,  cost_mp2k_final,  problem);
+                Util::ComputeCeresCost(factorMetaLidar.res, cost_lidar_final, problem);
+                Util::ComputeCeresCost(factorMetaGpx.res,   cost_gpx_final,   problem);
+                Util::ComputeCeresCost(factorMetaPrior.res, cost_prior_final, problem);
             }
         }
         else
@@ -1544,6 +1572,15 @@ public:
             factorMetas.push_back(getEigenPtr(factorMetaGpx));
             factorMetaPrior.res.size() != 0 ? factorMetas.push_back(getEigenPtr(factorMetaPrior)) : (void)0;
 
+            vector<FactorMeta> factorMetasRmvd(factorMetas.size(), FactorMeta());
+            vector<FactorMeta> factorMetasRtnd(factorMetas.size(), FactorMeta());
+            FactorMeta factorsRmvd;
+            FactorMeta factorsRtnd;
+            vector<ParamInfo> removed_params, priored_params;
+            CheckMarginalizedResAndParams(tmid, paramInfoMap, factorMetas, factorMetasRmvd, factorMetasRtnd,
+                                          factorsRmvd, factorsRtnd, removed_params, priored_params);
+
+            // Evaluate the remove factors
             VectorXd RESIDUAL; MatrixXd JACOBIAN;
             if(use_ceres)
             {
@@ -1553,21 +1590,22 @@ public:
                 for (auto &paramblock : parameter_blocks)
                     problem.SetParameterBlockVariable(paramblock);
 
-                FactorMeta factorMeta;
-                ceres::Problem::EvaluateOptions e_option;
-                for(auto &fm : factorMetas)
-                    factorMeta += *fm;
+                // FactorMeta factorMeta;
+                // ceres::Problem::EvaluateOptions e_option;
+                // for(auto &fm : factorMetas)
+                //     factorMeta += *fm;
                 
                 double cost;
-                FindJrByCeres(problem, factorMeta, cost, RESIDUAL, JACOBIAN);
+                FindJrByCeres(problem, factorsRmvd, cost, RESIDUAL, JACOBIAN);
             }
             else
             {
-                EvaluateMP2KFactors(trajs, paramInfoMap, factorMetaMp2k, Jmp2k, rmp2k, cost_mp2k_final);
-                EvaluateLidarFactors(trajs, paramInfoMap, factorMetaLidar, cloudCoef, featuresSelected, tmin, tmax, Jldr, rldr, cost_lidar_final);
-                EvaluateGPExtrinsicFactors(trajs, R_Lx_Ly, P_Lx_Ly, paramInfoMap, factorMetaGpx, Jgpx, rgpx, cost_gpx_final);
-                if(fuse_marg && margInfo != NULL) EvaluatePriorFactor(paramInfoMap, margInfo, factorMetaPrior, Jpri, rpri, cost_prior_final);
-                
+
+                EvaluateMP2KFactors(trajs, paramInfoMap, factorMetasRmvd[0], Jmp2k, rmp2k, cost_mp2k_final);
+                EvaluateLidarFactors(trajs, paramInfoMap, factorMetasRmvd[1], cloudCoef, featuresSelected, tmin, tmax, Jldr, rldr, cost_lidar_final);
+                EvaluateGPExtrinsicFactors(trajs, R_Lx_Ly, P_Lx_Ly, paramInfoMap, factorMetasRmvd[2], Jgpx, rgpx, cost_gpx_final);
+                if(fuse_marg && margInfo != NULL) EvaluatePriorFactor(paramInfoMap, margInfo, factorMetasRmvd[3], Jpri, rpri, cost_prior_final);
+         
                 summary.final_cost = cost_mp2k_final  > 0 ? cost_mp2k_final  : 0
                                    + cost_lidar_final > 0 ? cost_lidar_final : 0
                                    + cost_gpx_final   > 0 ? cost_gpx_final   : 0
@@ -1592,7 +1630,8 @@ public:
                     RINFO(KRED "ERROR: Marginalization not possible!" RESET);
             }
 
-            Marginalize(problem, trajs, tmin, tmax, tmid, paramInfoMap, factorMetas, RESIDUAL, JACOBIAN);
+            // Do the Schur complement to find prior factor
+            Marginalize(removed_params, priored_params, RESIDUAL, JACOBIAN);
             report.marginalization_done = true;
         }
         else

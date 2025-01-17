@@ -153,7 +153,7 @@ public:
     vector<double> stamp; // Time of the factor
     vector<ceres::ResidualBlockId> res;
     vector<vector<ParamInfo>> coupled_params;
-    vector<shared_ptr<void>> coupled_coef;
+    vector<shared_ptr<const void>> coupled_coef;
 
     FactorMeta() {};
     FactorMeta(const FactorMeta &other)

@@ -51,8 +51,8 @@ public:
     Vec3T V;
     Vec3T A;
 
-    // Destructor
-    ~GPState(){};
+    // // Destructor
+    // ~GPState(){};
     
     // Constructor
     GPState()
@@ -150,8 +150,8 @@ private:
 
 public:
 
-    // Destructor
-   ~GPMixer() {};
+//     // Destructor
+//    ~GPMixer() {};
 
     // Constructor
     GPMixer(double dt_, const Mat3 SigGa_, const Mat3 SigNu_) : dt(dt_), SigGa(SigGa_), SigNu(SigNu_) {};
@@ -952,8 +952,8 @@ private:
 
 public:
 
-    // Destructor
-    ~GaussianProcess(){};
+    // // Destructor
+    // ~GaussianProcess(){};
 
     // Constructor
     GaussianProcess(double dt_, Mat3 SigGa_, Mat3 SigNu_, bool keepCov_=false)
@@ -1563,7 +1563,7 @@ template <class Groupd>
 class GPSO3LocalParameterization : public ceres::LocalParameterization
 {
 public:
-    virtual ~GPSO3LocalParameterization() {}
+    // virtual ~GPSO3LocalParameterization() {}
 
     using Tangentd = typename Groupd::Tangent;
 
