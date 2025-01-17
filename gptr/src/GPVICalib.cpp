@@ -305,17 +305,15 @@ void processData(GaussianProcessPtr traj, GPMVICalibPtr gpmui, std::map<int, Eig
                         CIBuf.corner_data_cam0, CIBuf.corner_data_cam1, corner_pos_3d, w_corner, GYR_N, ACC_N, GYR_W, ACC_W, corner_loss_thres, mp_loss_thres, false);
         tt_solve.Toc();
 
-        //         // Step 4: Report, visualize
-        //         printf("Traj: %f. Sw: %.3f -> %.3f. Buf: %d, %d, %d. Num knots: %d\n",
-        //                 traj->getMaxTime(), swUIBuf.minTime(), swUIBuf.maxTime(),
-        //                 UIBuf.tdoaBuf.size(), UIBuf.tofBuf.size(), UIBuf.imuBuf.size(), traj->getNumKnots());
         for (int i = 0; i < 2; i++)
         {
             std::cout << "Ric"   << i << ": \n" << cam_calib->T_i_c[i].so3().matrix() << std::endl;
             std::cout << "tic"   << i << ": \n" << cam_calib->T_i_c[i].translation().transpose() << std::endl;
             std::cout << "param" << i << ": \n" << cam_calib->intrinsics[i].getParam().transpose() << std::endl;
         }
-        std::cout << "ba: " << ba.transpose() << " bg: " << bg.transpose() << " g: " << g.transpose() << std::endl;
+        std::cout << "ba: " << ba.transpose() << endl;
+        std::cout << "bg: " << bg.transpose() << endl;
+        std::cout << "g : " << g.transpose()  << endl;
 
         // Visualize knots
         pcl::PointCloud<pcl::PointXYZ> est_knots;
@@ -324,15 +322,23 @@ void processData(GaussianProcessPtr traj, GPMVICalibPtr gpmui, std::map<int, Eig
             Eigen::Vector3d knot_pos = traj->getKnotPose(i).translation();
             est_knots.points.push_back(pcl::PointXYZ(knot_pos.x(), knot_pos.y(), knot_pos.z()));
         }
-        RosPc2Msg knot_msg;
-        pcl::toROSMsg(est_knots, knot_msg);
-        knot_msg.header.stamp = rclcpp::Clock().now();
-        knot_msg.header.frame_id = "map";
-        knot_pub->publish(knot_msg);
 
-        gt_path_pub->publish(gt_path);
-        publishCornerPos(corner_pos_3d);
-        break;
+            RosPc2Msg knot_msg;
+            pcl::toROSMsg(est_knots, knot_msg);
+
+        while(rclcpp::ok())
+        {           
+            publishCornerPos(corner_pos_3d);
+
+            gt_path.header.stamp = rclcpp::Clock().now();
+            gt_path_pub->publish(gt_path);
+
+            knot_msg.header.stamp = rclcpp::Clock().now();
+            knot_msg.header.frame_id = "map";
+            knot_pub->publish(knot_msg);
+
+            this_thread::sleep_for(chrono::milliseconds(100));
+        }
     }
 }
 

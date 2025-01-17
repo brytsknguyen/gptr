@@ -275,7 +275,7 @@ public:
 
             paramInfoMap.insert(XBIG.data(), ParamInfo(XBIG.data(), getEigenPtr(XBIG), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
             paramInfoMap.insert(XBIA.data(), ParamInfo(XBIA.data(), getEigenPtr(XBIA), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
-            paramInfoMap.insert(g.data(), ParamInfo(g.data(), getEigenPtr(g), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
+            paramInfoMap.insert(g.data(),    ParamInfo(g.data(),    getEigenPtr(g),    ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
 
             ceres::LocalParameterization *so3parameterization = new GPSO3dLocalParameterization();
 
@@ -351,7 +351,7 @@ public:
         FactorMeta factorMetaProjCam0;
         double cost_proj_init0 = -1;
         double cost_proj_final0 = -1;
-        AddProjFactors(problem, tmin, tmax, traj, cam_calib, corner_data_cam1, corner_pos_3d, 0, w_corner, corner_loss_thres, paramInfoMap, factorMetaProjCam0);
+        AddProjFactors(problem, tmin, tmax, traj, cam_calib, corner_data_cam0, corner_pos_3d, 0, w_corner, corner_loss_thres, paramInfoMap, factorMetaProjCam0);
 
         FactorMeta factorMetaProjCam1;
         double cost_proj_init1 = -1;
@@ -376,6 +376,9 @@ public:
         Util::ComputeCeresCost(factorMetaProjCam0.res, cost_proj_final0, problem);
         Util::ComputeCeresCost(factorMetaProjCam1.res, cost_proj_final1, problem);
         Util::ComputeCeresCost(factorMetaIMU.res, cost_imu_final, problem);
+
+        RINFO("Factors: MP2K: %d, Proj0: %d, Proj1: %d, IMU: %d.",
+              factorMetaMp2k.size(), factorMetaProjCam0.size(), factorMetaProjCam1.size(), factorMetaIMU.size());
 
         tt_slv.Toc();
     }
