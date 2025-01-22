@@ -181,6 +181,25 @@ install(TARGETS
 # endregion Lidar Fusion ----------------------------------------------------------------------------------------------
 
 
+# Test
+add_executable(${PROJECT_NAME}_testlie src/testLie.cpp)
+target_include_directories(${PROJECT_NAME}_testlie PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+ament_target_dependencies(${PROJECT_NAME}_testlie
+  rclcpp
+  pcl_conversions
+  Sophus
+  tf2_ros
+  visualization_msgs
+  sensor_msgs std_msgs geometry_msgs nav_msgs tf2_msgs
+)
+target_compile_options(${PROJECT_NAME}_testlie PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
+target_link_libraries(${PROJECT_NAME}_testlie ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS} fmt::fmt)
+# Link the executable to the workspace library
+install(TARGETS
+  ${PROJECT_NAME}_testlie
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 
 # Link the launch folder between the shared and the code
 install(DIRECTORY

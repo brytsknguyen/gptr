@@ -1176,80 +1176,80 @@ int main(int argc, char **argv)
 
     // Test the jacobian internals
     {
-        Matrix3d DJrXVA_DX_analytic = gmp.DJrXV_DX(X, V);
-        Matrix3d DJrXVA_DX_autodiff;
-        DJrXVA_DX_autodiff
+        Matrix3d DJrUV_DU_analytic = gmp.DJrUV_DU(X, V);
+        Matrix3d DJrUV_DU_autodiff;
+        DJrUV_DU_autodiff
           <<  1.4795693330913913078012550976876, -0.09272692763418464904582492184798, -0.60125453973064792810535942193768,
              -0.2078396293352800836208836614803,  2.106797535770925924175386355789,   -0.13284986373953439932235327939372,
              -1.0285119629145335820195952420107, -0.2735388145177689190297496754912,   0.11676300088524277297144403964954;
 
-        printf("DJrXVA_DX_analytic error: %f\n",
-               (DJrXVA_DX_analytic - DJrXVA_DX_autodiff).cwiseAbs().maxCoeff());
-        cout << DJrXVA_DX_analytic << endl;
+        printf("DJrUV_DU_analytic error: %f\n",
+               (DJrUV_DU_analytic - DJrUV_DU_autodiff).cwiseAbs().maxCoeff());
+        cout << DJrUV_DU_analytic << endl;
 
 
 
-        Matrix3d DDJrXVA_DXDX_analytic = gmp.DDJrXVA_DXDX(X, V, A);
-        Matrix3d DDJrXVA_DXDX_autodiff;
-        DDJrXVA_DXDX_autodiff
+        Matrix3d DDJrUVW_DUDU_analytic = gmp.DDJrUVW_DUDU(X, V, A);
+        Matrix3d DDJrUVW_DUDU_autodiff;
+        DDJrUVW_DUDU_autodiff
           << -0.16628561001097342169099087651306,  8.7415558053382500878863515533626,   21.68743802346549542495135587745,
               2.1985844499890389278582167128789,  -8.7635373891101820685190252965589,   0.31275656668973516839002466049998,
              -1.3623292065783150943538504915428,  -0.26089688300928635412337970935968, -6.6683728805496298190367494634219;
 
-        printf("DDJrXVA_DXDX_analytic error: %f\n",
-               (DDJrXVA_DXDX_analytic - DDJrXVA_DXDX_autodiff).cwiseAbs().maxCoeff());
-        cout << DDJrXVA_DXDX_analytic << endl;
+        printf("DDJrUVW_DUDU_analytic error: %f\n",
+               (DDJrUVW_DUDU_analytic - DDJrUVW_DUDU_autodiff).cwiseAbs().maxCoeff());
+        cout << DDJrUVW_DUDU_analytic << endl;
 
 
 
-        Matrix3d DDJrXVA_DXDV_analytic = gmp.DDJrXVA_DXDV(X, V, A);
-        Matrix3d DDJrXVA_DXDV_autodiff;
-        DDJrXVA_DXDV_autodiff
+        Matrix3d DDJrUVW_DUDV_analytic = gmp.DDJrUVW_DUDV(X, V, A);
+        Matrix3d DDJrUVW_DUDV_autodiff;
+        DDJrUVW_DUDV_autodiff
           << 1.8341786490550746913724895583765,  0.72667635330926210250901007030542, -0.58355483236312445440819761247303,
             -1.105371216325137374863550131557,   1.0826099595468673186725431630753,  -0.5789402725088745785550416913433,
              0.3565297928789546325090220978397, -1.3046627728062866767984473282304,   0.57052930243532971888228331378519;
 
-        printf("DDJrXVA_DXDV_analytic error: %f\n",
-               (DDJrXVA_DXDV_analytic - DDJrXVA_DXDV_autodiff).cwiseAbs().maxCoeff());
-        cout << DDJrXVA_DXDV_analytic << endl;
+        printf("DDJrUVW_DUDV_analytic error: %f\n",
+               (DDJrUVW_DUDV_analytic - DDJrUVW_DUDV_autodiff).cwiseAbs().maxCoeff());
+        cout << DDJrUVW_DUDV_analytic << endl;
 
 
 
-        Matrix3d DJrInvXV_DX_analytic = gmp.DJrInvXV_DX(X, V);
-        Matrix3d DJrInvXV_DX_autodiff;
-        DJrInvXV_DX_autodiff
+        Matrix3d DJrInvUV_DU_analytic = gmp.DJrInvUV_DU(X, V);
+        Matrix3d DJrInvUV_DU_autodiff;
+        DJrInvUV_DU_autodiff
           <<  53.850477114916400753611771760056,  128.29236486057202749493046758121,  230.1945527540237207146427817569,
              -125.85089351206730209166669504274, -210.15361822396008007225049065689, -306.92185420033828389935326258456,
               62.016904967876696903384730702615,  43.162622478265109060739271800087,  70.152538431552944140723451235805;
-        printf("DJrInvXV_DX_analytic error: %f\n",
-               (DJrInvXV_DX_analytic - DJrInvXV_DX_autodiff).cwiseAbs().maxCoeff());
-        cout << DJrInvXV_DX_analytic << endl;
+        printf("DJrInvUV_DU_analytic error: %f\n",
+               (DJrInvUV_DU_analytic - DJrInvUV_DU_autodiff).cwiseAbs().maxCoeff());
+        cout << DJrInvUV_DU_analytic << endl;
 
 
 
-        Matrix3d DDJrInvXV_DXDX_analytic = gmp.DDJrInvXVA_DXDX(X, V, A);
-        Matrix3d DDJrInvXV_DXDX_autodiff;
-        DDJrInvXV_DXDX_autodiff
+        Matrix3d DDJrInvUV_DUDX_analytic = gmp.DDJrInvUVW_DUDU(X, V, A);
+        Matrix3d DDJrInvUV_DUDX_autodiff;
+        DDJrInvUV_DUDX_autodiff
           << -6604.1192221875057982056387635241, -11742.978198354910825157363234684, -23023.800403371279667546327746653,
               11716.420889581207373357214899501,   19044.19517655420675726016405003,  30943.951304134615906701614255486,
              -4275.5969103108402017377943730546, -4438.3051006541123211015442832802, -7571.1236170508494051731665778526;
 
-        printf("DDJrInvXV_DXDX_analytic error: %f\n",
-               (DDJrInvXV_DXDX_analytic - DDJrInvXV_DXDX_autodiff).cwiseAbs().maxCoeff());
-        cout << DDJrInvXV_DXDX_analytic << endl;
+        printf("DDJrInvUV_DUDX_analytic error: %f\n",
+               (DDJrInvUV_DUDX_analytic - DDJrInvUV_DUDX_autodiff).cwiseAbs().maxCoeff());
+        cout << DDJrInvUV_DUDX_analytic << endl;
 
 
 
-        Matrix3d DDJrInvXVA_DXDV_analytic = gmp.DDJrInvXVA_DXDV(X, V, A);
-        Matrix3d DDJrInvXVA_DXDV_autodiff;
-        DDJrInvXVA_DXDV_autodiff
+        Matrix3d DDJrInvUVW_DUDV_analytic = gmp.DDJrInvUVW_DUDV(X, V, A);
+        Matrix3d DDJrInvUVW_DUDV_autodiff;
+        DDJrInvUVW_DUDV_autodiff
           << -1085.5492170614632570397368917895,  158.93672159037582796317033606738,  327.51773574524891872295703546664,
               182.93672159037582796317033606738, -972.94238057172044072848333021843,  440.42162827351622385147861947185,
               320.51773574524891872295703546664,  455.42162827351622385147861947185, -359.65343067039712832221988250374;
     
-        printf("DDJrInvXVA_DXDV_analytic error: %f\n",
-               (DDJrInvXVA_DXDV_analytic - DDJrInvXVA_DXDV_autodiff).cwiseAbs().maxCoeff());
-        cout << DDJrInvXVA_DXDV_analytic << endl;
+        printf("DDJrInvUVW_DUDV_analytic error: %f\n",
+               (DDJrInvUVW_DUDV_analytic - DDJrInvUVW_DUDV_autodiff).cwiseAbs().maxCoeff());
+        cout << DDJrInvUVW_DUDV_analytic << endl;
     }
 
 

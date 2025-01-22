@@ -68,16 +68,12 @@ public:
 
     Matrix3d Jr(const Vec3 &phi) const
     {
-        Matrix3d Jr;
-        Sophus::rightJacobianSO3(phi, Jr);
-        return Jr;
+        return SO3d::leftJacobian(-phi);
     }
 
     Matrix3d JrInv(const Vec3 &phi) const
     {
-        Matrix3d Jr;
-        Sophus::rightJacobianInvSO3(phi, Jr);
-        return Jr;
+        return SO3d::leftJacobianInverse(-phi);;
     }
 
     // Increment

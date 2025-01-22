@@ -1529,6 +1529,9 @@ int main(int argc, char **argv)
             SW_CLOUDSTEP_NOW = SW_CLOUDSTEP_NXT;
             SW_END_PREV = SW_END;
 
+            if (SW_END == int(cloudsx[0].size())-1)
+                break;
+
             // Update map
             if(priormap_file == "none")
             {
@@ -1615,5 +1618,8 @@ int main(int argc, char **argv)
     }
 
     /* #endregion Create some logs for visualization ----------------------------------------------------------------*/
- 
+
+    // A happy exit
+
+    exit(0);
 }

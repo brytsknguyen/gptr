@@ -67,7 +67,7 @@ public:
         Vec3T Theb = Rab.log();
 
         Mat3T JrInvTheb = gpm->JrInv(Theb);
-        Mat3T DJrInvThebOb_DTheb = gpm->DJrInvXV_DX(Theb, Xb.O);
+        Mat3T DJrInvThebOb_DTheb = gpm->DJrInvUV_DU(Theb, Xb.O);
 
         Vec3T Thedotb = JrInvTheb*Xb.O;
         Vec3T Theddotb = DJrInvThebOb_DTheb*Thedotb + JrInvTheb*Xb.S;

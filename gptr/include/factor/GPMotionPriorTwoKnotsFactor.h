@@ -61,7 +61,7 @@ public:
         Vec3 Theb = Rab.log();
 
         Mat3 JrInvTheb = gpm->JrInv(Theb);
-        Mat3 DJrInvThebOb_DTheb = gpm->DJrInvXV_DX(Theb, Xb.O);
+        Mat3 DJrInvThebOb_DTheb = gpm->DJrInvUV_DU(Theb, Xb.O);
 
         Vec3 Thedotb = JrInvTheb*Xb.O;
         Vec3 Theddotb = DJrInvThebOb_DTheb*Thedotb + JrInvTheb*Xb.S;
@@ -105,19 +105,19 @@ public:
         Mat3 DTheb_DRa = -JrInvTheb*Rab.inverse().matrix();
         Mat3 DTheb_DRb =  JrInvTheb;
 
-        Mat3 DThedotb_DTheb = gpm->DJrInvXV_DX(Theb, Xb.O);
+        Mat3 DThedotb_DTheb = gpm->DJrInvUV_DU(Theb, Xb.O);
         Mat3 DThedotb_DRa = DThedotb_DTheb*DTheb_DRa;
         Mat3 DThedotb_DRb = DThedotb_DTheb*DTheb_DRb;
 
-        Mat3 DJrInvThebSb_DTheb = gpm->DJrInvXV_DX(Theb, Xb.S);
-        // Mat3 DJrInvThebOb_DTheb = gpm->DJrInvXV_DX(Theb, Xb.O);
-        Mat3 DDJrInvThebObThedotb_DThebDTheb = gpm->DDJrInvXVA_DXDX(Theb, Xb.O, Thedotb);
+        Mat3 DJrInvThebSb_DTheb = gpm->DJrInvUV_DU(Theb, Xb.S);
+        // Mat3 DJrInvThebOb_DTheb = gpm->DJrInvUV_DU(Theb, Xb.O);
+        Mat3 DDJrInvThebObThedotb_DThebDTheb = gpm->DDJrInvUVW_DUDU(Theb, Xb.O, Thedotb);
         
         Mat3 DTheddotb_DTheb = DJrInvThebSb_DTheb + DDJrInvThebObThedotb_DThebDTheb + DJrInvThebOb_DTheb*DJrInvThebOb_DTheb;
         Mat3 DTheddotb_DRa = DTheddotb_DTheb*DTheb_DRa;
         Mat3 DTheddotb_DRb = DTheddotb_DTheb*DTheb_DRb;
 
-        Mat3 DDJrInvThebObThedotb_DThebDOb = gpm->DDJrInvXVA_DXDV(Theb, Xb.O, Thedotb);
+        Mat3 DDJrInvThebObThedotb_DThebDOb = gpm->DDJrInvUVW_DUDV(Theb, Xb.O, Thedotb);
         Mat3 DTheddotb_DOb = DDJrInvThebObThedotb_DThebDOb + DJrInvThebOb_DTheb*JrInvTheb;        
 
         size_t idx;
