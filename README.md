@@ -86,11 +86,9 @@ Please use the scripts `analysis_cathhs.ipynb` and `analysis_sim.ipynb` to evalu
 
 Please download the [UTIL](https://utiasdsl.github.io/util-uwb-dataset/) (TDoA-inertial) dataset.
 
-Change `bag_file` and `anchor_path` in `gptr/launch/run_util.launch` according to your own path.
-
-For ROS1 users, please run
+For ROS1 users, please run with the correct path to the directory containing the extracted dataset:
 ```
-roslaunch gptr run_util.launch
+roslaunch gptr run_util.launch path:=/path/to/UTIL
 ```
 For ROS2 users, please first convert the UTIL dataset to ROS2 bag using `ros2bag_convert_util.sh` from [SFUISE2](https://github.com/ASIG-X/SFUISE2) and run
 ```

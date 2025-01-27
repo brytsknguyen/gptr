@@ -2,9 +2,10 @@
 <launch>
 
     <!-- Name of the UWB sequence -->
-    <arg name="bag_file" default="/media/tmn/mySataSSD1/DATASETS/UTIL_DATASETS/dataset/flight-dataset/rosbag-data/const1/const1-trial1-tdoa2.bag"/>
-    <arg name="anchor_path" default="/media/tmn/mySataSSD1/DATASETS/UTIL_DATASETS/dataset/flight-dataset/survey-results/anchor_const1_survey.txt"/>
-    <arg name="result_save_path" default="/home/kailai/Documents/results/gptr/c1/"/>
+    <arg name="path" default="/media/tmn/mySataSSD1/DATASETS/UTIL_DATASETS"/>
+    <arg name="bag_file" default="$(arg path)/dataset/flight-dataset/rosbag-data/const1/const1-trial1-tdoa2.bag"/>
+    <arg name="anchor_path" default="$(arg path)/dataset/flight-dataset/survey-results/anchor_const1_survey.txt"/>
+    <arg name="result_save_path" default="$(arg path)/results/gptr/c1/"/>
 
     <!-- Launch the uwb imu fusion node -->
     <node pkg="gptr" type="gptr_ui" name="gptr_ui" output="screen">
