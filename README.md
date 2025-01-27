@@ -58,7 +58,7 @@ source ~/gptr_ws/devel/setup.bash
 roslaunch gptr run_lio_sim.launch path:=/path/to/cloud_avia_mid_dynamic_extrinsics
 ```
 
-You should see the following visualization from rviz.
+You should see the following visualization in rviz.
 
 <img src="docs/sim.gif" alt="synthetic_exp" width="600"/>
 
@@ -66,7 +66,13 @@ You should see the following visualization from rviz.
 
 Similar to the synthetic dataset, please download the data and the prior map from [here](https://drive.google.com/file/d/1QId8X4LFxYdYewHSBXiDEAvpIFD8w-ei/view?usp=sharing).
 
-Then specify the paths to the data and prior map in `gptr/launch/run_lio_cathhs_iot.launch` before roslaunch. You should see the following illustration.
+Launch the experiment with `run_lio_cathhs_iot.launch`, ensuring that you set the path to the extracted folder correctly.
+```
+source ~/gptr_ws/devel/setup.bash
+roslaunch gptr run_lio_cathhs_iot.launch path:=/path/to/cathhs_07
+```
+
+You should see the following visualization in rviz.
 
 <img src="docs/cathhs.gif" alt="cathhs_exp" width="600"/>
 

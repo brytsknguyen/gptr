@@ -11,8 +11,11 @@
     <!-- <arg name="sequence" default="cathhs_03"/> -->
     <!-- <arg name="sequence" default="cathhs_04"/> -->
 
+    <!-- Path -->
+    <arg name="path" default="/media/tmn/mySataSSD1/Experiments/gptr"/>
+
     <!-- Bag file -->
-    <arg name="lidar_bag_file" value="/media/tmn/mySataSSD1/Experiments/gptr/$(arg sequence)/"/>
+    <arg name="lidar_bag_file" value="$(arg path)"/>
 
     <!-- Initial start time of each sequence -->
     <!-- <arg name="skipped_time" value="3.5"  if="$(eval 'cathhs_06' in sequence)"/> -->
@@ -23,7 +26,7 @@
                                      0.2, 0, -0.2, 0, 90, 0 ]"/>
 
     <!-- Direction to log the exp -->
-    <arg name="log_dir" value="/media/tmn/mySataSSD1/Experiments/gptr/logs/lio/cathhs_exp/$(arg sequence)_gptr_two_lidar"/>
+    <arg name="log_dir" value="$(arg path)/logs/lio/cathhs_exp/$(arg sequence)_gptr_two_lidar"/>
 
     <!-- Multi-lidar motion estimation node -->
     <node required="false" pkg="gptr" type="gptr_lo" name="gptr_lo" output="screen"
@@ -31,7 +34,7 @@
           <!-- launch-prefix="gdb -ex run - -args"> -->
 
         <!-- Location of the prior map -->
-        <param name="priormap_file"   value="/media/tmn/mySataSSD1/Experiments/gptr/cathhs_iot_prior_2cm.pcd"/>
+        <param name="priormap_file"   value="$(arg path)/cathhs_iot_prior_2cm.pcd"/>
 
         <!-- Location of bag file -->
         <param name="lidar_bag_file"  value="$(arg lidar_bag_file)"/>
