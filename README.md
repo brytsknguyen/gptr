@@ -4,15 +4,25 @@
 
 ### ROS 1 User
 * Install Ubuntu 20.04 and ROS NOETIC
-* Checkout the master branch
-* Please catkin build [SFUISE](https://github.com/ASIG-X/SFUISE) in your workspace to have the cf_msg, which is required in gptr.
-* Please install Ceres 2.0 and sophus
+* Please install depencies, including Ceres Solver (1.14) and sophus
   ```
   sudo apt install libfmt-dev # may be required as a dependency of sophus
   sudo apt install ros-noetic-sophus
   sudo apt install libceres-dev
   ```
-* Git clone and catkin build the repo.
+* Create a catkin workspace with [SFUISE](https://github.com/ASIG-X/SFUISE) (main branch) for the `cf_msgs` dependency, and [GPTR](https://github.com/brytsknguyen/gptr) (master branch)
+  ```
+  mkdir -p ~/gptr_ws/src && cd ~/gptr_ws
+  catkin init
+  cd src
+  git clone git@github.com:ASIG-X/SFUISE.git
+  git clone git@github.com:brytsknguyen/gptr.git
+  ```
+* Build the repo:
+  ```
+  cd ~/gptr_ws
+  catkin build gptr
+  ```
 
 ### ROS 2 User
 * Install Ubuntu 22.04 and ROS HUMBLE
