@@ -107,10 +107,10 @@ For comparison, a baseline approach based on ESKF is available in the paper of U
 
 ## Testing on visual-inertial estimation and calibration
 <img src="/docs/vicalib.gif" width="600"/>
-Run the following command from terminal
 
+Run the following command from terminal, changing the path as desired:
 ```
-roslaunch gptr run_vicalib.launch
+roslaunch gptr run_vicalib.launch result_save_path:=/path/to/results
 ```
 This dataset is converted from the original one in [here](https://gitlab.com/tum-vision/lie-spline-experiments).
 
