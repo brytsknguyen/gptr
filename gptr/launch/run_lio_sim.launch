@@ -8,8 +8,11 @@
     <!-- Sequence -->
     <arg name="sequence" default="cloud_avia_mid_dynamic_extrinsics"/>
 
+    <!-- Path -->
+    <arg name="path" default="/media/tmn/mySataSSD1/Experiments/gptr"/>
+
     <!-- Bag file -->
-    <arg name="lidar_bag_file" value="/media/tmn/mySataSSD1/Experiments/gptr/$(arg sequence)/"/>
+    <arg name="lidar_bag_file" value="$(arg path)/$(arg sequence)"/>
                                      
     <!-- Initial start time of each sequence -->
     <arg name="skipped_time" value="0"/>
@@ -19,7 +22,7 @@
                                     -0.3, -0.3, 0.55, -134, 0,  0 ]"/>
 
     <!-- Direction to log the exp -->
-    <arg name="log_dir" value="/media/tmn/mySataSSD1/Experiments/gptr/logs/lio/sim_exp/sim_$(arg sequence)_gptr_two_lidar/"/>
+    <arg name="log_dir" value="$(arg path)/logs/lio/sim_exp/sim_$(arg sequence)_gptr_two_lidar/"/>
 
     <!-- Multi-lidar motion estimation node -->
     <node required="false" pkg="gptr" type="gptr_lo" name="gptr_lo" output="screen"
@@ -27,7 +30,7 @@
           <!-- launch-prefix="gdb -ex run - -args"> -->
 
         <!-- Location of the prior map -->
-        <param name="priormap_file"   value="/media/tmn/mySataSSD1/Experiments/gptr/sim_priormap.pcd"/>
+        <param name="priormap_file"   value="$(arg path)/sim_priormap.pcd"/>
 
         <!-- Location of bag file -->
         <param name="lidar_bag_file"  value="$(arg lidar_bag_file)"/>

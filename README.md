@@ -52,7 +52,13 @@ Please raise an issue should you encounter any issue with the compilation of the
 
 You can download and unzip the file `cloud_avia_mid_dynamic_extrinsics` from [here](https://drive.google.com/file/d/1Q5fTn5OvWd_I2RvVfiUKir90q5HshzQM/view?usp=sharing). It contains the pointclouds and the prior map for the experiment.
 
-After that, modify the path to the data and prior map in `run_sim.launch` and launch it. You should see the following visualization from rviz.
+Launch the experiment with `run_lio_sim.launch`, ensuring that you set the path to the extracted folder correctly.
+```
+source ~/gptr_ws/devel/setup.bash
+roslaunch gptr run_lio_sim.launch path:=/path/to/cloud_avia_mid_dynamic_extrinsics
+```
+
+You should see the following visualization from rviz.
 
 <img src="docs/sim.gif" alt="synthetic_exp" width="600"/>
 
