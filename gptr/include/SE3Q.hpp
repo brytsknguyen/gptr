@@ -786,7 +786,7 @@ public:
                 Vec3T fXiW = fXi*W;
                 T UbtpX = Ubtp.dot(X);
 
-                S1 += fXiW* Jdg_U + dfXi_W_dU*g;
+                S1  += fXiW*Jdg_U + dfXi_W_dU*g;
                 C11 += dfXi_W_dU*(Jdg_U*X) + fXiW*Jddg_U*UbtpX + fXiW*Xtp*dg*JUb + ddfXiW_X_dUdU*g + dfXi_W_dU*X*Jdg_U;
                 C12 += dfXi_W_dV*(Jdg_U*X) + ddfXiW_X_dUdV*g;
                 C13 += fXi*(Jdg_U*X) + ddfXiW_X_dUdW*g;
@@ -800,7 +800,7 @@ public:
                 Vec3T fXiW = fXi*W;
                 T UbtpX = Ubtp.dot(X);
 
-                S2 += dfXi_W_dV*g;
+                S2  += dfXi_W_dV*g;
                 C21 += ddfXiW_X_dVdU*g + dfXi_W_dV*Jdg_U;
                 C22 += ddfXiW_X_dVdV*g;
                 C23 += ddfXiW_X_dVdW*g;
@@ -3896,7 +3896,7 @@ public:
                 Vec3T fXiW = fXi*W;
                 T UbtpX = Ubtp.dot(X);
 
-                S1 += fXiW* Jdg_U + dfXi_W_dU*g;
+                S1  += fXiW*Jdg_U + dfXi_W_dU*g;
                 C11 += dfXi_W_dU*(Jdg_U*X) + fXiW*Jddg_U*UbtpX + fXiW*Xtp*dg*JUb + ddfXiW_X_dUdU*g + dfXi_W_dU*X*Jdg_U;
                 C12 += dfXi_W_dV*(Jdg_U*X) + ddfXiW_X_dUdV*g;
                 C13 += fXi*(Jdg_U*X) + ddfXiW_X_dUdW*g;
@@ -3910,7 +3910,7 @@ public:
                 Vec3T fXiW = fXi*W;
                 T UbtpX = Ubtp.dot(X);
 
-                S2 += dfXi_W_dV*g;
+                S2  += dfXi_W_dV*g;
                 C21 += ddfXiW_X_dVdU*g + dfXi_W_dV*Jdg_U;
                 C22 += ddfXiW_X_dVdV*g;
                 C23 += ddfXiW_X_dVdW*g;

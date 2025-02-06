@@ -1,6 +1,6 @@
 #include "utility.h"
-// #include "SophusExtras.hpp"
 #include "GaussianProcess.hpp"
+#include "SE3Q.hpp"
 
 using namespace Eigen;
 using namespace std;
@@ -44,10 +44,15 @@ int main(int argc, char **argv)
     cout << "HX_XXd_direct\n" << HX_XXd_direct << endl;
     cout << "HX_XXd_circle\n" << HX_XXd_circle << endl;   
 
-    // Matrix3d DJrUV_DU_analytic = GPMixer::DJrUV_DU(X, Xd);
-    // Matrix3d DJrInvXVA_DX_analytic = GPMixer::DJrInvUV_DU(X, O);
 
-    // cout << "Hu(u,v)\n" << DJrUV_DU_analytic << endl;
-    // cout << "O\n" << O << endl;
-    // cout << "Hu(u,w)\n" << DJrInvXVA_DX_analytic << endl;
+    SE3Q<double> myQ;
+    SE3Q<double> myQp;
+
+    Vector3d The(4.3, 5.7, 91.0);
+    Vector3d Rho(11.02, 03.04, 26.0);
+    Vector3d Thed(7.1, 10.1, 10.0);
+    Vector3d Rhod(3.3, 60.05, 26);
+    Vector3d Omg = GPMixer::Jr(X)*The;
+    
+    myQ.ComputeQSC(The, Rho, Thed, Rhod);
 }

@@ -9,8 +9,11 @@
 #include <Eigen/Dense>
 
 // Sophus
+#include <sophus/so3.hpp>
 #include <sophus/se3.hpp>
-// #include <SophusExtras.hpp>
+
+// Include the library for Q matrix
+#include <SE3Q.hpp>
 
 // Ceres parameterization
 #include <ceres/ceres.h>
@@ -407,7 +410,7 @@ public:
         // if (The.norm() < DOUBLE_EPSILON)
         //     return Eigen::Matrix<T, 3, 3>::Identity() + 0.5*Sophus::SO3<T>::hat(The) + 1.0/12*hatSquare(The);
 
-        return Sophus::SO3<T>::leftJacobianInverse(-The);;
+        return Sophus::SO3<T>::leftJacobianInverse(-The);
     }
 
     // For calculating HThe_
@@ -671,6 +674,120 @@ public:
 
     /* #region Lie operations for SE3 --------------------------------------------------------------------------------------------------------------------------------*/
 
+
+    // Q matrix of SE3 right Jacobian
+    template <class T = double>
+    static Eigen::Matrix<T, 3, 3> ComputeQAndJacobians(const Eigen::Matrix<T, 6, 1> &Xi, const Eigen::Matrix<T, 6, 1> &Xid, const Eigen::Matrix<T, 6, 1> &Tau)
+    {
+        using SO3T  = Sophus::SO3<T>;
+        using Vec3T = Eigen::Matrix<T, 3, 1>;
+        using Mat3T = Eigen::Matrix<T, 3, 3>;
+
+        Vec3T The = Xi.template head<3>();
+        Vec3T Rho = Xi.template tail<3>();
+
+        Vec3T Thed = Xid.template head<3>();
+        Vec3T Rhod = Xid.template tail<3>();
+
+        Vec3T Omg = Tau.template head<3>();
+        Vec3T Nu  = Tau.template tail<3>();
+
+        T u = The.norm();
+        T up[8];
+        for(int idx = 0; idx <= 7; idx++)
+            up[idx] = pow(u, idx);
+        
+        T Su = sin(u);
+        T Cu = cos(u);
+
+        // Polynomials of JrInv
+        T dg1_du[3];
+        T dg2_du[3];
+        T dg3_du[3];
+
+        // Polynomials of Q
+        T dg4_du[3];
+        T dg5_du[3];
+        T dg6_du[3];
+        T dg7_du[3];
+
+        dg1_du = {T(1), T(0), T(0)};
+        dg2_du = {T(0.5), T(0), T(0)};
+        
+        dg3_du[0] = 1.0/up[2]-(Cu/2.0+1.0/2.0)/(u*Su);
+        dg3_du[1] = (1.0/up[3]*(Cu*4.0+u*Su+up[2]-4.0)*(-1.0/2.0))/(Cu-1.0);
+        dg3_du[2] = 1.0/up[4]*1.0/pow(Cu-1.0,2.0)*(Cu*2.4E+1-up[2]*Cu*2.0+up[3]*Su-pow(Cu,2.0)*1.2E+1+u*Su*2.0+up[2]*2.0-u*Cu*Su*2.0-1.2E+1)*(-1.0/2.0);
+
+        dg4_du[0] = T(0.5);
+        dg4_du[1] = T(0);
+        dg4_du[2] = T(0);
+
+        dg5_du[0] = 1.0/up[3]*(u-Su);
+        dg5_du[1] = 1.0/up[4]*(u-Su)*-3.0-1.0/up[3]*(Cu-1.0);
+        dg5_du[2] = 1.0/up[5]*(u*6.0-Su*1.2E+1+up[2]*Su+u*Cu*6.0);
+
+        dg6_du[0] = (1.0/up[4]*(Cu*2.0+up[2]-2.0))/2.0;
+        dg6_du[1] = -1.0/up[5]*(Cu*4.0+u*Su+up[2]-4.0);
+        dg6_du[2] = 1.0/up[6]*(Cu*2.0E+1-up[2]*Cu+u*Su*8.0+up[2]*3.0-2.0E+1);
+
+        dg7_du[0] = (1.0/up[5]*(u*2.0-Su*3.0+u*Cu))/2.0;
+        dg7_du[1] = 1.0/up[6]*(u*8.0-Su*1.5E+1+up[2]*Su+u*Cu*7.0)*(-1.0/2.0);
+        dg7_du[2] = (1.0/up[7]*(u*4.0E+1-Su*9.0E+1-up[3]*Cu+up[2]*Su*1.1E+1+u*Cu*5.0E+1))/2.0;
+
+        Mat3T Rhox = SO3T::hat(Rho);
+        Mat3T Thex = SO3T::hat(The);
+        Mat3T Thex_sq = Thex*Thex;
+
+        Mat3T f1 = Mat3T::Identity(3, 3);
+        Mat3T f2 = Thex;
+        Mat3T f3 = Thex_sq;
+
+        Mat3T f4 = -Rhox;
+        Mat3T f5 = (Thex*Rhox + Rhox*Thex - Thex*Rhox*Thex);
+        Mat3T f6 = (-Thex_sq*Rhox - Rhox*Thex_sq + 3*Thex*Rhox*Thex);
+        Mat3T f7 = (Thex*Rhox*Thex_sq + Thex_sq*Rhox*Thex);
+
+
+
+        T G1  = dg4_du[0];
+        T G2  = dg5_du[0];
+        T G3  = dg6_du[0]*dg4_du[0];
+        T G4  = dg7_du[0];
+        T G5  = dg3_du[0];
+        T G6  = dg3_du[0]*dg5_du[0];
+        T G7  = dg3_du[0]*dg6_du[0];
+        T G8  = dg3_du[0]*dg7_du[0];
+        T G9  = pow(dg3_du[0], 2)*dg4_du[0];
+        T G10 = pow(dg3_du[0], 2)*dg5_du[0];
+        T G11 = pow(dg3_du[0], 2)*dg6_du[0];
+        T G12 = pow(dg3_du[0], 2)*dg7_du[0];
+        T G[] = {G1, G2, G3, G4, G5, G6, G7, G8, G9, G10, G11, G12};
+
+        Mat3T F1 = f4 + f2*f4 + f4*f2 + f2*f4*f2;
+        Mat3T F2 = f5 + f2*f5 + f5*f2 + f2*f5*f2;
+        Mat3T F3 = f6 + f2*f6 + f6*f2 + f2*f6*f2;
+        Mat3T F4 = f7 + f2*f7 + f7*f2 + f2*f7*f2;
+        Mat3T F5 = f3*f4 + f4*f3 + f2*f4*f3 + f3*f4*f2;
+        Mat3T F6 = f3*f5 + f5*f3 + f2*f5*f3 + f3*f5*f2;
+        Mat3T F7 = f3*f6 + f6*f3 + f2*f6*f3 + f3*f6*f2;
+        Mat3T F8 = f3*f7 + f7*f3 + f2*f7*f3 + f3*f7*f2;
+        Mat3T F9 = f3*f4*f3;
+        Mat3T F10 = f3*f5*f3;
+        Mat3T F11 = f3*f6*f3;
+        Mat3T F12 = f3*f7*f3;
+        Mat3T F[] = {F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12};
+
+        // Compute Q
+        Mat3T Q = dg4_du[0]*f4 + dg5_du[0]*f5 + dg6_du[0]*f6 + dg7_du[0]*f7;
+
+        // Compute Q'
+        Mat3T Qp = Mat3T::Zero(3, 3);
+        for(int idx = 0; idx < G.size(); idx++)
+            Qp += G[idx]*F[idx];
+
+        return Q;
+    }
+
     // right Jacobian for SE3
     template <class T = double>
     static Eigen::Matrix<T, 6, 6> Jr(const Eigen::Matrix<T, 6, 1> &Xi)
@@ -680,10 +797,10 @@ public:
         
         Eigen::Matrix<T, 6, 6> Jr_Xi;
         Eigen::Matrix<T, 3, 3> Jr_The = Jr(The);
-        Eigen::Matrix<T, 3, 3> H_TheRho = DJrUV_DU(The, Rho);
+        Eigen::Matrix<T, 3, 3> RH_TheRho = Sophus::SO3<T>::exp(The).matrix()*DJrUV_DU(Eigen::Matrix<T, 3, 1>(-The), Rho);
 
         Jr_Xi << Jr_The, Matrix<T, 3, 3>::Zero(),
-                 H_TheRho, Jr_The;
+                 RH_TheRho, Jr_The;
         return Jr_Xi;
     }
 
