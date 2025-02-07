@@ -103,11 +103,11 @@ def generate_launch_description():
             {'max_plane_dis'   : 0.5},
             {'knnsize'         : 6},
             
-            {'use_ceres'       : 1},
+            {'use_ceres'       : 0},
             {'max_ceres_iter'  : 50},
             {'max_outer_iter'  : 1},
             {'max_inner_iter'  : 2},
-            {'min_inner_iter'  : 1},
+            {'min_inner_iter'  : 3},
             {'conv_thres'      : 3},
             {'dJ_conv_thres'   : 10.0},
             {'conv_dX_thres'   : [-0.05, -0.5, -1.0, -0.05, -0.5, -1.0 ]},
@@ -117,7 +117,7 @@ def generate_launch_description():
             {'fuse_marg'       : 1},
             {'compute_cost'    : 1},
             {'lambda'          : 1.0},
-            {'dXM'             : 0.1},
+            {'dXM'             : 0.02},
 
             # Log dir
             {'log_period'      : 5.0},
