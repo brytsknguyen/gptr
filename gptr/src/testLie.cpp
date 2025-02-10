@@ -358,9 +358,9 @@ int main(int argc, char **argv)
     -1.58678174153978579496993006614503,
     11.72568159674946386417104804422706;
     Wrn_<<
-    4.94651555661952890829979878617451,
-    61.82206817058373360396217321977019,
-    37.94405708279350619704928249120712,
+    0.77749061080929748879242424663971,
+    1.53406182339223273736195096716983,
+    21.59461581651028438955108867958188,
     -24.19341526664975461358153552282602,
     28.41509436231157081920173368416727,
     16.33084332327182153221656335517764;
@@ -368,7 +368,7 @@ int main(int argc, char **argv)
     /* #endregion */
     cout << "Tau numerical error: "  << (Tau - Tau_).cwiseAbs().maxCoeff() << endl;
     cout << "Wrn numerical error: "  << (Wrn - Wrn_).cwiseAbs().maxCoeff() << endl;
-    cout << "Wrn                : "  << endl << Wrn << endl;
+    // cout << "Wrn                : "  << endl << Wrn << endl;
 
     Vector3d Nuy = Tau.block<3, 1>(3, 0);
 
@@ -380,10 +380,9 @@ int main(int argc, char **argv)
     Matrix<double, 6, 1> Xid_reverse = GPMixer::JrInv(Xi)*Tau;
     Matrix<double, 6, 1> Xidd_reverse = GPMixer::JrInv(Xi)*Wrn + SE3Hp*Xid;
 
-    cout << "SE3Jr error:\n" << GPMixer::Jr(Xi)*GPMixer::JrInv(Xi) - MatrixXd::Identity(6, 6) << endl;
-    cout << "Xd_reverse error:\n" << Xid_reverse - Xid << endl;
-    cout << "Xdd_reverse error:\n" << Xidd_reverse - Xidd << endl;
-
+    cout << "SE3Jr error:\n"       << (GPMixer::Jr(Xi)*GPMixer::JrInv(Xi) - MatrixXd::Identity(6, 6)).cwiseAbs().maxCoeff() << endl;
+    cout << "Xd_reverse error:\n"  << (Xid_reverse - Xid                                            ).cwiseAbs().maxCoeff() << endl;
+    cout << "Xdd_reverse error:\n" << (Xidd_reverse - Xidd                                          ).cwiseAbs().maxCoeff() << endl;
 
     Mat3 S1, S2;
     S1.setZero(); S2.setZero();
