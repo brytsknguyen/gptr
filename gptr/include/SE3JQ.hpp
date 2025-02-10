@@ -25,30 +25,112 @@ private:
     static constexpr int C22_IDX = 21;
     static constexpr int C23_IDX = 24;
 
-    // This Q has 4 g and each has 3 derivatives 0th, 1st and 2nd
-    Matrix<T, COMPONENTS, 3> gdrv;
-
-    // This Q has 4 fs and each f has 9 derivatives (f, S1, C11, C12, C13, S2, C21, C22, C23) (4x3 x 9x3)
-    Matrix<T, 3*COMPONENTS, 27> fdrv;
-
 public:
     // Constructor
     SE3Q()
     {
-        gdrv.setZero();
-        fdrv.setZero();
+        ResetQSC();
+    }
 
-        Q.setZero();
+    void ResetQSC()
+    {
+        Q.setZero(); S1.setZero(); S2.setZero();
+        
+        C11.setZero(); C21.setZero();
+        C12.setZero(); C22.setZero();
+        C13.setZero(); C23.setZero();
+    }
 
-        S1.setZero();
-        C11.setZero();
-        C12.setZero();
-        C13.setZero();
+    static void ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, const Vec3T &Rhod, Mat3T &S1_, Mat3T &S2_)
+    {
+        T Un = The.norm();
+        Matrix<T, 3, 1> Ub = The / Un;
+        Matrix<T, 1, 3> Ubtp = Ub.transpose();
+        Matrix<T, 3, 3> JUb = (Mat3T::Identity(3, 3) - Ub*Ubtp) / Un;
 
-        S2.setZero();
-        C21.setZero();
-        C22.setZero();
-        C23.setZero();
+        // This Q has 4 g and each has 3 derivatives 0th, 1st
+        Matrix<T, COMPONENTS, 2> gdrv; gdrv.setZero();
+
+        // This Q has 4 fs and each f has 3 derivatives (f, S1, S2) (4x3 x 3x3)
+        Matrix<T, 3*COMPONENTS, 9> fdrv; fdrv.setZero();
+
+        /* #region Calculating the derivatives of g -----------------------------------------------------------------*/
+
+        {
+            T t2 = cos(Un), t3 = sin(Un), t4 = Un*Un, t5 = 1.0/(Un*Un*Un), t7 = 1.0/(Un*Un*Un*Un*Un), t6 = 1.0/(t4*t4), t8 = -t3, t9 = Un+t8;
+
+            gdrv(0, 0) = 1.0/2.0; gdrv(1, 0) = t5*t9; gdrv(1, 1) = t6*t9*-3.0-t5*(t2-1.0); gdrv(2, 0) = (t6*(t2*2.0+t4-2.0))/2.0;
+            gdrv(2, 1) = -t7*(t2*4.0+t4+Un*t3-4.0); gdrv(3, 0) = (t7*(Un*2.0-t3*3.0+Un*t2))/2.0; gdrv(3, 1) = 1.0/(t4*t4*t4)*(Un*8.0-t3*1.5E+1+Un*t2*7.0+t3*t4)*(-1.0/2.0);
+        }
+
+        /* #endregion Calculating the derivatives of g --------------------------------------------------------------*/
+
+        /* #region Calculating the derivatives of f -----------------------------------------------------------------*/
+
+        T tx = The(0), ty = The(1), tz = The(2);
+        T rx = Rho(0), ry = Rho(1), rz = Rho(2);
+
+        T tdx = Thed(0), tdy = Thed(1), tdz = Thed(2);
+        T rdx = Rhod(0), rdy = Rhod(1), rdz = Rhod(2);
+
+        {
+            T t2 = rx*tx, t3 = rx*ty, t4 = ry*tx, t5 = rx*tz, t6 = ry*ty, t7 = rz*tx, t8 = ry*tz, t9 = rz*ty, t10 = rz*tz, t11 = tx*ty, t12 = tx*tz, t13 = ty*tz, t14 = tx*tx, t15 = ty*ty, t16 = tz*tz, t17 = t2*2.0, t18 = t2*3.0, t19 = t3*2.0;
+            T t20 = t4*2.0, t21 = t5*2.0, t22 = t6*2.0, t23 = t7*2.0, t24 = t6*3.0, t25 = t8*2.0, t26 = t9*2.0, t27 = t10*2.0, t28 = t10*3.0, t29 = t2*ty, t30 = t2*tz, t31 = t4*ty, t32 = t3*tz, t33 = t4*tz, t34 = t7*ty, t35 = t6*tz, t36 = t7*tz;
+            T t37 = t9*tz, t38 = t11*tdx, t39 = t11*tdy, t40 = t12*tdx, t41 = t12*tdz, t42 = t13*tdy, t43 = t13*tdz, t44 = t13+tx, t45 = t12+ty, t46 = t11+tz, t53 = -t11, t54 = -t12, t55 = -t13, t56 = t14*tdy, t57 = t14*tdz, t58 = t15*tdx, t59 = t15*tdz;
+            T t60 = t16*tdx, t61 = t16*tdy, t68 = -t14, t69 = -t15, t70 = -t16, t79 = t14+t15, t80 = t14+t16, t81 = t15+t16, t88 = t2+t6, t89 = t2+t10, t90 = t6+t10, t91 = t2*tdx*tx*-2.0, t92 = t6*tdy*ty*-2.0, t93 = t10*tdz*tz*-2.0, t47 = -t17;
+            T t48 = -t20, t49 = -t22, t50 = -t23, t51 = -t26, t52 = -t27, t62 = t29*tdx*4.0, t63 = t30*tdx*4.0, t64 = t31*tdy*4.0, t65 = t35*tdy*4.0, t66 = t36*tdz*4.0, t67 = t37*tdz*4.0, t71 = -t33, t72 = -t34, t94 = rx*t79, t95 = rx*t80, t96 = ry*t79;
+            T t97 = ry*t81, t98 = rz*t80, t99 = rz*t81, t100 = t18+t24, t101 = t18+t28, t102 = t24+t28, t106 = t27+t88, t107 = t22+t89, t108 = t17+t90, t115 = t17+t22+t27, t116 = t68+t81, t117 = t69+t80, t118 = t70+t79, t103 = t19+t48, t104 = t21+t50;
+            T t105 = t25+t51, t109 = t32+t71, t110 = t32+t72, t111 = t33+t72, t121 = t31+t95, t122 = t36+t94, t123 = t29+t97, t124 = t37+t96, t125 = t30+t99, t126 = t35+t98, t127 = t115*tdx, t128 = t115*tdy, t129 = t115*tdz, t112 = t103*tdz;
+            T t113 = t104*tdy, t114 = t105*tdx, t119 = -t112, t120 = -t114;
+
+            fdrv(0, 1) = rz; fdrv(0, 2) = -ry; fdrv(0, 7) = -tdz; fdrv(0, 8) = tdy; fdrv(1, 0) = -rz; fdrv(1, 2) = rx; fdrv(1, 6) = tdz; fdrv(1, 8) = -tdx; fdrv(2, 0) = ry; fdrv(2, 1) = -rx; fdrv(2, 6) = -tdy;
+            fdrv(2, 7) = tdx; fdrv(3, 0) = t49+t52; fdrv(3, 1) = t3+t4-t30-t90*tz; fdrv(3, 2) = t5+t7+t29+t90*ty; fdrv(3, 3) = tdz*(rz+t3)+tdy*(ry-t5); fdrv(3, 4) = ry*tdx*-2.0+t107*tdz+tdy*(rx-t8); fdrv(3, 5) = tdz*(rx+t9)-rz*tdx*2.0-t106*tdy;
+            fdrv(3, 6) = t46*tdz-tdy*(t12-ty); fdrv(3, 7) = t59-tdx*ty*2.0-tdy*(t13-tx); fdrv(3, 8) = -t61+t44*tdz-tdx*tz*2.0; fdrv(4, 0) = t3+t4+t35+t89*tz; fdrv(4, 1) = t47+t52; fdrv(4, 2) = t8+t9-t31-t89*tx; fdrv(4, 3) = tdx*(ry+t5)-rx*tdy*2.0-t108*tdz;
+            fdrv(4, 4) = tdx*(rx+t8)+tdz*(rz-t4); fdrv(4, 5) = rz*tdy*-2.0+t106*tdx+tdz*(ry-t7); fdrv(4, 6) = -t57+t45*tdx-tdy*tx*2.0; fdrv(4, 7) = t44*tdx-tdz*(t11-tz); fdrv(4, 8) = t60-tdy*tz*2.0-tdz*(t12-ty); fdrv(5, 0) = t5+t7-t37-t88*ty;
+            fdrv(5, 1) = t8+t9+t36+t88*tx; fdrv(5, 2) = t47+t49; fdrv(5, 3) = rx*tdz*-2.0+t108*tdy+tdx*(rz-t3); fdrv(5, 4) = tdy*(rz+t4)-ry*tdz*2.0-t107*tdx; fdrv(5, 5) = tdy*(ry+t7)+tdx*(rx-t9); fdrv(5, 6) = t56-tdz*tx*2.0-tdx*(t11-tz);
+            fdrv(5, 7) = -t58+t46*tdy-tdz*ty*2.0; fdrv(5, 8) = t45*tdy-tdx*(t13-tx); fdrv(6, 1) = -t99-t126+t17*tz+t102*tz; fdrv(6, 2) = t29*-2.0+t97+t124-t102*ty; fdrv(6, 3) = t113+t119; fdrv(6, 4) = -t129+t105*tdy; fdrv(6, 5) = t128+t105*tdz;
+            fdrv(6, 6) = tx*(tdz*ty-tdy*tz)*-2.0; fdrv(6, 7) = t42*2.0+t117*tdz; fdrv(6, 8) = t43*-2.0-t118*tdy; fdrv(7, 0) = t35*-2.0+t98+t125-t101*tz; fdrv(7, 2) = -t95-t122+t101*tx+t20*ty; fdrv(7, 3) = t129-t104*tdx; fdrv(7, 4) = t119+t120;
+            fdrv(7, 5) = -t127-t104*tdz; fdrv(7, 6) = t40*-2.0-t116*tdz; fdrv(7, 7) = ty*(tdz*tx-tdx*tz)*2.0; fdrv(7, 8) = t41*2.0+t118*tdx; fdrv(8, 0) = -t96-t123+t100*ty+t26*tz; fdrv(8, 1) = t36*-2.0+t94+t121-t100*tx; fdrv(8, 3) = -t128+t103*tdx;
+            fdrv(8, 4) = t127+t103*tdy; fdrv(8, 5) = t113+t120; fdrv(8, 6) = t38*2.0+t116*tdy; fdrv(8, 7) = t39*-2.0-t117*tdx; fdrv(8, 8) = tz*(tdy*tx-tdx*ty)*-2.0; fdrv(9, 0) = t2*t15+t2*t16+t81*t90+t123*ty+t125*tz;
+            fdrv(9, 1) = t3*t16-t3*t80+t53*t90-t123*tx+t111*tz; fdrv(9, 2) = t3*t13-t5*t79+t54*t90-t125*tx-t111*ty; fdrv(9, 3) = t92+t93-t29*tdy*4.0-t37*tdy*2.0-t30*tdz*4.0-t35*tdz*2.0+t19*tdx*ty+t21*tdx*tz;
+            fdrv(9, 4) = t62-t64+t37*tdx*4.0-t36*tdy*2.0-t33*tdz*2.0-t2*tdy*tx*2.0+t6*tdx*ty*6.0+t25*tdx*tz; fdrv(9, 5) = t63-t66+t35*tdx*4.0-t34*tdy*2.0-t31*tdz*2.0-t2*tdz*tx*2.0+t26*tdx*ty+t10*tdx*tz*6.0; fdrv(9, 6) = tx*(t39+t41-t58-t60)*-2.0;
+            fdrv(9, 7) = ty*(t39+t41-t58-t60)*-2.0; fdrv(9, 8) = tz*(t39+t41-t58-t60)*-2.0; fdrv(10, 0) = t4*t16-t4*t81+t53*t89-t121*ty+t110*tz; fdrv(10, 1) = t4*t11+t6*t16+t80*t89+t121*tx+t126*tz; fdrv(10, 2) = t4*t12-t8*t79+t55*t89-t110*tx-t126*ty;
+            fdrv(10, 3) = -t62+t64-t37*tdx*2.0+t36*tdy*4.0-t32*tdz*2.0+t2*tdy*tx*6.0-t6*tdx*ty*2.0+t21*tdy*tz; fdrv(10, 4) = t91+t93-t31*tdx*4.0-t36*tdx*2.0-t30*tdz*2.0-t35*tdz*4.0+t20*tdy*tx+t25*tdy*tz;
+            fdrv(10, 5) = t65-t67-t34*tdx*2.0+t30*tdy*4.0-t29*tdz*2.0+t23*tdy*tx-t6*tdz*ty*2.0+t10*tdy*tz*6.0; fdrv(10, 6) = tx*(t38+t43-t56-t61)*-2.0; fdrv(10, 7) = ty*(t38+t43-t56-t61)*-2.0; fdrv(10, 8) = tz*(t38+t43-t56-t61)*-2.0;
+            fdrv(11, 0) = t7*t15-t7*t81+t54*t88+t109*ty-t122*tz; fdrv(11, 1) = t7*t11-t9*t80+t55*t88-t109*tx-t124*tz; fdrv(11, 2) = t7*t12+t9*t13+t79*t88+t122*tx+t124*ty;
+            fdrv(11, 3) = -t63+t66-t35*tdx*2.0-t32*tdy*2.0+t31*tdz*4.0+t2*tdz*tx*6.0+t19*tdz*ty-t10*tdx*tz*2.0; fdrv(11, 4) = -t65+t67-t33*tdx*2.0-t30*tdy*2.0+t29*tdz*4.0+t20*tdz*tx+t6*tdz*ty*6.0-t10*tdy*tz*2.0;
+            fdrv(11, 5) = t91+t92-t31*tdx*2.0-t36*tdx*4.0-t29*tdy*2.0-t37*tdy*4.0+t23*tdz*tx+t26*tdz*ty; fdrv(11, 6) = tx*(t40+t42-t57-t59)*-2.0; fdrv(11, 7) = ty*(t40+t42-t57-t59)*-2.0; fdrv(11, 8) = tz*(t40+t42-t57-t59)*-2.0;
+        }
+        
+        /* #endregion Calculating the derivatives of f --------------------------------------------------------------*/
+
+        // Calculating the component jacobians
+        for (int idx = 0; idx < COMPONENTS; idx++)
+        {
+            T &g = gdrv(idx, 0);
+            T &dg = gdrv(idx, 1);
+
+            Matrix<T, 1, 3> Jdg_U = dg*Ubtp;
+
+            auto fXi = fdrv.block(idx*3, 0, 3, 3);
+            auto dfXi_W_dU = fdrv.block(idx*3, 3, 3, 3);
+            auto dfXi_W_dV = fdrv.block(idx*3, 6, 3, 3);
+
+            // Q += fXi*g;
+
+            // Find the S1 S2 jacobians
+            const Vec3T &W = Thed;
+            Vec3T fXiW = fXi*W;
+
+            S1_ += dfXi_W_dU*g + fXiW*Jdg_U;
+            S2_ += dfXi_W_dV*g;
+
+            cout << "ComputeS " << idx << ": g\n" << g << endl;
+            cout << "ComputeS " << idx << ": dfXi_W_dU\n" << dfXi_W_dU << endl;
+            cout << "ComputeS " << idx << ": dfXi_W_dV\n" << dfXi_W_dV << endl;
+            cout << "ComputeS " << idx << ": S1\n" << S1_ << endl;
+            cout << "ComputeS " << idx << ": S2\n" << S2_ << endl;
+        }
     }
 
     void ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, const Vec3T &Rhod)
@@ -57,6 +139,12 @@ public:
         Matrix<T, 3, 1> Ub = The / Un;
         Matrix<T, 1, 3> Ubtp = Ub.transpose();
         Matrix<T, 3, 3> JUb = (Mat3T::Identity(3, 3) - Ub*Ubtp) / Un;
+
+        // This Q has 4 g and each has 3 derivatives 0th, 1st and 2nd
+        Matrix<T, COMPONENTS, 3> gdrv; gdrv.setZero();
+
+        // This Q has 4 fs and each f has 9 derivatives (f, S1, C11, C12, C13, S2, C21, C22, C23) (4x3 x 9x3)
+        Matrix<T, 3*COMPONENTS, 27> fdrv; fdrv.setZero();
 
         /* #region Calculating the derivatives of g -----------------------------------------------------------------*/
 
@@ -181,10 +269,11 @@ public:
 
         /* #endregion Calculating the derivatives of f --------------------------------------------------------------*/
 
+        ResetQSC();
+
         // Calculating the component jacobians
         for (int idx = 0; idx < COMPONENTS; idx++)
         {
-
             T &g = gdrv(idx, 0);
             T &dg = gdrv(idx, 1);
             T &ddg = gdrv(idx, 2);
@@ -232,6 +321,11 @@ public:
                 C23 += ddfXiW_X_dVdW*g;
             }
 
+            cout << "ComputeQSC " << idx << ": g\n" << g << endl;
+            cout << "ComputeQSC " << idx << ": dfXi_W_dU\n" << dfXi_W_dU << endl;
+            cout << "ComputeQSC " << idx << ": dfXi_W_dV\n" << dfXi_W_dV << endl;
+            cout << "ComputeQSC " << idx << ": S1\n" << S1 << endl;
+            cout << "ComputeQSC " << idx << ": S2\n" << S2 << endl;
         }
     }
 

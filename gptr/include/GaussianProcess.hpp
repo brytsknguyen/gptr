@@ -13,7 +13,7 @@
 #include <sophus/se3.hpp>
 
 // Include the library for Q matrix
-#include <SE3Q.hpp>
+#include <SE3JQ.hpp>
 
 // Ceres parameterization
 #include <ceres/ceres.h>

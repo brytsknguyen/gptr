@@ -1,6 +1,6 @@
 #include "utility.h"
 #include "GaussianProcess.hpp"
-#include "SE3Q.hpp"
+#include "SE3JQ.hpp"
 
 using namespace Eigen;
 using namespace std;
@@ -79,6 +79,7 @@ int main(int argc, char **argv)
 
     Matrix3d Q___, S1__, C11_, C12_, C13_, S2__, C21_, C22_, C23_;
 
+    /* #region  */
     Q___<<
     -0.27606657890206515171271917097329,
     -0.04841190528495784017870562365715,
@@ -169,6 +170,7 @@ int main(int argc, char **argv)
     0.04672620417746253806967615673784,
     0.65473164041046005845458921612590,
     -0.08499188899123681639746763494259;
+    /* #endregion */
     
     cout << "Q   numerical error: "  << (myQ.Q   - Q___).cwiseAbs().maxCoeff() << endl;
     cout << "S1  numerical error: "  << (myQ.S1  - S1__).cwiseAbs().maxCoeff() << endl;
@@ -182,6 +184,7 @@ int main(int argc, char **argv)
 
     Matrix3d Qp___, Sp1__, Cp11_, Cp12_, Cp13_, Sp2__, Cp21_, Cp22_, Cp23_;
 
+    /* #region  */
     Qp___<<
     -612.02081473804355482570827007293701,
     -11.15875168041248954864386178087443,
@@ -272,6 +275,7 @@ int main(int argc, char **argv)
     -18.21646764238674620628444245085120,
     20.32473773260695892872718104626983,
     -1.93801260852489187769265299721155;
+    /* #endregion */
 
     cout << "Qp   numerical error: "  << (myQp.Q   - Qp___).cwiseAbs().maxCoeff() << endl;
     cout << "Sp1  numerical error: "  << (myQp.S1  - Sp1__).cwiseAbs().maxCoeff() << endl;
@@ -283,7 +287,7 @@ int main(int argc, char **argv)
     cout << "Cp12 numerical error: "  << (myQp.C12 - Cp12_).cwiseAbs().maxCoeff() << endl;
     cout << "Cp13 numerical error: "  << (myQp.C13 - Cp13_).cwiseAbs().maxCoeff() << endl;
     
-    
+
     // Create the H and H' matrices of SE3
     Matrix<double, 6, 6> SE3H; SE3H.setZero();
     SE3H.block<3, 3>(0, 0) = GPMixer::DJrUV_DU(The, Thed);
@@ -292,6 +296,7 @@ int main(int argc, char **argv)
 
     Matrix<double, 6, 6> SE3H_;
     
+    /* #region  */
     SE3H_<<
     0.11876213355420794925976224476472,
     -0.00369119382432474534699862189768,
@@ -329,6 +334,7 @@ int main(int argc, char **argv)
     0.06447284493262382676359578681513,
     0.09787755900559241828418066688755,
     0.00062593062750420540903822930190;
+    /* #endregion */
 
     cout << "SEH3 numerical error: "  << (SE3H - SE3H_).cwiseAbs().maxCoeff() << endl;
     // cout << "SEH3: " << endl << SE3H << endl;
@@ -343,6 +349,7 @@ int main(int argc, char **argv)
     Matrix<double, 6, 1> Tau_;
     Matrix<double, 6, 1> Wrn_;
     
+    /* #region  */
     Tau_<<
     0.70803449619167235784544800480944,
     0.52132104746770180359050073093385,
@@ -358,6 +365,7 @@ int main(int argc, char **argv)
     28.41509436231157081920173368416727,
     16.33084332327182153221656335517764;
 
+    /* #endregion */
     cout << "Tau numerical error: "  << (Tau - Tau_).cwiseAbs().maxCoeff() << endl;
     cout << "Wrn numerical error: "  << (Wrn - Wrn_).cwiseAbs().maxCoeff() << endl;
     cout << "Wrn                : "  << endl << Wrn << endl;
@@ -375,4 +383,20 @@ int main(int argc, char **argv)
     cout << "SE3Jr error:\n" << GPMixer::Jr(Xi)*GPMixer::JrInv(Xi) - MatrixXd::Identity(6, 6) << endl;
     cout << "Xd_reverse error:\n" << Xid_reverse - Xid << endl;
     cout << "Xdd_reverse error:\n" << Xidd_reverse - Xidd << endl;
+
+
+    myQ.ComputeQSC(The, Rho, Thed, Rhod);
+
+    Mat3 S1, S2; S1.setZero(); S2.setZero();
+    TicToc tt_s;
+    SE3Q<double>::ComputeS(The, Rho, Thed, Rhod, S1, S2);
+    tt_s.Toc();
+    cout << "S1 numerical error: "  << (myQ.S1 - S1).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_s.GetLastStop()) << endl;
+    cout << "S2 numerical error: "  << (myQ.S2 - S2).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_s.GetLastStop()) << endl;
+
+    cout << "S1\n" << S1 << endl;
+    cout << "S2\n" << S2 << endl;
+
+    cout << "myQ.S1\n" << myQ.S1 << endl;
+    cout << "myQ.S2\n" << myQ.S2 << endl;
 }
