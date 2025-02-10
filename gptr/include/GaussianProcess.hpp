@@ -721,49 +721,67 @@ public:
         return JrInv(Eigen::Matrix<T, 6, 1>(-Xi));
     }
 
-    // // For calculating H_Xi(Xi, Xid)
-    // template <class T = double>
-    // static Eigen::Matrix<T, 6, 6> DJrUV_DU(const Eigen::Matrix<T, 6, 1> &U, const Eigen::Matrix<T, 6, 1> &V)
-    // {
-    //     using SO3T  = Sophus::SO3<T>;
-    //     using Vec3T = Eigen::Matrix<T, 3, 1>;
-    //     using Mat3T = Eigen::Matrix<T, 3, 3>;
-    //     using Mat6T = Eigen::Matrix<T, 6, 6>;
+    // For calculating H_Xi(Xi, Xid)
+    template <class T = double>
+    static Eigen::Matrix<T, 6, 6> DJrUV_DU(const Eigen::Matrix<T, 6, 1> &U, const Eigen::Matrix<T, 6, 1> &V)
+    {
+        using SO3T  = Sophus::SO3<T>;
+        using Vec3T = Eigen::Matrix<T, 3, 1>;
+        using Mat3T = Eigen::Matrix<T, 3, 3>;
+        using Mat6T = Eigen::Matrix<T, 6, 6>;
 
-    //     T Un = U.norm();
-    //     if(Un < DOUBLE_EPSILON)
-    //         return Eigen::Matrix<T, 6, 6>::Zero();    // To do: find the near-zero form
+        // T Un = U.norm();
+        // if(Un < DOUBLE_EPSILON)
+        //     return Eigen::Matrix<T, 6, 6>::Zero();    // To do: find the near-zero form
 
-    //     Vec3T The = U.template head(3);
-    //     Vec3T Rho = U.template tail(3);
+        Vec3T The = U.template head(3);
+        Vec3T Rho = U.template tail(3);
 
-    //     Vec3T Thed = V.template head(3);
-    //     Vec3T Rhod = V.template tail(3);
+        Vec3T Thed = V.template head(3);
+        Vec3T Rhod = V.template tail(3);
 
-    //     Mat3T Zero3x3 = Mat3T::Zero();
-    //     Mat3T HThe_TheThed = DJrUV_DU(The, Thed);
-    //     Mat3T HThe_TheRhod = DJrUV_DU(The, Rhod);
-    //     Mat3T LTheThe_TheRhoThed = DDJrUVW_DUDU(The, Rho, Thed);
-    //     Mat3T LTheRho_TheRhoThed = DDJrUVW_DUDV(The, Rho, Thed);
+        Mat3T H1_TheThed = DJrUV_DU(The, Thed);
+        Mat3T H1_TheRhod = DJrUV_DU(The, Rhod);
+        Mat3T S1_XiThed, S2_XiThed;
+        SE3Q<T>::ComputeS(The, Rho, Thed, Rhod, S1_XiThed, S2_XiThed);
+        
+        Mat6T H1_XiXid;
+        H1_XiXid << H1_TheThed, Mat3T::Zero(),
+                    S1_XiThed + H1_TheRhod, S2_XiThed;
 
-    //     Mat6T HXi_XiXid;
-    //     HXi_XiXid << HThe_TheThed, Zero3x3,
-    //                  LTheThe_TheRhoThed + HThe_TheRhod, LTheRho_TheRhoThed;
+        return H1_XiXid;
+    }
 
-    //     return HXi_XiXid;
-    // }
+    // For calculating H'_Xi(Xi, tau)
+    template <class T = double>
+    static Eigen::Matrix<T, 6, 6> DJrInvUV_DU(const Eigen::Matrix<T, 6, 1> &U, const Eigen::Matrix<T, 6, 1> &V)
+    {
+        using SO3T  = Sophus::SO3<T>;
+        using Vec3T = Eigen::Matrix<T, 3, 1>;
+        using Mat3T = Eigen::Matrix<T, 3, 3>;
+        using Mat6T = Eigen::Matrix<T, 6, 6>;
 
-    // // For calculating H'_Xi(Xi, tau)
-    // template <class T = double>
-    // static Eigen::Matrix<T, 6, 6> DJrInvUV_DU(const Eigen::Matrix<T, 6, 1> &U, const Eigen::Matrix<T, 6, 1> &V)
-    // {
-    //     T Un = U.norm();
-    //     if(Un < DOUBLE_EPSILON)
-    //         return Eigen::Matrix<T, 6, 6>::Zero();    // To do: find the near-zero form
+        // T Un = U.norm();
+        // if(Un < DOUBLE_EPSILON)
+        //     return Eigen::Matrix<T, 6, 6>::Zero();    // To do: find the near-zero form
 
-    //     Eigen::Matrix<T, 6, 1> O = JrInv(U)*V;
-    //     return -JrInv(U)*DJrUV_DU(U, O);
-    // }
+        Vec3T The = U.template head(3);
+        Vec3T Rho = U.template tail(3);
+
+        Vec3T Omg = V.template head(3);
+        Vec3T Nuy = V.template tail(3);
+
+        Mat3T Hp1_TheOmg = DJrUV_DU(The, Omg);
+        Mat3T Hp1_TheNuy = DJrUV_DU(The, Nuy);
+        Mat3T Sp1_XiOmg, Sp2_XiOmg;
+        SE3Q<T>::ComputeS(The, Rho, Omg, Sp1_XiOmg, Sp2_XiOmg);
+        
+        Mat6T Hp1_XiTau;
+        Hp1_XiTau << Hp1_TheOmg, Mat3T::Zero(),
+                     Sp1_XiOmg + Hp1_TheNuy, Sp2_XiOmg;
+
+        return Hp1_XiTau;
+    }
 
     /* #endregion Lie operations for SE3 -----------------------------------------------------------------------------------------------------------------------------*/
 

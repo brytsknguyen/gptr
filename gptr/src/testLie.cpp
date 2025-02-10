@@ -385,18 +385,24 @@ int main(int argc, char **argv)
     cout << "Xdd_reverse error:\n" << Xidd_reverse - Xidd << endl;
 
 
-    myQ.ComputeQSC(The, Rho, Thed, Rhod);
+    Mat3 S1, S2;
+    S1.setZero(); S2.setZero();
 
-    Mat3 S1, S2; S1.setZero(); S2.setZero();
     TicToc tt_s;
     SE3Q<double>::ComputeS(The, Rho, Thed, Rhod, S1, S2);
     tt_s.Toc();
+
     cout << "S1 numerical error: "  << (myQ.S1 - S1).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_s.GetLastStop()) << endl;
     cout << "S2 numerical error: "  << (myQ.S2 - S2).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_s.GetLastStop()) << endl;
 
-    cout << "S1\n" << S1 << endl;
-    cout << "S2\n" << S2 << endl;
+    Mat3 Sp1, Sp2;
+    Sp1.setZero(); Sp2.setZero();
+    
+    TicToc tt_sp;
+    SE3Qp<double>::ComputeS(The, Rho, Omg, Sp1, Sp2);
+    tt_sp.Toc();
 
-    cout << "myQ.S1\n" << myQ.S1 << endl;
-    cout << "myQ.S2\n" << myQ.S2 << endl;
+    cout << "Sp1 numerical error: "  << (myQp.S1 - Sp1).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
+    cout << "Sp2 numerical error: "  << (myQp.S2 - Sp2).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
+
 }
