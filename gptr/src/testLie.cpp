@@ -59,7 +59,7 @@ int main(int argc, char **argv)
     myQp.ComputeQSC(The, Rho, Thed, Rhod, Omg);
     tt_qptime.Toc();
 
-    printf("tt_qtime: %f s\n", tt_qtime.GetLastStop());
+    printf("tt_qtime  : %f s\n", tt_qtime.GetLastStop());
     printf("tt_qptime : %f s\n", tt_qptime.GetLastStop());
 
     // Confirm that Q = -Exp(-The)*H1(-The, Rho)
@@ -372,7 +372,7 @@ int main(int argc, char **argv)
     Matrix<double, 6, 6> JrInvXi = GPMixer::JrInv(Xi);
     compare("SE3Jr error: ", JrXi*JrInvXi, Matrix<double, 6, 6>::Identity(6, 6));
 
-    Matrix<double, 6, 1> Xid1_reverse = JrXi*Tau;
+    Matrix<double, 6, 1> Xid1_reverse = JrInvXi*Tau;
     Matrix<double, 6, 1> Xid2_reverse = JrInvXi*Wrn + SE3Hp*Xid1;
 
     compare("Xd1_reverse error: ", Xid1_reverse, Xid1);
@@ -424,5 +424,10 @@ int main(int argc, char **argv)
     Eigen::Matrix<double, Eigen::Dynamic, 1> gammaa, gammab, gammat;
 
     // Interpolate and find Jacobian
+    TicToc tt_se3;
     mygpm.ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat, POSE_GROUP::SE3);
+    tt_se3.Toc();
+
+    printf("tt_se3  : %f s\n", tt_se3.GetLastStop());
+
 }

@@ -97,7 +97,7 @@ public:
 
         P = Tf.translation();
         V = R*N;
-        A = R.matrix()*SO3T::hat(O)*N + R*B;
+        A = R*(SO3T::hat(O)*N) + R*B;
     }
 
     GPState &operator=(const GPState &Xother)
@@ -1008,7 +1008,7 @@ public:
         using Vec6T = Eigen::Matrix<T, 6, 1>;
         using Vec9T = Eigen::Matrix<T, 9, 1>;
         using Mat3T = Eigen::Matrix<T, 3, 3>;
-        
+
         // Map the variables of the state
         double tau = Xt.t;
         SO3T   &Rt = Xt.R;
@@ -1018,9 +1018,11 @@ public:
         Vec3T  &Vt = Xt.V;
         Vec3T  &At = Xt.A;
         
+        /* #region Processing the RO3 states ------------------------------------------------------------------------*/
+
         // Prepare the the mixer matrixes
-        Matrix<T, Dynamic, Dynamic> LAM_ROSt = LMD(tau, SigGa).cast<T>();
-        Matrix<T, Dynamic, Dynamic> PSI_ROSt = PSI(tau, SigGa).cast<T>();
+        Matrix<T, 9, 9> LAM_ROSt = LMD(tau, SigGa).cast<T>();
+        Matrix<T, 9, 9> PSI_ROSt = PSI(tau, SigGa).cast<T>();
 
         // Find the relative rotation
         SO3T Rab = Xa.R.inverse()*Xb.R;
@@ -1163,9 +1165,11 @@ public:
             DXt_DXb[SIDX][SIDX] = J_St_Thetd0*J_Thetd0_Sb + J_St_Thetd1*J_Thetd1_Sb + J_St_Thetd2*J_Thetd2_Sb; // DSt_DSb
         }
 
+        /* #endregion Processing the RO3 states ---------------------------------------------------------------------*/
 
 
-
+        /* #region Processing the R3 states -------------------------------------------------------------------------*/
+        
         // Performing interpolation on R3
         Matrix<T, Dynamic, Dynamic> LAM_PVAt = LMD(tau, SigNu).cast<T>();
         Matrix<T, Dynamic, Dynamic> PSI_PVAt = PSI(tau, SigNu).cast<T>();
@@ -1232,6 +1236,9 @@ public:
             // DAt_DAb
             DXt_DXb[AIDX][AIDX] = PSI_PVA33;
         }
+
+        /* #endregion Processing the R3 states ----------------------------------------------------------------------*/
+    
     }
 
     template <class T = double>
@@ -1259,11 +1266,12 @@ public:
 
         using SO3T   = Sophus::SO3<T>;
         using SE3T   = Sophus::SE3<T>;
-        using Vec3T  = Eigen::Matrix<T, 3,  1>;
-        using Vec6T  = Eigen::Matrix<T, 6,  1>;
-        using Vec18T = Eigen::Matrix<T, 18, 1>;
-        using Mat3T  = Eigen::Matrix<T, 3,  3>;
-        using Mat6T  = Eigen::Matrix<T, 6,  6>;
+        using Vec3T  = Eigen::Matrix<T, 3, 1>;
+        using Vec6T  = Eigen::Matrix<T, 6, 1>;
+        using Mat3T  = Eigen::Matrix<T, 3, 3>;
+        using Mat6T  = Eigen::Matrix<T, 6, 6>;
+        using MatLT  = Eigen::Matrix<T, 3, 6>;   // L is for long T is for tall
+        using MatTT  = Eigen::Matrix<T, 6, 3>;   // L is for long T is for tall
 
         // Prepare the the mixer matrixes
         Matrix<T, 18, 18> LAM_TTWt = LMD(Xt.t, SigGN).template cast<T>();
@@ -1299,11 +1307,10 @@ public:
         Get_JrInvHpLp(Xib, Twb, Wrb, Xibd1, Xibd2, JrInv_Xib, Hp1_XibTwb, Hp1_XibWrb, Lp11_XibTwbXibd1, Lp12_XibTwbXibd1);
 
         // Stack the local variables in vector form
-        Vec18T Gammaa; Gammaa << Xiad0, Xiad1, Xiad2;
-        Vec18T Gammab; Gammab << Xibd0, Xibd1, Xibd2;
-
+        Matrix<T, 18, 1> Gammaa; Gammaa << Xiad0, Xiad1, Xiad2;
+        Matrix<T, 18, 1> Gammab; Gammab << Xibd0, Xibd1, Xibd2;
         // Mix the knots to get the interpolated states
-        Vec18T Gammat = LAM_TTWt*Gammaa + PSI_TTWt*Gammab;
+        Matrix<T, 18, 1> Gammat = LAM_TTWt*Gammaa + PSI_TTWt*Gammab;
 
         // Extract the interpolated local states
         Vec6T Xitd0 = Gammat.block(0,  0, 6, 1);
@@ -1417,6 +1424,142 @@ public:
             Mat6T J_Wrt_Tfb = J_Wrt_Xitd0*J_Xitd0_Tfb + J_Wrt_Xitd1*J_Xitd1_Tfb + J_Wrt_Xitd2*J_Xitd2_Tfb; // DTwt_DTfb
             Mat6T J_Wrt_Twb = J_Wrt_Xitd0*J_Xitd0_Twb + J_Wrt_Xitd1*J_Xitd1_Twb + J_Wrt_Xitd2*J_Xitd2_Twb; // DTwt_DTwb
             Mat6T J_Wrt_Wrb = J_Wrt_Xitd0*J_Xitd0_Wrb + J_Wrt_Xitd1*J_Xitd1_Wrb + J_Wrt_Xitd2*J_Xitd2_Wrb; // DTwt_DWrb
+
+            // Jacobian from L5 to L4
+            MatLT U; U.block(0, 0, 3, 3) = Mat3T::Identity();
+            MatLT D; U.block(0, 3, 3, 3) = Mat3T::Identity();
+            MatTT Utp = U.transpose();
+            MatTT Dtp = D.transpose();
+
+            const SO3T  &Rt = Xt.R;       const SO3T  &Ra = Xa.R;       const SO3T  &Rb = Xb.R;
+            const Vec3T &Ot = Xt.O;       const Vec3T &Oa = Xa.O;       const Vec3T &Ob = Xb.O;
+            const Vec3T &St = Xt.S;       const Vec3T &Sa = Xa.S;       const Vec3T &Sb = Xb.S;
+            const Vec3T &Pt = Xt.P;       const Vec3T &Pa = Xa.P;       const Vec3T &Pb = Xb.P;
+            const Vec3T &Vt = Xt.V;       const Vec3T &Va = Xa.V;       const Vec3T &Vb = Xb.V;
+            const Vec3T &At = Xt.A;       const Vec3T &Aa = Xa.A;       const Vec3T &Ab = Xb.A;
+            const Vec3T Nt = Twt.tail(3); const Vec3T Na = Twa.tail(3); const Vec3T Nb = Twb.tail(3);
+            const Vec3T Bt = Wrt.tail(3); const Vec3T Ba = Wra.tail(3); const Vec3T Bb = Wrb.tail(3);
+
+            Mat3T Rtmat = Rt.matrix();
+
+            MatLT J_Rt_Tft =  U;
+            MatLT J_Ot_Twt =  U;
+            MatLT J_St_Wrt =  D;
+
+            MatLT J_Pt_Tft =  D;
+            Mat3T J_Vt_Rt  = -Rtmat*SO3T::hat(Nt);
+            MatLT J_Vt_Twt =  Rtmat*D;
+            Mat3T J_At_Rt  = -Rtmat*(SO3T::hat(Bt) + SO3T::hat(SO3T::hat(Ot)*Nt)); 
+            Mat3T J_At_Ot  =  J_Vt_Rt;
+            MatLT J_At_Wrt =  Rtmat*D;
+
+            // Jacobian from L1 to L0
+            Mat3T hat_Oa = SO3T::hat(Oa);                               Mat3T hat_Ob = SO3T::hat(Ob);                           
+            Mat3T Ratp = Ra.inverse().matrix();                         Mat3T Rbtp = Rb.inverse().matrix();                     
+            Mat3T hat_RatpVa = SO3T::hat(Ratp*Va);                      Mat3T hat_RbtpVb = SO3T::hat(Rbtp*Vb);                  
+            Mat3T hat_RatpAa = SO3T::hat(Ratp*Aa);                      Mat3T hat_RbtpAb = SO3T::hat(Rbtp*Ab);                  
+                                                                                                                                
+            MatTT J_Tfa_Ra =  Utp;                                      MatTT J_Tfb_Rb =  Utp;                                  
+            MatTT J_Tfa_Pa =  Dtp;                                      MatTT J_Tfb_Pb =  Dtp;                                  
+                                                                                                                                
+            MatTT J_Twa_Oa =  Utp;                                      MatTT J_Twb_Ob =  Utp;                                  
+            MatTT J_Twa_Ra =  Dtp*hat_RatpVa;                           MatTT J_Twb_Rb =  Dtp*hat_RbtpVb;                       
+            MatTT J_Twa_Va =  Dtp*Ratp;                                 MatTT J_Twb_Vb =  Dtp*Rbtp;                             
+                                                                                                                                
+            MatTT J_Wra_Sa =  Utp;                                      MatTT J_Wrb_Sb =  Utp;                                  
+            MatTT J_Wra_Ra =  Dtp*(hat_RatpAa - hat_Oa*hat_RatpVa);     MatTT J_Wrb_Rb =  Dtp*(hat_RbtpAb - hat_Ob*hat_RbtpVb); 
+            MatTT J_Wra_Aa =  Dtp*Ratp;                                 MatTT J_Wrb_Ab =  Dtp*Ratp;                             
+            MatTT J_Wra_Oa =  Utp*hat_RatpVa;                           MatTT J_Wrb_Ob =  Utp*hat_RbtpVb;                       
+            MatTT J_Wra_Va = -Utp*hat_Oa*Ratp;                          MatTT J_Wrb_Vb = -Utp*hat_Ob*Rbtp;                      
+
+            // Jacobians from L5 to L0, dXt/dXa
+
+            Mat3T &J_Rt_Ra = DXt_DXa[RIDX][RIDX] = J_Rt_Tft*J_Tft_Tfa*J_Tfa_Ra + J_Rt_Tft*J_Tft_Twa*J_Twa_Ra + J_Rt_Tft*J_Tft_Wra*J_Wra_Ra                   ; // DRt_DRa
+            Mat3T &J_Rt_Oa = DXt_DXa[RIDX][OIDX] =                               J_Rt_Tft*J_Tft_Twa*J_Twa_Oa + J_Rt_Tft*J_Tft_Wra*J_Wra_Oa                   ; // DRt_DOa
+            Mat3T &J_Rt_Sa = DXt_DXa[RIDX][SIDX] =                                                             J_Rt_Tft*J_Tft_Wra*J_Wra_Sa                   ; // DRt_DSa
+            Mat3T &J_Rt_Pa = DXt_DXa[RIDX][PIDX] = J_Rt_Tft*J_Tft_Tfa*J_Tfa_Pa                                                                               ; // DRt_DPa
+            Mat3T &J_Rt_Va = DXt_DXa[RIDX][VIDX] =                               J_Rt_Tft*J_Tft_Twa*J_Twa_Va + J_Rt_Tft*J_Tft_Wra*J_Wra_Va                   ; // DRt_DVa
+            Mat3T &J_Rt_Aa = DXt_DXa[RIDX][AIDX] =                                                             J_Rt_Tft*J_Tft_Wra*J_Wra_Aa                   ; // DRt_DAa
+            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+            Mat3T &J_Ot_Ra = DXt_DXa[OIDX][RIDX] = J_Ot_Twt*J_Twt_Tfa*J_Tfa_Ra + J_Ot_Twt*J_Twt_Twa*J_Twa_Ra + J_Ot_Twt*J_Twt_Wra*J_Wra_Ra                   ; // DOt_DRa
+            Mat3T &J_Ot_Oa = DXt_DXa[OIDX][OIDX] =                               J_Ot_Twt*J_Twt_Twa*J_Twa_Oa + J_Ot_Twt*J_Twt_Wra*J_Wra_Oa                   ; // DOt_DOa
+            Mat3T &J_Ot_Sa = DXt_DXa[OIDX][SIDX] =                                                             J_Ot_Twt*J_Twt_Wra*J_Wra_Sa                   ; // DOt_DSa
+            Mat3T &J_Ot_Pa = DXt_DXa[OIDX][PIDX] = J_Ot_Twt*J_Twt_Tfa*J_Tfa_Pa                                                                               ; // DOt_DPa
+            Mat3T &J_Ot_Va = DXt_DXa[OIDX][VIDX] =                               J_Ot_Twt*J_Twt_Twa*J_Twa_Va + J_Ot_Twt*J_Twt_Wra*J_Wra_Va                   ; // DOt_DVa
+            Mat3T &J_Ot_Aa = DXt_DXa[OIDX][AIDX] =                                                             J_Ot_Twt*J_Twt_Wra*J_Wra_Aa                   ; // DOt_DAa
+            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+                             DXt_DXa[SIDX][RIDX] = J_St_Wrt*J_Wrt_Tfa*J_Tfa_Ra + J_St_Wrt*J_Wrt_Twa*J_Twa_Ra + J_St_Wrt*J_Wrt_Wra*J_Wra_Ra                   ; // DSt_DRa
+                             DXt_DXa[SIDX][OIDX] =                               J_St_Wrt*J_Wrt_Twa*J_Twa_Oa + J_St_Wrt*J_Wrt_Wra*J_Wra_Oa                   ; // DSt_DOa
+                             DXt_DXa[SIDX][SIDX] =                                                             J_St_Wrt*J_Wrt_Wra*J_Wra_Sa                   ; // DSt_DSa
+                             DXt_DXa[SIDX][PIDX] = J_St_Wrt*J_Wrt_Tfa*J_Tfa_Pa                                                                               ; // DSt_DPa
+                             DXt_DXa[SIDX][VIDX] =                               J_St_Wrt*J_Wrt_Twa*J_Twa_Va + J_St_Wrt*J_Wrt_Wra*J_Wra_Va                   ; // DSt_DVa
+                             DXt_DXa[SIDX][AIDX] =                                                             J_St_Wrt*J_Wrt_Wra*J_Wra_Aa                   ; // DSt_DAa
+            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+                             DXt_DXa[PIDX][RIDX] = J_Pt_Tft*J_Tft_Tfa*J_Tfa_Ra + J_Pt_Tft*J_Tft_Twa*J_Twa_Ra + J_Pt_Tft*J_Tft_Wra*J_Wra_Ra                   ; // DRt_DRb
+                             DXt_DXa[PIDX][OIDX] =                               J_Pt_Tft*J_Tft_Twa*J_Twa_Oa + J_Pt_Tft*J_Tft_Wra*J_Wra_Oa                   ; // DRt_DOb
+                             DXt_DXa[PIDX][SIDX] =                                                             J_Pt_Tft*J_Tft_Wra*J_Wra_Sa                   ; // DRt_DSb
+                             DXt_DXa[PIDX][PIDX] = J_Pt_Tft*J_Tft_Tfa*J_Tfa_Pa                                                                               ; // DRt_DPb
+                             DXt_DXa[PIDX][VIDX] =                               J_Pt_Tft*J_Tft_Twa*J_Twa_Va + J_Pt_Tft*J_Tft_Wra*J_Wra_Va                   ; // DRt_DVb
+                             DXt_DXa[PIDX][AIDX] =                                                             J_Pt_Tft*J_Tft_Wra*J_Wra_Aa                   ; // DRt_DAb
+            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+            DXt_DXa[VIDX][RIDX] = J_Vt_Twt*J_Twt_Tfa*J_Tfa_Ra + J_Vt_Twt*J_Twt_Twa*J_Twa_Ra + J_Vt_Twt*J_Twt_Wra*J_Wra_Ra + J_Vt_Rt*J_Rt_Ra                  ; // DOt_DRb
+            DXt_DXa[VIDX][OIDX] =                               J_Vt_Twt*J_Twt_Twa*J_Twa_Oa + J_Vt_Twt*J_Twt_Wra*J_Wra_Oa + J_Vt_Rt*J_Rt_Oa                  ; // DOt_DOb
+            DXt_DXa[VIDX][SIDX] =                                                             J_Vt_Twt*J_Twt_Wra*J_Wra_Sa + J_Vt_Rt*J_Rt_Sa                  ; // DOt_DSb
+            DXt_DXa[VIDX][PIDX] = J_Vt_Twt*J_Twt_Tfa*J_Tfa_Pa                                                             + J_Vt_Rt*J_Rt_Pa                  ; // DOt_DPb
+            DXt_DXa[VIDX][VIDX] =                               J_Vt_Twt*J_Twt_Twa*J_Twa_Va + J_Vt_Twt*J_Twt_Wra*J_Wra_Va + J_Vt_Rt*J_Rt_Va                  ; // DOt_DVb
+            DXt_DXa[VIDX][AIDX] =                                                             J_Vt_Twt*J_Twt_Wra*J_Wra_Aa + J_Vt_Rt*J_Rt_Aa                  ; // DOt_DAb
+            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+            DXt_DXa[AIDX][RIDX] = J_At_Wrt*J_Wrt_Tfa*J_Tfa_Ra + J_At_Wrt*J_Wrt_Twa*J_Twa_Ra + J_At_Wrt*J_Wrt_Wra*J_Wra_Ra + J_At_Rt*J_Rt_Ra + J_At_Ot*J_Ot_Ra; // DOt_DRb
+            DXt_DXa[AIDX][OIDX] =                               J_At_Wrt*J_Wrt_Twa*J_Twa_Oa + J_At_Wrt*J_Wrt_Wra*J_Wra_Oa + J_At_Rt*J_Rt_Oa + J_At_Ot*J_Ot_Oa; // DOt_DOb
+            DXt_DXa[AIDX][SIDX] =                                                             J_At_Wrt*J_Wrt_Wra*J_Wra_Sa + J_At_Rt*J_Rt_Sa + J_At_Ot*J_Ot_Sa; // DOt_DSb
+            DXt_DXa[AIDX][PIDX] = J_At_Wrt*J_Wrt_Tfa*J_Tfa_Pa                                                             + J_At_Rt*J_Rt_Pa + J_At_Ot*J_Ot_Pa; // DOt_DPb
+            DXt_DXa[AIDX][VIDX] =                               J_At_Wrt*J_Wrt_Twa*J_Twa_Va + J_At_Wrt*J_Wrt_Wra*J_Wra_Va + J_At_Rt*J_Rt_Va + J_At_Ot*J_Ot_Va; // DOt_DVb
+            DXt_DXa[AIDX][AIDX] =                                                             J_At_Wrt*J_Wrt_Wra*J_Wra_Aa + J_At_Rt*J_Rt_Aa + J_At_Ot*J_Ot_Aa; // DOt_DAb
+
+
+            // Jacobians from L5 to L0, dXt/dXb
+
+            Mat3T &J_Rt_Rb = DXt_DXb[RIDX][RIDX] = J_Rt_Tft*J_Tft_Tfb*J_Tfb_Rb + J_Rt_Tft*J_Tft_Twb*J_Twb_Rb + J_Rt_Tft*J_Tft_Wrb*J_Wrb_Rb                   ; // DRt_DRb
+            Mat3T &J_Rt_Ob = DXt_DXb[RIDX][OIDX] =                               J_Rt_Tft*J_Tft_Twb*J_Twb_Ob + J_Rt_Tft*J_Tft_Wrb*J_Wrb_Ob                   ; // DRt_DOb
+            Mat3T &J_Rt_Sb = DXt_DXb[RIDX][SIDX] =                                                             J_Rt_Tft*J_Tft_Wrb*J_Wrb_Sb                   ; // DRt_DSb
+            Mat3T &J_Rt_Pb = DXt_DXb[RIDX][PIDX] = J_Rt_Tft*J_Tft_Tfb*J_Tfb_Pb                                                                               ; // DRt_DPb
+            Mat3T &J_Rt_Vb = DXt_DXb[RIDX][VIDX] =                               J_Rt_Tft*J_Tft_Twb*J_Twb_Vb + J_Rt_Tft*J_Tft_Wrb*J_Wrb_Vb                   ; // DRt_DVb
+            Mat3T &J_Rt_Ab = DXt_DXb[RIDX][AIDX] =                                                             J_Rt_Tft*J_Tft_Wrb*J_Wrb_Ab                   ; // DRt_DAb
+            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+            Mat3T &J_Ot_Rb = DXt_DXb[OIDX][RIDX] = J_Ot_Twt*J_Twt_Tfb*J_Tfb_Rb + J_Ot_Twt*J_Twt_Twb*J_Twb_Rb + J_Ot_Twt*J_Twt_Wrb*J_Wrb_Rb                   ; // DOt_DRb
+            Mat3T &J_Ot_Ob = DXt_DXb[OIDX][OIDX] =                               J_Ot_Twt*J_Twt_Twb*J_Twb_Ob + J_Ot_Twt*J_Twt_Wrb*J_Wrb_Ob                   ; // DOt_DOb
+            Mat3T &J_Ot_Sb = DXt_DXb[OIDX][SIDX] =                                                             J_Ot_Twt*J_Twt_Wrb*J_Wrb_Sb                   ; // DOt_DSb
+            Mat3T &J_Ot_Pb = DXt_DXb[OIDX][PIDX] = J_Ot_Twt*J_Twt_Tfb*J_Tfb_Pb                                                                               ; // DOt_DPb
+            Mat3T &J_Ot_Vb = DXt_DXb[OIDX][VIDX] =                               J_Ot_Twt*J_Twt_Twb*J_Twb_Vb + J_Ot_Twt*J_Twt_Wrb*J_Wrb_Vb                   ; // DOt_DVb
+            Mat3T &J_Ot_Ab = DXt_DXb[OIDX][AIDX] =                                                             J_Ot_Twt*J_Twt_Wrb*J_Wrb_Ab                   ; // DOt_DAb
+            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+                             DXt_DXb[SIDX][RIDX] = J_St_Wrt*J_Wrt_Tfb*J_Tfb_Rb + J_St_Wrt*J_Wrt_Twb*J_Twb_Rb + J_St_Wrt*J_Wrt_Wrb*J_Wrb_Rb                   ; // DSt_DRb
+                             DXt_DXb[SIDX][OIDX] =                               J_St_Wrt*J_Wrt_Twb*J_Twb_Ob + J_St_Wrt*J_Wrt_Wrb*J_Wrb_Ob                   ; // DSt_DOb
+                             DXt_DXb[SIDX][SIDX] =                                                             J_St_Wrt*J_Wrt_Wrb*J_Wrb_Sb                   ; // DSt_DSb
+                             DXt_DXb[SIDX][PIDX] = J_St_Wrt*J_Wrt_Tfb*J_Tfb_Pb                                                                               ; // DSt_DPb
+                             DXt_DXb[SIDX][VIDX] =                               J_St_Wrt*J_Wrt_Twb*J_Twb_Vb + J_St_Wrt*J_Wrt_Wrb*J_Wrb_Vb                   ; // DSt_DVb
+                             DXt_DXb[SIDX][AIDX] =                                                             J_St_Wrt*J_Wrt_Wrb*J_Wrb_Ab                   ; // DSt_DAb
+            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+                             DXt_DXb[PIDX][RIDX] = J_Pt_Tft*J_Tft_Tfb*J_Tfb_Rb + J_Pt_Tft*J_Tft_Twb*J_Twb_Rb + J_Pt_Tft*J_Tft_Wrb*J_Wrb_Rb                   ; // DRt_DRb
+                             DXt_DXb[PIDX][OIDX] =                               J_Pt_Tft*J_Tft_Twb*J_Twb_Ob + J_Pt_Tft*J_Tft_Wrb*J_Wrb_Ob                   ; // DRt_DOb
+                             DXt_DXb[PIDX][SIDX] =                                                             J_Pt_Tft*J_Tft_Wrb*J_Wrb_Sb                   ; // DRt_DSb
+                             DXt_DXb[PIDX][PIDX] = J_Pt_Tft*J_Tft_Tfb*J_Tfb_Pb                                                                               ; // DRt_DPb
+                             DXt_DXb[PIDX][VIDX] =                               J_Pt_Tft*J_Tft_Twb*J_Twb_Vb + J_Pt_Tft*J_Tft_Wrb*J_Wrb_Vb                   ; // DRt_DVb
+                             DXt_DXb[PIDX][AIDX] =                                                             J_Pt_Tft*J_Tft_Wrb*J_Wrb_Ab                   ; // DRt_DAb
+            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+            DXt_DXb[VIDX][RIDX] = J_Vt_Twt*J_Twt_Tfb*J_Tfb_Rb + J_Vt_Twt*J_Twt_Twb*J_Twb_Rb + J_Vt_Twt*J_Twt_Wrb*J_Wrb_Rb + J_Vt_Rt*J_Rt_Rb                  ; // DOt_DRb
+            DXt_DXb[VIDX][OIDX] =                               J_Vt_Twt*J_Twt_Twb*J_Twb_Ob + J_Vt_Twt*J_Twt_Wrb*J_Wrb_Ob + J_Vt_Rt*J_Rt_Ob                  ; // DOt_DOb
+            DXt_DXb[VIDX][SIDX] =                                                             J_Vt_Twt*J_Twt_Wrb*J_Wrb_Sb + J_Vt_Rt*J_Rt_Sb                  ; // DOt_DSb
+            DXt_DXb[VIDX][PIDX] = J_Vt_Twt*J_Twt_Tfb*J_Tfb_Pb                                                             + J_Vt_Rt*J_Rt_Pb                  ; // DOt_DPb
+            DXt_DXb[VIDX][VIDX] =                               J_Vt_Twt*J_Twt_Twb*J_Twb_Vb + J_Vt_Twt*J_Twt_Wrb*J_Wrb_Vb + J_Vt_Rt*J_Rt_Vb                  ; // DOt_DVb
+            DXt_DXb[VIDX][AIDX] =                                                             J_Vt_Twt*J_Twt_Wrb*J_Wrb_Ab + J_Vt_Rt*J_Rt_Ab                  ; // DOt_DAb
+            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+            DXt_DXb[AIDX][RIDX] = J_At_Wrt*J_Wrt_Tfb*J_Tfb_Rb + J_At_Wrt*J_Wrt_Twb*J_Twb_Rb + J_At_Wrt*J_Wrt_Wrb*J_Wrb_Rb + J_At_Rt*J_Rt_Rb + J_At_Ot*J_Ot_Rb; // DOt_DRb
+            DXt_DXb[AIDX][OIDX] =                               J_At_Wrt*J_Wrt_Twb*J_Twb_Ob + J_At_Wrt*J_Wrt_Wrb*J_Wrb_Ob + J_At_Rt*J_Rt_Ob + J_At_Ot*J_Ot_Ob; // DOt_DOb
+            DXt_DXb[AIDX][SIDX] =                                                             J_At_Wrt*J_Wrt_Wrb*J_Wrb_Sb + J_At_Rt*J_Rt_Sb + J_At_Ot*J_Ot_Sb; // DOt_DSb
+            DXt_DXb[AIDX][PIDX] = J_At_Wrt*J_Wrt_Tfb*J_Tfb_Pb                                                             + J_At_Rt*J_Rt_Pb + J_At_Ot*J_Ot_Pb; // DOt_DPb
+            DXt_DXb[AIDX][VIDX] =                               J_At_Wrt*J_Wrt_Twb*J_Twb_Vb + J_At_Wrt*J_Wrt_Wrb*J_Wrb_Vb + J_At_Rt*J_Rt_Vb + J_At_Ot*J_Ot_Vb; // DOt_DVb
+            DXt_DXb[AIDX][AIDX] =                                                             J_At_Wrt*J_Wrt_Wrb*J_Wrb_Ab + J_At_Rt*J_Rt_Ab + J_At_Ot*J_Ot_Ab; // DOt_DAb
         }
     }
 
