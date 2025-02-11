@@ -404,4 +404,17 @@ int main(int argc, char **argv)
     cout << "Sp1 numerical error: "  << (myQp.S1 - Sp1).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
     cout << "Sp2 numerical error: "  << (myQp.S2 - Sp2).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
 
+    // Mat3 Cp11, Cp12, Cp13, Cp21, Cp22, Cp23;
+    // Cp11.setZero(); Cp12.setZero(); Cp13.setZero(); Cp21.setZero(); Cp22.setZero(); Cp23.setZero();
+    
+    // TicToc tt_sp;
+    // SE3Qp<double>::ComputeC(The, Rho, Thed, Rhod, Omg, Cp11, Cp12, Cp13, Cp21, Cp22, Cp23);
+    // tt_sp.Toc();
+
+    // cout << "Cp11 numerical error: "  << (myQp.C11 - Cp11).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
+    // cout << "Cp12 numerical error: "  << (myQp.C12 - Cp12).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
+    // cout << "Cp13 numerical error: "  << (myQp.C13 - Cp13).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
+    // cout << "Cp21 numerical error: "  << (myQp.C21 - Cp21).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
+    // cout << "Cp22 numerical error: "  << (myQp.C22 - Cp22).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
+    // cout << "Cp23 numerical error: "  << (myQp.C23 - Cp23).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
 }

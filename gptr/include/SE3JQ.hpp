@@ -345,12 +345,6 @@ private:
     static constexpr int C22_IDX = 21;
     static constexpr int C23_IDX = 24;
 
-    // This Q has 4 g and each has 3 derivatives 0th, 1st and 2nd
-    Matrix<T, COMPONENTS, 3> gdrv;
-
-    // This Q has 4 fs and each f has 9 derivatives (f, S1, C11, C12, C13, S2, C21, C22, C23) (4x3 x 9x3)
-    Matrix<T, 3*COMPONENTS, 27> fdrv;
-
 public:
 
     // Constructor
@@ -851,6 +845,12 @@ public:
         Matrix<T, 1, 3> Ubtp = Ub.transpose();
         Matrix<T, 3, 3> JUb = (Mat3T::Identity(3, 3) - Ub*Ubtp) / Un;
 
+        // This Q has 4 g and each has 3 derivatives 0th, 1st and 2nd
+        Matrix<T, Eigen::Dynamic, 3> gdrv(COMPONENTS, 3);
+
+        // This Q has 4 fs and each f has 9 derivatives (f, S1, C11, C12, C13, S2, C21, C22, C23) (4x3 x 9x3)
+        Matrix<T, Eigen::Dynamic, 27> fdrv(3*COMPONENTS, 27);
+
         /* #region Calculating the derivatives of g -----------------------------------------------------------------*/
 
         {
@@ -884,9 +884,9 @@ public:
             /* #region Calculate g derivatives ----------------------------------------------------------------------*/
 
             gdrv(0, 0) = T(1.0/2.0); gdrv(1, 0) = t34*t102; gdrv(1, 1) = -t34*t47-t35*t102*3.0;
-            gdrv(1, 2) = t36*t201; gdrv(2, 0) = (t35*t160)/2.0; gdrv(2, 1) = -t36*t193; gdrv(2, 2) = t37*t212; gdrv(3, 0) = (t36*t190)/2.0; gdrv(3, 1) = t37*t203*(-1.0/2.0); gdrv(3, 2) = (t38*t226)/2.0; gdrv(4, 0) = 1.0/4.0; gdrv(5, 0) = t194; gdrv(5, 1) = t219;
+            gdrv(1, 2) = t36*t201; gdrv(2, 0) = (t35*t160)/2.0; gdrv(2, 1) = -t36*t193; gdrv(2, 2) = t37*t212; gdrv(3, 0) = (t36*t190)/2.0; gdrv(3, 1) = t37*t203*(-1.0/2.0); gdrv(3, 2) = (t38*t226)/2.0; gdrv(4, 0) = T(1.0/4.0); gdrv(5, 0) = t194; gdrv(5, 1) = t219;
             gdrv(5, 2) = t214; gdrv(6, 0) = t198; gdrv(6, 1) = t208; gdrv(6, 2) = t231; gdrv(7, 0) = t202; gdrv(7, 1) = t220; gdrv(7, 2) = t237; gdrv(8, 0) = t223; gdrv(8, 1) = t217; gdrv(8, 2) = t245; gdrv(9, 0) = t232; gdrv(9, 1) = t250; gdrv(9, 2) = t264; gdrv(10, 0) = t239;
-            gdrv(10, 1) = t253; gdrv(10, 2) = t266; gdrv(11, 0) = t241; gdrv(11, 1) = t260; gdrv(11, 2) = t271; gdrv(12, 0) = 1.0/4.0; gdrv(13, 0) = t194; gdrv(13, 1) = t219; gdrv(13, 2) = t214; gdrv(14, 0) = t198; gdrv(14, 1) = t208; gdrv(14, 2) = t231; gdrv(15, 0) = t202;
+            gdrv(10, 1) = t253; gdrv(10, 2) = t266; gdrv(11, 0) = t241; gdrv(11, 1) = t260; gdrv(11, 2) = t271; gdrv(12, 0) = T(1.0/4.0); gdrv(13, 0) = t194; gdrv(13, 1) = t219; gdrv(13, 2) = t214; gdrv(14, 0) = t198; gdrv(14, 1) = t208; gdrv(14, 2) = t231; gdrv(15, 0) = t202;
             gdrv(15, 1) = t220; gdrv(15, 2) = t237; gdrv(16, 0) = T(1.0/8.0); gdrv(17, 0) = (t34*t102)/4.0; gdrv(17, 1) = t34*t47*(-1.0/4.0)-t35*t102*(3.0/4.0); gdrv(17, 2) = (t36*t201)/4.0; gdrv(18, 0) = (t35*t160)/8.0; gdrv(18, 1) = t36*t193*(-1.0/4.0);
             gdrv(18, 2) = (t37*t212)/4.0; gdrv(19, 0) = (t36*t190)/8.0; gdrv(19, 1) = t37*t203*(-1.0/8.0); gdrv(19, 2) = (t38*t226)/8.0; gdrv(20, 0) = t224; gdrv(20, 1) = t222; gdrv(20, 2) = t247; gdrv(21, 0) = t238; gdrv(21, 1) = t252; gdrv(21, 2) = t265;
             gdrv(22, 0) = t240; gdrv(22, 1) = t254; gdrv(22, 2) = t267; gdrv(23, 0) = t242; gdrv(23, 1) = t261; gdrv(23, 2) = t272; gdrv(24, 0) = t223; gdrv(24, 1) = t217; gdrv(24, 2) = t245; gdrv(25, 0) = t232; gdrv(25, 1) = t250; gdrv(25, 2) = t264; gdrv(26, 0) = t239;
@@ -900,7 +900,7 @@ public:
             gdrv(35, 0) = (t36*t190*t213)/2.0; gdrv(35, 1) = t54*t61*t191*(t14+t27-2.0)*(-1.0/8.0)-t54*t62*t190*t191*(5.0/8.0)+(t53*t62*t114*t184*t190*t193)/4.0;
             gdrv(35, 2) = (pow(t32,1.1E+1)*t199*(t8*-1.83E+2+t10*(1.21E+2/4.0)+t13*1.08E+3-t15*1.08E+3+t16*2.7E+2+t27*2.232E+3+t47*1.08E+3-t79*1.56E+2-t83*2.64E+2+t109*7.2E+1-Un*t20*8.28E+2-Un*t22*6.48E+2+Un*t24*3.42E+2+t2*t10*1.9E+1+t3*t11*2.3E+1+t8*t13*3.48E+2+t8*t15*1.56E+2-t10*t13*3.5E+1-t8*t16*1.65E+2-t10*t15*1.9E+1+t10*t16*(1.9E+1/4.0)+t9*t20*1.02E+2+t11*t20*(1.5E+1/2.0)-t9*t24*3.9E+1-t11*t22+(t11*t24)/4.0-2.7E+2))/4.0;
 
-            /* #endregion Calculate g derivatives ----------------------------------------------------------------------*/
+            /* #endregion Calculate g derivatives --------------------------------------------------------------------*/
         }
 
         /* #endregion Calculating the derivatives of g --------------------------------------------------------------*/

@@ -144,8 +144,8 @@ public:
         GPState Xst(ss*Dts); vector<vector<Matrix3d>> DXst_DXsa; vector<vector<Matrix3d>> DXst_DXsb;
         GPState Xft(sf*Dtf); vector<vector<Matrix3d>> DXft_DXfa; vector<vector<Matrix3d>> DXft_DXfb;
 
-        Eigen::Matrix<double, 9, 1> gammasa, gammasb, gammast;
-        Eigen::Matrix<double, 9, 1> gammafa, gammafb, gammaft;
+        Eigen::Matrix<double, Eigen::Dynamic, 1> gammasa, gammasb, gammast;
+        Eigen::Matrix<double, Eigen::Dynamic, 1> gammafa, gammafb, gammaft;
 
         gpms->ComputeXtAndJacobians(Xsa, Xsb, Xst, DXst_DXsa, DXst_DXsb, gammasa, gammasb, gammast);
         gpmf->ComputeXtAndJacobians(Xfa, Xfb, Xft, DXft_DXfa, DXft_DXfb, gammafa, gammafb, gammaft);
