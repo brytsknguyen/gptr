@@ -7,7 +7,12 @@ using namespace std;
 
 typedef Eigen::Vector3d Vec3;
 typedef Eigen::Matrix3d Mat3;
+typedef Eigen::Matrix3d Mat6;
 
+void compare(string s, const MatrixXd &A, const MatrixXd &B)
+{
+    cout << s << (A - B).cwiseAbs().maxCoeff() << endl;
+}
 
 int main(int argc, char **argv)
 {
@@ -23,27 +28,15 @@ int main(int argc, char **argv)
     Mat3 Jr_ = GPMixer::Jl(_X);
     Mat3 JrInv_ = GPMixer::JlInv(_X);
 
-    cout << "Jr\n" << Jr << endl;
-    cout << "JrInv\n" << JrInv << endl;
-    cout << "Jr*JrInv\n" << Jr*JrInv << endl;
-
-    cout << "Jr\n" << Jr_ << endl;
-    cout << "JrInv\n" << JrInv_ << endl;
-    cout << "Jr*JrInv\n" << Jr_*JrInv_ << endl;
-
-    cout << "Jr err \n" << Jr - Jr_ << endl;
-    cout << "JrInv err\n" << JrInv - JrInv_ << endl;
-
-    // GPMixer gmp(0.01102, Vector3d(10, 10, 10).asDiagonal(), Vector3d(10, 10, 10).asDiagonal());
+    compare("Error Jr      : ", Jr, Jr_);
+    compare("Error JrInv   : ", JrInv, JrInv_);
+    compare("Error Jr*JrInv: ", Jr*JrInv, Mat3::Identity(3, 3));
 
     Vec3 O = GPMixer::Jr(X)*Xd;
-    Matrix3d HX_XXd_direct = GPMixer::DJrUV_DU(X, Xd);
+    Matrix3d HX_XXd_direct =  GPMixer::DJrUV_DU(X, Xd);
     Matrix3d HX_XXd_circle = -GPMixer::Jr(X)*GPMixer::DJrInvUV_DU(X, O);
 
-    cout << "HX_XXd error:\n" << HX_XXd_direct - HX_XXd_circle << endl;
-    cout << "HX_XXd_direct\n" << HX_XXd_direct << endl;
-    cout << "HX_XXd_circle\n" << HX_XXd_circle << endl;   
-
+    compare("HX_XXd error  : ", HX_XXd_direct, HX_XXd_circle);
 
     SE3Q<double> myQ;
     SE3Qp<double> myQp;
@@ -58,29 +51,26 @@ int main(int argc, char **argv)
 
     Vector3d Omg = GPMixer::Jr(The)*Thed;
 
-    // Vector3d Alp = GPMixer::Jr(The)*Thedd + GPMixer::DJrUV_DU(The, Thed)*Thed;
-    // Vector3d Nuy = GPMixer::Jr(The)*Rhod;
-    // Vector3d Ups = GPMixer::Jr(The)*Rhod;
-    
     TicToc tt_qtime;
     myQ.ComputeQSC(The, Rho, Thed, Rhod);
-    printf("tt_qtime: %f s\n", tt_qtime.Toc());
-    cout << "Q value:\n" << myQ.Q << endl;
+    tt_qtime.Toc();
     
     TicToc tt_qptime;
     myQp.ComputeQSC(The, Rho, Thed, Rhod, Omg);
-    printf("tt_qptime: %f s\n", tt_qptime.Toc());
-    cout << "Q' value:\n" << myQp.Q << endl;
+    tt_qptime.Toc();
+
+    printf("tt_qtime: %f s\n", tt_qtime.GetLastStop());
+    printf("tt_qptime : %f s\n", tt_qptime.GetLastStop());
 
     // Confirm that Q = -Exp(-The)*H1(-The, Rho)
-    cout << "Q  error:\n" << myQ.Q  - (-(SO3d::exp(-The).matrix()*GPMixer::DJrUV_DU(Vector3d(-The), Rho))) << endl;
+    compare("Q  error: ", myQ.Q, Mat3(-SO3d::exp(-The).matrix()*GPMixer::DJrUV_DU(Vector3d(-The), Rho)));
     // Confirm that Qp = -JrInv*Q*JrInv
-    cout << "Q' error:\n" << myQp.Q - (-(GPMixer::JrInv(The)*myQ.Q*GPMixer::JrInv(The))) << endl;
+    compare("Q' error: ", myQp.Q, -(GPMixer::JrInv(The)*myQ.Q*GPMixer::JrInv(The)));
 
-    Matrix3d Q___, S1__, C11_, C12_, C13_, S2__, C21_, C22_, C23_;
+    Matrix3d Q_, S1_, C11_, C12_, C13_, S2_, C21_, C22_, C23_;
 
     /* #region  */
-    Q___<<
+    Q_<<
     -0.27606657890206515171271917097329,
     -0.04841190528495784017870562365715,
     0.12325770315319962977529399950072,
@@ -90,7 +80,7 @@ int main(int argc, char **argv)
     0.11683202260787924064988629879736,
     0.03289294694641983068938984047236,
     -0.01374133978251581081342358459096;
-    S1__<<
+    S1_<<
     -0.10420562289324271365575924619407,
     -0.12869000662689725200671375660022,
     -2.32312976367504386843165775644593,
@@ -130,7 +120,7 @@ int main(int argc, char **argv)
     -0.23403962168482345118647458548367,
     0.11427493105525755867635240292657,
     -0.01460093116982727826091981171430;
-    S2__<<
+    S2_<<
     0.11876213355420794925976224476472,
     -0.00369119382432474534699862189768,
     -0.09669205402277558647483601816930,
@@ -172,20 +162,20 @@ int main(int argc, char **argv)
     -0.08499188899123681639746763494259;
     /* #endregion */
     
-    cout << "Q   numerical error: "  << (myQ.Q   - Q___).cwiseAbs().maxCoeff() << endl;
-    cout << "S1  numerical error: "  << (myQ.S1  - S1__).cwiseAbs().maxCoeff() << endl;
-    cout << "C11 numerical error: "  << (myQ.C11 - C11_).cwiseAbs().maxCoeff() << endl;
-    cout << "C12 numerical error: "  << (myQ.C12 - C12_).cwiseAbs().maxCoeff() << endl;
-    cout << "C13 numerical error: "  << (myQ.C13 - C13_).cwiseAbs().maxCoeff() << endl;
-    cout << "S2  numerical error: "  << (myQ.S2  - S2__).cwiseAbs().maxCoeff() << endl;
-    cout << "C11 numerical error: "  << (myQ.C11 - C11_).cwiseAbs().maxCoeff() << endl;
-    cout << "C12 numerical error: "  << (myQ.C12 - C12_).cwiseAbs().maxCoeff() << endl;
-    cout << "C13 numerical error: "  << (myQ.C13 - C13_).cwiseAbs().maxCoeff() << endl;    
+    compare("Q    numerical error: ", myQ.Q  , Q_  );
+    compare("S1   numerical error: ", myQ.S1 , S1_ );
+    compare("C11  numerical error: ", myQ.C11, C11_);
+    compare("C12  numerical error: ", myQ.C12, C12_);
+    compare("C13  numerical error: ", myQ.C13, C13_);
+    compare("S2   numerical error: ", myQ.S2 , S2_ );
+    compare("C11  numerical error: ", myQ.C11, C11_);
+    compare("C12  numerical error: ", myQ.C12, C12_);
+    compare("C13  numerical error: ", myQ.C13, C13_);    
 
-    Matrix3d Qp___, Sp1__, Cp11_, Cp12_, Cp13_, Sp2__, Cp21_, Cp22_, Cp23_;
+    Matrix3d Qp_, Sp1_, Cp11_, Cp12_, Cp13_, Sp2_, Cp21_, Cp22_, Cp23_;
 
     /* #region  */
-    Qp___<<
+    Qp_<<
     -612.02081473804355482570827007293701,
     -11.15875168041248954864386178087443,
     30.85758226454096586621744791045785,
@@ -195,7 +185,7 @@ int main(int argc, char **argv)
     27.81758226454096316615505202207714,
     43.77155188362483784203504910692573,
     -3.81279170105399023427139582054224;
-    Sp1__<<
+    Sp1_<<
     73.39070156778583964296558406203985,
     0.54142539261656974503011952037923,
     10.58440348954987619833900680532679,
@@ -235,7 +225,7 @@ int main(int argc, char **argv)
     105.60191234461105125319591024890542,
     112.84216398173451523234689375385642,
     -19.72279557830668750284530688077211;
-    Sp2__<<
+    Sp2_<<
     0.38505995833400119554568163948716,
     5.17131526429971888347836284083314,
     -4.71935719217318450091624981723726,
@@ -277,15 +267,15 @@ int main(int argc, char **argv)
     -1.93801260852489187769265299721155;
     /* #endregion */
 
-    cout << "Qp   numerical error: "  << (myQp.Q   - Qp___).cwiseAbs().maxCoeff() << endl;
-    cout << "Sp1  numerical error: "  << (myQp.S1  - Sp1__).cwiseAbs().maxCoeff() << endl;
-    cout << "Cp11 numerical error: "  << (myQp.C11 - Cp11_).cwiseAbs().maxCoeff() << endl;
-    cout << "Cp12 numerical error: "  << (myQp.C12 - Cp12_).cwiseAbs().maxCoeff() << endl;
-    cout << "Cp13 numerical error: "  << (myQp.C13 - Cp13_).cwiseAbs().maxCoeff() << endl;
-    cout << "Sp2  numerical error: "  << (myQp.S2  - Sp2__).cwiseAbs().maxCoeff() << endl;
-    cout << "Cp11 numerical error: "  << (myQp.C11 - Cp11_).cwiseAbs().maxCoeff() << endl;
-    cout << "Cp12 numerical error: "  << (myQp.C12 - Cp12_).cwiseAbs().maxCoeff() << endl;
-    cout << "Cp13 numerical error: "  << (myQp.C13 - Cp13_).cwiseAbs().maxCoeff() << endl;
+    compare("Qp   numerical error: ", myQp.Q  , Qp_  );
+    compare("Sp1  numerical error: ", myQp.S1 , Sp1_ );
+    compare("Cp11 numerical error: ", myQp.C11, Cp11_);
+    compare("Cp12 numerical error: ", myQp.C12, Cp12_);
+    compare("Cp13 numerical error: ", myQp.C13, Cp13_);
+    compare("Sp2  numerical error: ", myQp.S2 , Sp2_ );
+    compare("Cp11 numerical error: ", myQp.C11, Cp11_);
+    compare("Cp12 numerical error: ", myQp.C12, Cp12_);
+    compare("Cp13 numerical error: ", myQp.C13, Cp13_);
     
 
     // Create the H and H' matrices of SE3
@@ -336,18 +326,20 @@ int main(int argc, char **argv)
     0.00062593062750420540903822930190;
     /* #endregion */
 
-    cout << "SEH3 numerical error: "  << (SE3H - SE3H_).cwiseAbs().maxCoeff() << endl;
-    // cout << "SEH3: " << endl << SE3H << endl;
+    compare("SEH3 numerical error: ", SE3H, SE3H_);
 
     Matrix<double, 6, 1> Xi; Xi << The, Rho;
     Matrix<double, 6, 1> Xid; Xid << Thed, Rhod;
     Matrix<double, 6, 1> Xidd; Xidd << Thedd, Rhodd;
 
+    Matrix<double, 6, 1> &Xid0 = Xi;
+    Matrix<double, 6, 1> &Xid1 = Xid;
+    Matrix<double, 6, 1> &Xid2 = Xidd;
+
     Matrix<double, 6, 1> Tau = GPMixer::Jr(Xi)*Xid;
     Matrix<double, 6, 1> Wrn = GPMixer::Jr(Xi)*Xidd + SE3H*Xid;
 
-    Matrix<double, 6, 1> Tau_;
-    Matrix<double, 6, 1> Wrn_;
+    Matrix<double, 6, 1> Tau_, Wrn_;
     
     /* #region  */
     Tau_<<
@@ -364,11 +356,10 @@ int main(int argc, char **argv)
     -24.19341526664975461358153552282602,
     28.41509436231157081920173368416727,
     16.33084332327182153221656335517764;
-
     /* #endregion */
-    cout << "Tau numerical error: "  << (Tau - Tau_).cwiseAbs().maxCoeff() << endl;
-    cout << "Wrn numerical error: "  << (Wrn - Wrn_).cwiseAbs().maxCoeff() << endl;
-    // cout << "Wrn                : "  << endl << Wrn << endl;
+
+    compare("Tau numerical error: ", Tau, Tau_);
+    compare("Wrn numerical error: ", Wrn, Wrn_);
 
     Vector3d Nuy = Tau.block<3, 1>(3, 0);
 
@@ -377,12 +368,15 @@ int main(int argc, char **argv)
     SE3Hp.block<3, 3>(3, 0) = myQp.S1 + GPMixer::DJrInvUV_DU(The, Nuy);
     SE3Hp.block<3, 3>(3, 3) = myQp.S2;
 
-    Matrix<double, 6, 1> Xid_reverse = GPMixer::JrInv(Xi)*Tau;
-    Matrix<double, 6, 1> Xidd_reverse = GPMixer::JrInv(Xi)*Wrn + SE3Hp*Xid;
+    Matrix<double, 6, 6> JrXi = GPMixer::Jr(Xi);
+    Matrix<double, 6, 6> JrInvXi = GPMixer::JrInv(Xi);
+    compare("SE3Jr error: ", JrXi*JrInvXi, Matrix<double, 6, 6>::Identity(6, 6));
 
-    cout << "SE3Jr error:\n"       << (GPMixer::Jr(Xi)*GPMixer::JrInv(Xi) - MatrixXd::Identity(6, 6)).cwiseAbs().maxCoeff() << endl;
-    cout << "Xd_reverse error:\n"  << (Xid_reverse - Xid                                            ).cwiseAbs().maxCoeff() << endl;
-    cout << "Xdd_reverse error:\n" << (Xidd_reverse - Xidd                                          ).cwiseAbs().maxCoeff() << endl;
+    Matrix<double, 6, 1> Xid1_reverse = JrXi*Tau;
+    Matrix<double, 6, 1> Xid2_reverse = JrInvXi*Wrn + SE3Hp*Xid1;
+
+    compare("Xd1_reverse error: ", Xid1_reverse, Xid1);
+    compare("Xd2_reverse error: ", Xid2_reverse, Xid2);
 
     Mat3 S1, S2;
     S1.setZero(); S2.setZero();
@@ -391,8 +385,8 @@ int main(int argc, char **argv)
     SE3Q<double>::ComputeS(The, Rho, Thed, Rhod, S1, S2);
     tt_s.Toc();
 
-    cout << "S1 numerical error: "  << (myQ.S1 - S1).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_s.GetLastStop()) << endl;
-    cout << "S2 numerical error: "  << (myQ.S2 - S2).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_s.GetLastStop()) << endl;
+    compare("S1 numerical error: ", myQ.S1, S1);
+    compare("S2 numerical error: ", myQ.S2, S2);
 
     Mat3 Sp1, Sp2;
     Sp1.setZero(); Sp2.setZero();
@@ -401,20 +395,6 @@ int main(int argc, char **argv)
     SE3Qp<double>::ComputeS(The, Rho, Omg, Sp1, Sp2);
     tt_sp.Toc();
 
-    cout << "Sp1 numerical error: "  << (myQp.S1 - Sp1).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
-    cout << "Sp2 numerical error: "  << (myQp.S2 - Sp2).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
-
-    // Mat3 Cp11, Cp12, Cp13, Cp21, Cp22, Cp23;
-    // Cp11.setZero(); Cp12.setZero(); Cp13.setZero(); Cp21.setZero(); Cp22.setZero(); Cp23.setZero();
-    
-    // TicToc tt_sp;
-    // SE3Qp<double>::ComputeC(The, Rho, Thed, Rhod, Omg, Cp11, Cp12, Cp13, Cp21, Cp22, Cp23);
-    // tt_sp.Toc();
-
-    // cout << "Cp11 numerical error: "  << (myQp.C11 - Cp11).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
-    // cout << "Cp12 numerical error: "  << (myQp.C12 - Cp12).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
-    // cout << "Cp13 numerical error: "  << (myQp.C13 - Cp13).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
-    // cout << "Cp21 numerical error: "  << (myQp.C21 - Cp21).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
-    // cout << "Cp22 numerical error: "  << (myQp.C22 - Cp22).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
-    // cout << "Cp23 numerical error: "  << (myQp.C23 - Cp23).cwiseAbs().maxCoeff() << myprintf(", Time: %f", tt_sp.GetLastStop()) << endl;
+    compare("Sp1 numerical error: ", myQp.S1, Sp1);
+    compare("Sp2 numerical error: ", myQp.S2, Sp2);
 }

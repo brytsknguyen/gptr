@@ -62,8 +62,8 @@ public:
     Vec3T V;
     Vec3T A;
 
-    // // Destructor
-    // ~GPState(){};
+    // Destructor
+    ~GPState(){};
     
     // Constructor
     GPState()
@@ -198,8 +198,8 @@ private:
 
 public:
 
-//     // Destructor
-//    ~GPMixer() {};
+    // Destructor
+   ~GPMixer() {};
 
     // Constructor
     GPMixer(double dt_, const Mat3 SigGa_, const Mat3 SigNu_) : dt(dt_), SigGa(SigGa_), SigNu(SigNu_)
@@ -323,7 +323,7 @@ public:
         return PSI(dtau, SigNu);
     }
 
-    MatrixXd LAMDA(const double dtau, const MatrixXd &Q) const
+    MatrixXd LMD(const double dtau, const MatrixXd &Q) const
     {
         MatrixXd PSIdtau = PSI(dtau, Q);
         MatrixXd Fdtau = kron(Fbase(dtau, 3), Eye);
@@ -332,14 +332,14 @@ public:
         return Fdtau - PSIdtau*Fdt;
     }
 
-    MatrixXd LAMDA_ROS(const double dtau) const
+    MatrixXd LMD_ROS(const double dtau) const
     {
-        return LAMDA(dtau, SigGa);
+        return LMD(dtau, SigGa);
     }
 
-    MatrixXd LAMDA_PVA(const double dtau) const
+    MatrixXd LMD_PVA(const double dtau) const
     {
-        return LAMDA(dtau, SigNu);
+        return LMD(dtau, SigNu);
     }
 
     template <class T = double>
@@ -1015,7 +1015,7 @@ public:
         Vec3T  &At = Xt.A;
         
         // Prepare the the mixer matrixes
-        Matrix<T, Dynamic, Dynamic> LAM_ROSt = LAMDA(tau, SigGa).cast<T>();
+        Matrix<T, Dynamic, Dynamic> LAM_ROSt = LMD(tau, SigGa).cast<T>();
         Matrix<T, Dynamic, Dynamic> PSI_ROSt = PSI(tau, SigGa).cast<T>();
 
         // Find the relative rotation
@@ -1075,6 +1075,7 @@ public:
             DXt_DXa = vector<vector<Mat3T>>(6, vector<Mat3T>(6, Mat3T::Zero()));
             DXt_DXb = vector<vector<Mat3T>>(6, vector<Mat3T>(6, Mat3T::Zero()));
 
+
             // Jacobians from L2 to L1
             Mat3T  J_Thead1_Oa = Mat3T::Identity(); Mat3T J_Thead2_Sa = Mat3T::Identity();
 
@@ -1100,7 +1101,7 @@ public:
             Mat3T J_Thetd2_Thebd0 = PSI_ROSt.block(6, 0, 3, 3); Mat3T J_Thetd2_Thebd1 = PSI_ROSt.block(6, 3, 3, 3); Mat3T J_Thetd2_Thebd2 = PSI_ROSt.block(6, 6, 3, 3);
 
 
-            // Jacobians from L3 to L0
+            // Jacobians from L3 to L1
             Mat3T J_Thetd0_Ra = J_Thetd0_Thebd0*J_Thebd0_Ra + J_Thetd0_Thebd1*J_Thebd1_Ra + J_Thetd0_Thebd2*J_Thebd2_Ra;
             Mat3T J_Thetd0_Rb = J_Thetd0_Thebd0*J_Thebd0_Rb + J_Thetd0_Thebd1*J_Thebd1_Rb + J_Thetd0_Thebd2*J_Thebd2_Rb;
             Mat3T J_Thetd0_Oa = J_Thetd0_Thead1*J_Thead1_Oa;
@@ -1132,61 +1133,37 @@ public:
             Mat3T &J_St_Thetd2 = Jr_Thet;
 
 
-            // DRt_DRa
-            DXt_DXa[RIDX][RIDX] = Exp_Thet.inverse().matrix() + J_Rt_Thetd0*J_Thetd0_Ra;
-            // DRt_DOa
-            DXt_DXa[RIDX][OIDX] = J_Rt_Thetd0*J_Thetd0_Oa;
-            // DRt_DSa
-            DXt_DXa[RIDX][SIDX] = J_Rt_Thetd0*J_Thetd0_Sa;
-            // DRt_DPa DRt_DVa DRt_DAa are all zeros
-            
-            // DOt_Ra
-            DXt_DXa[OIDX][RIDX] = J_Ot_Thetd0*J_Thetd0_Ra + J_Ot_Thetd1*J_Thetd1_Ra;
-            // DOt_Oa
-            DXt_DXa[OIDX][OIDX] = J_Ot_Thetd0*J_Thetd0_Oa + J_Ot_Thetd1*J_Thetd1_Oa;
-            // DOt_Sa
-            DXt_DXa[OIDX][SIDX] = J_Ot_Thetd0*J_Thetd0_Sa + J_Ot_Thetd1*J_Thetd1_Sa;
-            // DOt_DPa DOt_DVa DOt_DAa are all zeros
-
-            // DSt_Ra
-            DXt_DXa[SIDX][RIDX] = J_St_Thetd0*J_Thetd0_Ra + J_St_Thetd1*J_Thetd1_Ra + J_St_Thetd2*J_Thetd2_Ra;
-            // DSt_Oa
-            DXt_DXa[SIDX][OIDX] = J_St_Thetd0*J_Thetd0_Oa + J_St_Thetd1*J_Thetd1_Oa + J_St_Thetd2*J_Thetd2_Oa;
-            // DSt_Sa
-            DXt_DXa[SIDX][SIDX] = J_St_Thetd0*J_Thetd0_Sa + J_St_Thetd1*J_Thetd1_Sa + J_St_Thetd2*J_Thetd2_Sa;
-            // DSt_DPa DSt_DVa DSt_DAa are all zeros
-
-
-            // DRt_DRb
-            DXt_DXb[RIDX][RIDX] = J_Rt_Thetd0*J_Thetd0_Rb;
-            // DRt_DOb
-            DXt_DXb[RIDX][OIDX] = J_Rt_Thetd0*J_Thetd0_Ob;
-            // DRt_DSb
-            DXt_DXb[RIDX][SIDX] = J_Rt_Thetd0*J_Thetd0_Sb;
-            // DRt_DPb DRt_DVb DRt_DAb are all zeros
-            
-            // DOt_Rb
-            DXt_DXb[OIDX][RIDX] = J_Ot_Thetd0*J_Thetd0_Rb + J_Ot_Thetd1*J_Thetd1_Rb;
-            // DOt_Ob
-            DXt_DXb[OIDX][OIDX] = J_Ot_Thetd0*J_Thetd0_Ob + J_Ot_Thetd1*J_Thetd1_Ob;
-            // DOt_Sb
-            DXt_DXb[OIDX][SIDX] = J_Ot_Thetd0*J_Thetd0_Sb + J_Ot_Thetd1*J_Thetd1_Sb;
-            // DOt_DPb DOt_DVb DOt_DAb are all zeros
-
-            // DSt_Rb
-            DXt_DXb[SIDX][RIDX] = J_St_Thetd0*J_Thetd0_Rb + J_St_Thetd1*J_Thetd1_Rb + J_St_Thetd2*J_Thetd2_Rb;
-            // DSt_Ob
-            DXt_DXb[SIDX][OIDX] = J_St_Thetd0*J_Thetd0_Ob + J_St_Thetd1*J_Thetd1_Ob + J_St_Thetd2*J_Thetd2_Ob;
-            // DSt_Sb
-            DXt_DXb[SIDX][SIDX] = J_St_Thetd0*J_Thetd0_Sb + J_St_Thetd1*J_Thetd1_Sb + J_St_Thetd2*J_Thetd2_Sb;
-            // DSt_DPb DSt_DVb DSt_DAb are all zeros
+            // Jacobians from L4 to L1
+            DXt_DXa[RIDX][RIDX] = Exp_Thet.Adj().inverse() + J_Rt_Thetd0*J_Thetd0_Ra;                          // DRt_DRa
+            DXt_DXa[RIDX][OIDX] = J_Rt_Thetd0*J_Thetd0_Oa;                                                     // DRt_DOa
+            DXt_DXa[RIDX][SIDX] = J_Rt_Thetd0*J_Thetd0_Sa;                                                     // DRt_DSa
+            //-----------------------------------------------------------------------------------------------------------
+            DXt_DXa[OIDX][RIDX] = J_Ot_Thetd0*J_Thetd0_Ra + J_Ot_Thetd1*J_Thetd1_Ra;                           // DOt_DRa
+            DXt_DXa[OIDX][OIDX] = J_Ot_Thetd0*J_Thetd0_Oa + J_Ot_Thetd1*J_Thetd1_Oa;                           // DOt_DOa
+            DXt_DXa[OIDX][SIDX] = J_Ot_Thetd0*J_Thetd0_Sa + J_Ot_Thetd1*J_Thetd1_Sa;                           // DOt_DSa
+            //-----------------------------------------------------------------------------------------------------------
+            DXt_DXa[SIDX][RIDX] = J_St_Thetd0*J_Thetd0_Ra + J_St_Thetd1*J_Thetd1_Ra + J_St_Thetd2*J_Thetd2_Ra; // DSt_DRa
+            DXt_DXa[SIDX][OIDX] = J_St_Thetd0*J_Thetd0_Oa + J_St_Thetd1*J_Thetd1_Oa + J_St_Thetd2*J_Thetd2_Oa; // DSt_DOa
+            DXt_DXa[SIDX][SIDX] = J_St_Thetd0*J_Thetd0_Sa + J_St_Thetd1*J_Thetd1_Sa + J_St_Thetd2*J_Thetd2_Sa; // DSt_DSa
+            //-----------------------------------------------------------------------------------------------------------
+            DXt_DXb[RIDX][RIDX] = J_Rt_Thetd0*J_Thetd0_Rb;                                                     // DRt_DRb
+            DXt_DXb[RIDX][OIDX] = J_Rt_Thetd0*J_Thetd0_Ob;                                                     // DRt_DOb
+            DXt_DXb[RIDX][SIDX] = J_Rt_Thetd0*J_Thetd0_Sb;                                                     // DRt_DSb
+            //-----------------------------------------------------------------------------------------------------------
+            DXt_DXb[OIDX][RIDX] = J_Ot_Thetd0*J_Thetd0_Rb + J_Ot_Thetd1*J_Thetd1_Rb;                           // DOt_DRb
+            DXt_DXb[OIDX][OIDX] = J_Ot_Thetd0*J_Thetd0_Ob + J_Ot_Thetd1*J_Thetd1_Ob;                           // DOt_DOb
+            DXt_DXb[OIDX][SIDX] = J_Ot_Thetd0*J_Thetd0_Sb + J_Ot_Thetd1*J_Thetd1_Sb;                           // DOt_DSb
+            //-----------------------------------------------------------------------------------------------------------
+            DXt_DXb[SIDX][RIDX] = J_St_Thetd0*J_Thetd0_Rb + J_St_Thetd1*J_Thetd1_Rb + J_St_Thetd2*J_Thetd2_Rb; // DSt_DRb
+            DXt_DXb[SIDX][OIDX] = J_St_Thetd0*J_Thetd0_Ob + J_St_Thetd1*J_Thetd1_Ob + J_St_Thetd2*J_Thetd2_Ob; // DSt_DOb
+            DXt_DXb[SIDX][SIDX] = J_St_Thetd0*J_Thetd0_Sb + J_St_Thetd1*J_Thetd1_Sb + J_St_Thetd2*J_Thetd2_Sb; // DSt_DSb
         }
 
 
 
 
         // Performing interpolation on R3
-        Matrix<T, Dynamic, Dynamic> LAM_PVAt = LAMDA(tau, SigNu).cast<T>();
+        Matrix<T, Dynamic, Dynamic> LAM_PVAt = LMD(tau, SigNu).cast<T>();
         Matrix<T, Dynamic, Dynamic> PSI_PVAt = PSI(tau, SigNu).cast<T>();
 
         // Calculate the knot euclid states and put them in vector form
@@ -1198,56 +1175,59 @@ public:
         Vt = pvat.block(3, 0, 3, 1);
         At = pvat.block(6, 0, 3, 1);
 
-        // Extract the blocks of R3 states
-        Mat3T LAM_PVA11 = LAM_PVAt.block(0, 0, 3, 3); Mat3T LAM_PVA12 = LAM_PVAt.block(0, 3, 3, 3); Mat3T LAM_PVA13 = LAM_PVAt.block(0, 6, 3, 3);
-        Mat3T LAM_PVA21 = LAM_PVAt.block(3, 0, 3, 3); Mat3T LAM_PVA22 = LAM_PVAt.block(3, 3, 3, 3); Mat3T LAM_PVA23 = LAM_PVAt.block(3, 6, 3, 3);
-        Mat3T LAM_PVA31 = LAM_PVAt.block(6, 0, 3, 3); Mat3T LAM_PVA32 = LAM_PVAt.block(6, 3, 3, 3); Mat3T LAM_PVA33 = LAM_PVAt.block(6, 6, 3, 3);
+        if(find_jacobian)
+        {
+            // Extract the blocks of R3 states
+            Mat3T LAM_PVA11 = LAM_PVAt.block(0, 0, 3, 3); Mat3T LAM_PVA12 = LAM_PVAt.block(0, 3, 3, 3); Mat3T LAM_PVA13 = LAM_PVAt.block(0, 6, 3, 3);
+            Mat3T LAM_PVA21 = LAM_PVAt.block(3, 0, 3, 3); Mat3T LAM_PVA22 = LAM_PVAt.block(3, 3, 3, 3); Mat3T LAM_PVA23 = LAM_PVAt.block(3, 6, 3, 3);
+            Mat3T LAM_PVA31 = LAM_PVAt.block(6, 0, 3, 3); Mat3T LAM_PVA32 = LAM_PVAt.block(6, 3, 3, 3); Mat3T LAM_PVA33 = LAM_PVAt.block(6, 6, 3, 3);
 
-        Mat3T PSI_PVA11 = PSI_PVAt.block(0, 0, 3, 3); Mat3T PSI_PVA12 = PSI_PVAt.block(0, 3, 3, 3); Mat3T PSI_PVA13 = PSI_PVAt.block(0, 6, 3, 3);
-        Mat3T PSI_PVA21 = PSI_PVAt.block(3, 0, 3, 3); Mat3T PSI_PVA22 = PSI_PVAt.block(3, 3, 3, 3); Mat3T PSI_PVA23 = PSI_PVAt.block(3, 6, 3, 3);
-        Mat3T PSI_PVA31 = PSI_PVAt.block(6, 0, 3, 3); Mat3T PSI_PVA32 = PSI_PVAt.block(6, 3, 3, 3); Mat3T PSI_PVA33 = PSI_PVAt.block(6, 6, 3, 3);
+            Mat3T PSI_PVA11 = PSI_PVAt.block(0, 0, 3, 3); Mat3T PSI_PVA12 = PSI_PVAt.block(0, 3, 3, 3); Mat3T PSI_PVA13 = PSI_PVAt.block(0, 6, 3, 3);
+            Mat3T PSI_PVA21 = PSI_PVAt.block(3, 0, 3, 3); Mat3T PSI_PVA22 = PSI_PVAt.block(3, 3, 3, 3); Mat3T PSI_PVA23 = PSI_PVAt.block(3, 6, 3, 3);
+            Mat3T PSI_PVA31 = PSI_PVAt.block(6, 0, 3, 3); Mat3T PSI_PVA32 = PSI_PVAt.block(6, 3, 3, 3); Mat3T PSI_PVA33 = PSI_PVAt.block(6, 6, 3, 3);
 
-        // DPt_DPa
-        DXt_DXa[PIDX][PIDX] = LAM_PVA11;
-        // DPt_DVa
-        DXt_DXa[PIDX][VIDX] = LAM_PVA12;
-        // DPt_DAa
-        DXt_DXa[PIDX][AIDX] = LAM_PVA13;
-        
-        // DVt_DPa
-        DXt_DXa[VIDX][PIDX] = LAM_PVA21;
-        // DVt_DVa
-        DXt_DXa[VIDX][VIDX] = LAM_PVA22;
-        // DVt_DAa
-        DXt_DXa[VIDX][AIDX] = LAM_PVA23;
+            // DPt_DPa
+            DXt_DXa[PIDX][PIDX] = LAM_PVA11;
+            // DPt_DVa
+            DXt_DXa[PIDX][VIDX] = LAM_PVA12;
+            // DPt_DAa
+            DXt_DXa[PIDX][AIDX] = LAM_PVA13;
+            
+            // DVt_DPa
+            DXt_DXa[VIDX][PIDX] = LAM_PVA21;
+            // DVt_DVa
+            DXt_DXa[VIDX][VIDX] = LAM_PVA22;
+            // DVt_DAa
+            DXt_DXa[VIDX][AIDX] = LAM_PVA23;
 
-        // DAt_DPa
-        DXt_DXa[AIDX][PIDX] = LAM_PVA31;
-        // DAt_DVa
-        DXt_DXa[AIDX][VIDX] = LAM_PVA32;
-        // DAt_DAa
-        DXt_DXa[AIDX][AIDX] = LAM_PVA33;
+            // DAt_DPa
+            DXt_DXa[AIDX][PIDX] = LAM_PVA31;
+            // DAt_DVa
+            DXt_DXa[AIDX][VIDX] = LAM_PVA32;
+            // DAt_DAa
+            DXt_DXa[AIDX][AIDX] = LAM_PVA33;
 
-        // DPt_DPb
-        DXt_DXb[PIDX][PIDX] = PSI_PVA11;
-        // DRt_DPb
-        DXt_DXb[PIDX][VIDX] = PSI_PVA12;
-        // DRt_DAb
-        DXt_DXb[PIDX][AIDX] = PSI_PVA13;
+            // DPt_DPb
+            DXt_DXb[PIDX][PIDX] = PSI_PVA11;
+            // DRt_DPb
+            DXt_DXb[PIDX][VIDX] = PSI_PVA12;
+            // DRt_DAb
+            DXt_DXb[PIDX][AIDX] = PSI_PVA13;
 
-        // DVt_DPb
-        DXt_DXb[VIDX][PIDX] = PSI_PVA21;
-        // DVt_DVb
-        DXt_DXb[VIDX][VIDX] = PSI_PVA22;
-        // DVt_DAb
-        DXt_DXb[VIDX][AIDX] = PSI_PVA23;
-        
-        // DAt_DPb
-        DXt_DXb[AIDX][PIDX] = PSI_PVA31;
-        // DAt_DVb
-        DXt_DXb[AIDX][VIDX] = PSI_PVA32;
-        // DAt_DAb
-        DXt_DXb[AIDX][AIDX] = PSI_PVA33;
+            // DVt_DPb
+            DXt_DXb[VIDX][PIDX] = PSI_PVA21;
+            // DVt_DVb
+            DXt_DXb[VIDX][VIDX] = PSI_PVA22;
+            // DVt_DAb
+            DXt_DXb[VIDX][AIDX] = PSI_PVA23;
+            
+            // DAt_DPb
+            DXt_DXb[AIDX][PIDX] = PSI_PVA31;
+            // DAt_DVb
+            DXt_DXb[AIDX][VIDX] = PSI_PVA32;
+            // DAt_DAb
+            DXt_DXb[AIDX][AIDX] = PSI_PVA33;
+        }
     }
 
     template <class T = double>
@@ -1280,19 +1260,10 @@ public:
         using Vec18T = Eigen::Matrix<T, 18, 1>;
         using Mat3T  = Eigen::Matrix<T, 3,  3>;
         using Mat6T  = Eigen::Matrix<T, 6,  6>;
-
-        // Map the variables of the state
-        double tau = Xt.t;
-        SO3T   &Rt = Xt.R;
-        Vec3T  &Ot = Xt.O;
-        Vec3T  &St = Xt.S;
-        Vec3T  &Pt = Xt.P;
-        Vec3T  &Vt = Xt.V;
-        Vec3T  &At = Xt.A;
         
         // Prepare the the mixer matrixes
-        Matrix<T, 18, 18> LAM_TTWt = LAMDA(tau, SigGN).template cast<T>();
-        Matrix<T, 18, 18> PSI_TTWt = PSI(tau, SigGN).template cast<T>();
+        Matrix<T, 18, 18> LAM_TTWt = LMD(Xt.t, SigGN).template cast<T>();
+        Matrix<T, 18, 18> PSI_TTWt = PSI(Xt.t, SigGN).template cast<T>();
 
         // Find the global 6DOF states
         
@@ -1352,7 +1323,7 @@ public:
         Vec6T Wrt = Jr_Xit*Xitd2 + H1_XitXitd1*Xitd1;
 
         // Get the interpolated states as variable
-        Xt = GPState(tau, Tft, Twt, Wrt);
+        Xt = GPState(Xt.t, Tft, Twt, Wrt);
 
         if (find_jacobian)
         {
@@ -1415,199 +1386,33 @@ public:
             Mat6T  J_Wrt_Xitd0 = H1_XitXitd2 + L11_XitXitd1Xitd1;
             Mat6T  J_Wrt_Xitd1 = L12_XitXitd1Xitd1 + H1_XitXitd1;
             Mat6T &J_Wrt_Xitd2 = Jr_Xit;
+
+
+            // Jacobian from L4 to L1
+            Mat6T J_Tft_Tfa = Exp_Xit.Adj().inverse() + J_Tft_Xitd0*J_Xitd0_Tfa;                           // DTft_DTfa
+            Mat6T J_Tft_Twa = J_Tft_Xitd0*J_Xitd0_Tfa;                                                     // DTft_DTwa
+            Mat6T J_Tft_Wra = J_Tft_Xitd0*J_Xitd0_Wra;                                                     // DTft_DWra
+            //---------------------------------------------------------------------------------------------------------
+            Mat6T J_Twt_Tfa = J_Twt_Xitd0*J_Xitd0_Tfa + J_Twt_Xitd1*J_Xitd1_Tfa;                           // DTwt_DTfa
+            Mat6T J_Twt_Twa = J_Twt_Xitd0*J_Xitd0_Twa + J_Twt_Xitd1*J_Xitd1_Twa;                           // DTwt_DTwa
+            Mat6T J_Twt_Wra = J_Twt_Xitd0*J_Xitd0_Wra + J_Twt_Xitd1*J_Xitd1_Twa;                           // DTwt_DWra
+            //---------------------------------------------------------------------------------------------------------
+            Mat6T J_Wrt_Tfa = J_Wrt_Xitd0*J_Xitd0_Tfa + J_Wrt_Xitd1*J_Xitd1_Tfa + J_Wrt_Xitd2*J_Xitd2_Tfa; // DTwt_DTfa
+            Mat6T J_Wrt_Twa = J_Wrt_Xitd0*J_Xitd0_Twa + J_Wrt_Xitd1*J_Xitd1_Twa + J_Wrt_Xitd2*J_Xitd2_Twa; // DTwt_DTwa
+            Mat6T J_Wrt_Wra = J_Wrt_Xitd0*J_Xitd0_Wra + J_Wrt_Xitd1*J_Xitd1_Wra + J_Wrt_Xitd2*J_Xitd2_Wra; // DTwt_DWra
+            //---------------------------------------------------------------------------------------------------------
+            Mat6T J_Tft_Tfb = J_Tft_Xitd0*J_Xitd0_Tfb;                                                     // DTft_DTfb
+            Mat6T J_Tft_Twb = J_Tft_Xitd0*J_Xitd0_Twb;                                                     // DTft_DTwb
+            Mat6T J_Tft_Wrb = J_Tft_Xitd0*J_Xitd0_Wrb;                                                     // DTft_DWrb
+            //---------------------------------------------------------------------------------------------------------
+            Mat6T J_Twt_Tfb = J_Twt_Xitd0*J_Xitd0_Tfb + J_Twt_Xitd1*J_Xitd1_Tfb;                           // DTwt_DTfb
+            Mat6T J_Twt_Twb = J_Twt_Xitd0*J_Xitd0_Twb + J_Twt_Xitd1*J_Xitd1_Twb;                           // DTwt_DTwb
+            Mat6T J_Twt_Wrb = J_Twt_Xitd0*J_Xitd0_Wrb + J_Twt_Xitd1*J_Xitd1_Wrb;                           // DTwt_DWrb
+            //---------------------------------------------------------------------------------------------------------
+            Mat6T J_Wrt_Tfb = J_Wrt_Xitd0*J_Xitd0_Tfb + J_Wrt_Xitd1*J_Xitd1_Tfb + J_Wrt_Xitd2*J_Xitd2_Tfb; // DTwt_DTfb
+            Mat6T J_Wrt_Twb = J_Wrt_Xitd0*J_Xitd0_Twb + J_Wrt_Xitd1*J_Xitd1_Twb + J_Wrt_Xitd2*J_Xitd2_Twb; // DTwt_DTwb
+            Mat6T J_Wrt_Wrb = J_Wrt_Xitd0*J_Xitd0_Wrb + J_Wrt_Xitd1*J_Xitd1_Wrb + J_Wrt_Xitd2*J_Xitd2_Wrb; // DTwt_DWrb
         }
-
-        // // // Calculate the Jacobian
-        // // // DXt_DXa = vector<vector<Mat3T>>(6, vector<Mat3T>(6, Mat3T::Zero()));
-        // // // DXt_DXb = vector<vector<Mat3T>>(6, vector<Mat3T>(6, Mat3T::Zero()));
-
-
-        // // // // Local index for the states in the state vector
-        // // // const int RIDX = 0;
-        // // // const int OIDX = 1;
-        // // // const int SIDX = 2;
-        // // // const int PIDX = 3;
-        // // // const int VIDX = 4;
-        // // // const int AIDX = 5;
-
-
-        // // // // Some reusable matrices
-        // // // SO3T Exp_XitInv = Exp_Xit.inverse();
-        // // Mat6T HpXib_XibWb = DJrInvUV_DU(Xib, Wb);
-        // // // Mat6T LpXibXib_XibUbXibd1 = DDJrInvUVW_DUDU(Xib, Ub, Xibd1);
-        // // // Mat6T LpXibUb_XibUbXibd1 = DDJrInvUVW_DUDV(Xib, Ub, Xibd1);
-
-        // // // Mat3T HXit_XitXitd2 = DJrUV_DU(Xitd0, Xitd2);
-        // // // Mat3T LXitXit_XitXitd1Xitd1 = DDJrUVW_DUDU(Xitd0, Xitd1, Xitd1);
-        // // // Mat3T LXitXitd1_XitXitd1Xitd1 = DDJrUVW_DUDV(Xitd0, Xitd1, Xitd1);
-        
-
-        // // // Jacobians from L1 to L0
-        // // Mat6T J_Xiad1_Ua = Mat6T::Identity(); Mat6T J_Xiad2_Wa = Mat6T::Identity();
-
-        // // Mat6T  J_Xibd0_Ta = -JlInv_Xib;
-        // // Mat6T &J_Xibd0_Tb =  JrInv_Xib;
-
-        // // Mat6T  JXibd1_Ta = HpXib_XibUb*J_Xibd0_Ta;
-        // // Mat6T  JXibd1_Tb = HpXib_XibUb*J_Xibd0_Tb;
-        // // Mat6T &JXibd1_Ub = JrInv_Xib;
-
-        // // // Mat6T  JXibd2_Ta = HpXib_XibWb*J_Xibd0_Ta + HpXib_XibUb*JXibd1_Ta + LpXibXib_XibUbXibd1*J_Xibd0_Ta;
-        // // // Mat6T  JXibd2_Tb = HpXib_XibWb*J_Xibd0_Tb + HpXib_XibUb*JXibd1_Tb + LpXibXib_XibUbXibd1*J_Xibd0_Tb;
-        // // // Mat6T  JXibd2_Ub = LpXibUb_XibUbXibd1     + HpXib_XibUb*JXibd1_Ub;
-        // // Mat6T &JXibd2_Wb = JrInv_Xib;
-
-
-        // // // // Jacobians from L2 to L1
-        // // // Mat3T JXitd0Xiad0 = LAM_ROSt.block(0, 0, 3, 3); Mat3T JXitd0Xiad1 = LAM_ROSt.block(0, 3, 3, 3); Mat3T JXitd0Xiad2 = LAM_ROSt.block(0, 6, 3, 3);
-        // // // Mat3T JXitd1Xiad0 = LAM_ROSt.block(3, 0, 3, 3); Mat3T JXitd1Xiad1 = LAM_ROSt.block(3, 3, 3, 3); Mat3T JXitd1Xiad2 = LAM_ROSt.block(3, 6, 3, 3);
-        // // // Mat3T JXitd2Xiad0 = LAM_ROSt.block(6, 0, 3, 3); Mat3T JXitd2Xiad1 = LAM_ROSt.block(6, 3, 3, 3); Mat3T JXitd2Xiad2 = LAM_ROSt.block(6, 6, 3, 3);
-
-        // // // Mat3T JXitd0Xibd0 = PSI_ROSt.block(0, 0, 3, 3); Mat3T JXitd0Xibd1 = PSI_ROSt.block(0, 3, 3, 3); Mat3T JXitd0Xibd2 = PSI_ROSt.block(0, 6, 3, 3);
-        // // // Mat3T JXitd1Xibd0 = PSI_ROSt.block(3, 0, 3, 3); Mat3T JXitd1Xibd1 = PSI_ROSt.block(3, 3, 3, 3); Mat3T JXitd1Xibd2 = PSI_ROSt.block(3, 6, 3, 3);
-        // // // Mat3T JXitd2Xibd0 = PSI_ROSt.block(6, 0, 3, 3); Mat3T JXitd2Xibd1 = PSI_ROSt.block(6, 3, 3, 3); Mat3T JXitd2Xibd2 = PSI_ROSt.block(6, 6, 3, 3);
-
-
-        // // // // Jacobians from L2 to L0
-        // // // Mat3T JXitd0Ta = JXitd0Xibd0*J_Xibd0_Ta + JXitd0Xibd1*JXibd1Ta + JXitd0Xibd2*JXibd2Ta;
-        // // // Mat3T JXitd0Tb = JXitd0Xibd0*J_Xibd0_Tb + JXitd0Xibd1*JXibd1Tb + JXitd0Xibd2*JXibd2Tb;
-        // // // Mat3T JXitd0Ua = JXitd0Xiad1*J_Xiad1_Ua;
-        // // // Mat3T JXitd0Ub = JXitd0Xibd1*JXibd1Ub + JXitd0Xibd2*JXibd2Ub;
-        // // // Mat3T JXitd0Wa = JXitd0Xiad2*J_Xiad2_Wa;
-        // // // Mat3T JXitd0Wb = JXitd0Xibd2*JXibd2Wb;
-
-        // // // Mat3T JXitd1Ta = JXitd1Xibd0*J_Xibd0_Ta + JXitd1Xibd1*JXibd1Ta + JXitd1Xibd2*JXibd2Ta;
-        // // // Mat3T JXitd1Tb = JXitd1Xibd0*J_Xibd0_Tb + JXitd1Xibd1*JXibd1Tb + JXitd1Xibd2*JXibd2Tb;
-        // // // Mat3T JXitd1Ua = JXitd1Xiad1*J_Xiad1_Ua;
-        // // // Mat3T JXitd1Ub = JXitd1Xibd1*JXibd1Ub + JXitd1Xibd2*JXibd2Ub;
-        // // // Mat3T JXitd1Wa = JXitd1Xiad2*J_Xiad2_Wa;
-        // // // Mat3T JXitd1Wb = JXitd1Xibd2*JXibd2Wb;
-
-        // // // Mat3T JXitd2Ta = JXitd2Xibd0*J_Xibd0_Ta + JXitd2Xibd1*JXibd1Ta + JXitd2Xibd2*JXibd2Ta;
-        // // // Mat3T JXitd2Tb = JXitd2Xibd0*J_Xibd0_Tb + JXitd2Xibd1*JXibd1Tb + JXitd2Xibd2*JXibd2Tb;
-        // // // Mat3T JXitd2Ua = JXitd2Xiad1*J_Xiad1_Ua;
-        // // // Mat3T JXitd2Ub = JXitd2Xibd1*JXibd1Ub + JXitd2Xibd2*JXibd2Ub;
-        // // // Mat3T JXitd2Wa = JXitd2Xiad2*J_Xiad2_Wa;
-        // // // Mat3T JXitd2Wb = JXitd2Xibd2*JXibd2Wb;
-
-
-        // // // // Jacobians from L3 to L2
-        // // // Mat3T &JRtXitd0 = Jr_Xit;
-
-        // // // Mat3T &JOtXitd0 = HXit_XitXitd1;
-        // // // Mat3T &JOtXitd1 = Jr_Xit;
-
-        // // // Mat3T  JStXitd0 = HXit_XitXitd2 + LXitXit_XitXitd1Xitd1;
-        // // // Mat3T  JStXitd1 = LXitXitd1_XitXitd1Xitd1 + HXit_XitXitd1;
-        // // // Mat3T &JStXitd2 = Jr_Xit;
-
-
-        // // // // DRt_DTa
-        // // // DXt_DXa[RIDX][RIDX] = Exp_XitInv.matrix() + JRtXitd0*JXitd0Ta;
-        // // // // DRt_DUa
-        // // // DXt_DXa[RIDX][OIDX] = JRtXitd0*JXitd0Ua;
-        // // // // DRt_DWa
-        // // // DXt_DXa[RIDX][SIDX] = JRtXitd0*JXitd0Wa;
-        // // // // DRt_DPa DRt_DVa DRt_DWa are all zeros
-        
-        // // // // DOt_Ta
-        // // // DXt_DXa[OIDX][RIDX] = JOtXitd0*JXitd0Ta + JOtXitd1*JXitd1Ta;
-        // // // // DOt_Ua
-        // // // DXt_DXa[OIDX][OIDX] = JOtXitd0*JXitd0Ua + JOtXitd1*JXitd1Ua;
-        // // // // DOt_Wa
-        // // // DXt_DXa[OIDX][SIDX] = JOtXitd0*JXitd0Wa + JOtXitd1*JXitd1Wa;
-        // // // // DOt_DPa DOt_DVa DOt_DWa are all zeros
-
-        // // // // DSt_Ta
-        // // // DXt_DXa[SIDX][RIDX] = JStXitd0*JXitd0Ta + JStXitd1*JXitd1Ta + JStXitd2*JXitd2Ta;
-        // // // // DSt_Ua
-        // // // DXt_DXa[SIDX][OIDX] = JStXitd0*JXitd0Ua + JStXitd1*JXitd1Ua + JStXitd2*JXitd2Ua;
-        // // // // DSt_Wa
-        // // // DXt_DXa[SIDX][SIDX] = JStXitd0*JXitd0Wa + JStXitd1*JXitd1Wa + JStXitd2*JXitd2Wa;
-        // // // // DSt_DPa DSt_DVa DSt_DWa are all zeros
-
-
-        // // // // DRt_DTb
-        // // // DXt_DXb[RIDX][RIDX] = JRtXitd0*JXitd0Tb;
-        // // // // DRt_DUb
-        // // // DXt_DXb[RIDX][OIDX] = JRtXitd0*JXitd0Ub;
-        // // // // DRt_DWb
-        // // // DXt_DXb[RIDX][SIDX] = JRtXitd0*JXitd0Wb;
-        // // // // DRt_DPb DRt_DVb DRt_DWb are all zeros
-        
-        // // // // DOt_Tb
-        // // // DXt_DXb[OIDX][RIDX] = JOtXitd0*JXitd0Tb + JOtXitd1*JXitd1Tb;
-        // // // // DOt_Ub
-        // // // DXt_DXb[OIDX][OIDX] = JOtXitd0*JXitd0Ub + JOtXitd1*JXitd1Ub;
-        // // // // DOt_Wb
-        // // // DXt_DXb[OIDX][SIDX] = JOtXitd0*JXitd0Wb + JOtXitd1*JXitd1Wb;
-        // // // // DOt_DPb DOt_DVb DOt_DWb are all zeros
-
-        // // // // DSt_Tb
-        // // // DXt_DXb[SIDX][RIDX] = JStXitd0*JXitd0Tb + JStXitd1*JXitd1Tb + JStXitd2*JXitd2Tb;
-        // // // // DSt_Ub
-        // // // DXt_DXb[SIDX][OIDX] = JStXitd0*JXitd0Ub + JStXitd1*JXitd1Ub + JStXitd2*JXitd2Ub;
-        // // // // DSt_Wb
-        // // // DXt_DXb[SIDX][SIDX] = JStXitd0*JXitd0Wb + JStXitd1*JXitd1Wb + JStXitd2*JXitd2Wb;
-        // // // // DSt_DPb DSt_DVb DSt_DWb are all zeros
-
-
-
-
-        // // // // Extract the blocks of R3 states
-        // // // Mat3T LAM_PVA11 = LAM_PVAt.block(0, 0, 3, 3); Mat3T LAM_PVA12 = LAM_PVAt.block(0, 3, 3, 3); Mat3T LAM_PVA13 = LAM_PVAt.block(0, 6, 3, 3);
-        // // // Mat3T LAM_PVA21 = LAM_PVAt.block(3, 0, 3, 3); Mat3T LAM_PVA22 = LAM_PVAt.block(3, 3, 3, 3); Mat3T LAM_PVA23 = LAM_PVAt.block(3, 6, 3, 3);
-        // // // Mat3T LAM_PVA31 = LAM_PVAt.block(6, 0, 3, 3); Mat3T LAM_PVA32 = LAM_PVAt.block(6, 3, 3, 3); Mat3T LAM_PVA33 = LAM_PVAt.block(6, 6, 3, 3);
-
-        // // // Mat3T PSI_PVA11 = PSI_PVAt.block(0, 0, 3, 3); Mat3T PSI_PVA12 = PSI_PVAt.block(0, 3, 3, 3); Mat3T PSI_PVA13 = PSI_PVAt.block(0, 6, 3, 3);
-        // // // Mat3T PSI_PVA21 = PSI_PVAt.block(3, 0, 3, 3); Mat3T PSI_PVA22 = PSI_PVAt.block(3, 3, 3, 3); Mat3T PSI_PVA23 = PSI_PVAt.block(3, 6, 3, 3);
-        // // // Mat3T PSI_PVA31 = PSI_PVAt.block(6, 0, 3, 3); Mat3T PSI_PVA32 = PSI_PVAt.block(6, 3, 3, 3); Mat3T PSI_PVA33 = PSI_PVAt.block(6, 6, 3, 3);
-
-        // // // // DPt_DPa
-        // // // DXt_DXa[PIDX][PIDX] = LAM_PVA11;
-        // // // // DPt_DVa
-        // // // DXt_DXa[PIDX][VIDX] = LAM_PVA12;
-        // // // // DPt_DWa
-        // // // DXt_DXa[PIDX][AIDX] = LAM_PVA13;
-        
-        // // // // DVt_DPa
-        // // // DXt_DXa[VIDX][PIDX] = LAM_PVA21;
-        // // // // DVt_DVa
-        // // // DXt_DXa[VIDX][VIDX] = LAM_PVA22;
-        // // // // DVt_DWa
-        // // // DXt_DXa[VIDX][AIDX] = LAM_PVA23;
-
-        // // // // DAt_DPa
-        // // // DXt_DXa[AIDX][PIDX] = LAM_PVA31;
-        // // // // DAt_DVa
-        // // // DXt_DXa[AIDX][VIDX] = LAM_PVA32;
-        // // // // DAt_DWa
-        // // // DXt_DXa[AIDX][AIDX] = LAM_PVA33;
-
-        // // // // DPt_DPb
-        // // // DXt_DXb[PIDX][PIDX] = PSI_PVA11;
-        // // // // DRt_DPb
-        // // // DXt_DXb[PIDX][VIDX] = PSI_PVA12;
-        // // // // DRt_DWb
-        // // // DXt_DXb[PIDX][AIDX] = PSI_PVA13;
-
-        // // // // DVt_DPb
-        // // // DXt_DXb[VIDX][PIDX] = PSI_PVA21;
-        // // // // DVt_DVb
-        // // // DXt_DXb[VIDX][VIDX] = PSI_PVA22;
-        // // // // DVt_DWb
-        // // // DXt_DXb[VIDX][AIDX] = PSI_PVA23;
-        
-        // // // // DAt_DPb
-        // // // DXt_DXb[AIDX][PIDX] = PSI_PVA31;
-        // // // // DAt_DVb
-        // // // DXt_DXb[AIDX][VIDX] = PSI_PVA32;
-        // // // // DAt_DWb
-        // // // DXt_DXb[AIDX][AIDX] = PSI_PVA33;
-
-        // // // gammaa_ = gammaa;
-        // // // gammab_ = gammab;
-        // // // gammat_ = gammat;
     }
 
     GPMixer &operator=(const GPMixer &other)
@@ -1767,8 +1572,8 @@ public:
         Eigen::Matrix<double, 9, 1> gammat; // Containing on-manifold states (rotation and angular velocity)
         Eigen::Matrix<double, 9, 1> pvat;   // Position, velocity, acceleration
 
-        gammat = gpm->LAMDA_ROS(s*dt) * gammaa + gpm->PSI_ROS(s*dt) * gammab;
-        pvat   = gpm->LAMDA_PVA(s*dt) * pvaa   + gpm->PSI_PVA(s*dt) * pvab;
+        gammat = gpm->LMD_ROS(s*dt) * gammaa + gpm->PSI_ROS(s*dt) * gammab;
+        pvat   = gpm->LMD_PVA(s*dt) * pvaa   + gpm->PSI_PVA(s*dt) * pvab;
 
         // Retrive the interpolated SO3 in relative form
         Vec3 Thet     = gammat.block(0, 0, 3, 1);
