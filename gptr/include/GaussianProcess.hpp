@@ -303,6 +303,8 @@ public:
 
     MatrixXd PSI(const double dtau, const MatrixXd &Q) const
     {
+        MatrixXd Eye = MatrixXd::Identity(Q.rows(), Q.rows());
+
         if (dtau < DOUBLE_EPSILON)
             return kron(MatrixXd::Zero(3, 3), Eye);
 
@@ -325,10 +327,12 @@ public:
 
     MatrixXd LMD(const double dtau, const MatrixXd &Q) const
     {
+        MatrixXd Eye = MatrixXd::Identity(Q.rows(), Q.rows());
+
         MatrixXd PSIdtau = PSI(dtau, Q);
         MatrixXd Fdtau = kron(Fbase(dtau, 3), Eye);
         MatrixXd Fdt = kron(Fbase(dt, 3), Eye);
-
+        
         return Fdtau - PSIdtau*Fdt;
     }
 
@@ -1260,7 +1264,7 @@ public:
         using Vec18T = Eigen::Matrix<T, 18, 1>;
         using Mat3T  = Eigen::Matrix<T, 3,  3>;
         using Mat6T  = Eigen::Matrix<T, 6,  6>;
-        
+
         // Prepare the the mixer matrixes
         Matrix<T, 18, 18> LAM_TTWt = LMD(Xt.t, SigGN).template cast<T>();
         Matrix<T, 18, 18> PSI_TTWt = PSI(Xt.t, SigGN).template cast<T>();
@@ -1312,7 +1316,7 @@ public:
         Mat6T H1_XitXitd2;
         Mat6T L11_XitXitd1Xitd1;
         Mat6T L12_XitXitd1Xitd1;
-        
+
         // Populate the matrices related to Xit
         Get_JHL(Xitd0, Xitd1, Xitd2, Jr_Xit, H1_XitXitd1, H1_XitXitd2, L11_XitXitd1Xitd1, L12_XitXitd1Xitd1);
 
@@ -1331,6 +1335,7 @@ public:
             DXt_DXa = vector<vector<Mat3T>>(6, vector<Mat3T>(6, Mat3T::Zero()));
             DXt_DXb = vector<vector<Mat3T>>(6, vector<Mat3T>(6, Mat3T::Zero()));
 
+
             // Jacobians from L2 to L1
             Mat6T  J_Xiad1_Twa = Mat6T::Identity(); Mat6T J_Xiad2_Wra = Mat6T::Identity();
 
@@ -1348,12 +1353,12 @@ public:
 
 
             // Jacobians from L3 to L2
-            Mat6T J_Xitd0_Xiad0 = LAM_TTWt.block(0, 0, 3, 3); Mat6T J_Xitd0_Xiad1 = LAM_TTWt.block(0, 3, 3, 3); Mat6T J_Xitd0_Xiad2 = LAM_TTWt.block(0, 6, 3, 3);
-            Mat6T J_Xitd1_Xiad0 = LAM_TTWt.block(3, 0, 3, 3); Mat6T J_Xitd1_Xiad1 = LAM_TTWt.block(3, 3, 3, 3); Mat6T J_Xitd1_Xiad2 = LAM_TTWt.block(3, 6, 3, 3);
-            Mat6T J_Xitd2_Xiad0 = LAM_TTWt.block(6, 0, 3, 3); Mat6T J_Xitd2_Xiad1 = LAM_TTWt.block(6, 3, 3, 3); Mat6T J_Xitd2_Xiad2 = LAM_TTWt.block(6, 6, 3, 3);
-            Mat6T J_Xitd0_Xibd0 = PSI_TTWt.block(0, 0, 3, 3); Mat6T J_Xitd0_Xibd1 = PSI_TTWt.block(0, 3, 3, 3); Mat6T J_Xitd0_Xibd2 = PSI_TTWt.block(0, 6, 3, 3);
-            Mat6T J_Xitd1_Xibd0 = PSI_TTWt.block(3, 0, 3, 3); Mat6T J_Xitd1_Xibd1 = PSI_TTWt.block(3, 3, 3, 3); Mat6T J_Xitd1_Xibd2 = PSI_TTWt.block(3, 6, 3, 3);
-            Mat6T J_Xitd2_Xibd0 = PSI_TTWt.block(6, 0, 3, 3); Mat6T J_Xitd2_Xibd1 = PSI_TTWt.block(6, 3, 3, 3); Mat6T J_Xitd2_Xibd2 = PSI_TTWt.block(6, 6, 3, 3);
+            Mat6T J_Xitd0_Xiad0 = LAM_TTWt.block(0,  0, 6, 6); Mat6T J_Xitd0_Xiad1 = LAM_TTWt.block(0,  6, 6, 6); Mat6T J_Xitd0_Xiad2 = LAM_TTWt.block(0,  12, 6, 6);
+            Mat6T J_Xitd1_Xiad0 = LAM_TTWt.block(6,  0, 6, 6); Mat6T J_Xitd1_Xiad1 = LAM_TTWt.block(6,  6, 6, 6); Mat6T J_Xitd1_Xiad2 = LAM_TTWt.block(6,  12, 6, 6);
+            Mat6T J_Xitd2_Xiad0 = LAM_TTWt.block(12, 0, 6, 6); Mat6T J_Xitd2_Xiad1 = LAM_TTWt.block(12, 6, 6, 6); Mat6T J_Xitd2_Xiad2 = LAM_TTWt.block(12, 12, 6, 6);
+            Mat6T J_Xitd0_Xibd0 = PSI_TTWt.block(0,  0, 6, 6); Mat6T J_Xitd0_Xibd1 = PSI_TTWt.block(0,  6, 6, 6); Mat6T J_Xitd0_Xibd2 = PSI_TTWt.block(0,  12, 6, 6);
+            Mat6T J_Xitd1_Xibd0 = PSI_TTWt.block(6,  0, 6, 6); Mat6T J_Xitd1_Xibd1 = PSI_TTWt.block(6,  6, 6, 6); Mat6T J_Xitd1_Xibd2 = PSI_TTWt.block(6,  12, 6, 6);
+            Mat6T J_Xitd2_Xibd0 = PSI_TTWt.block(12, 0, 6, 6); Mat6T J_Xitd2_Xibd1 = PSI_TTWt.block(12, 6, 6, 6); Mat6T J_Xitd2_Xibd2 = PSI_TTWt.block(12, 12, 6, 6);
 
 
             // Jacobians from L3 to L0

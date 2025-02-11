@@ -397,4 +397,32 @@ int main(int argc, char **argv)
 
     compare("Sp1 numerical error: ", myQp.S1, Sp1);
     compare("Sp2 numerical error: ", myQp.S2, Sp2);
+
+    Mat3 SigGa, SigNu;
+    SigGa = Vec3(9.4, 4.7, 3.1).asDiagonal();
+    SigNu = Vec3(6.3, 6.5, 0.7).asDiagonal();
+    GPMixer mygpm(0.1102, SigGa, SigNu);
+
+    GPState Xa(0.1102, SO3d::exp(Vec3(5.7, 4.3, 9.1)),
+                       Vec3(9.6489, 1.5761, 9.7059),
+                       Vec3(9.1338, 6.3236, 0.9754),
+                       Vec3(2.7850, 5.4688, 9.5751),
+                       Vec3(1.4189, 4.2176, 9.1574),
+                       Vec3(7.9221, 9.5949, 6.5574));
+
+    GPState Xb(0.2204, SO3d::exp(Vec3(9.3399, 8.4913, 0.3571)),
+                       Vec3(3.9223, 2.7692, 3.1710),
+                       Vec3(6.5548, 0.4617, 9.5022),
+                       Vec3(1.7119, 0.9713, 0.3445),
+                       Vec3(7.0605, 8.2346, 4.3874),
+                       Vec3(0.3183, 6.9483, 3.8156));
+
+    double ts = 0.0844;
+    GPState Xt(Xa.t + ts);
+    vector<vector<Matrix3d>> DXt_DXa;
+    vector<vector<Matrix3d>> DXt_DXb;
+    Eigen::Matrix<double, Eigen::Dynamic, 1> gammaa, gammab, gammat;
+
+    // Interpolate and find Jacobian
+    mygpm.ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat, POSE_GROUP::SE3);
 }
