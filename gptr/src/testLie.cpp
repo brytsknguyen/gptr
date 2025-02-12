@@ -425,9 +425,14 @@ int main(int argc, char **argv)
 
     // Interpolate and find Jacobian
     TicToc tt_se3;
-    mygpm.ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat, POSE_GROUP::SE3);
+    mygpm.ComputeXtAndJacobiansSO3xR3(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
     tt_se3.Toc();
 
-    printf("tt_se3  : %f s\n", tt_se3.GetLastStop());
+    TicToc tt_split;
+    mygpm.ComputeXtAndJacobiansSE3(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+    tt_split.Toc();
+
+    printf("tt_se3   : %f s\n", tt_se3.GetLastStop());
+    printf("tt_split : %f s\n", tt_split.GetLastStop());
 
 }
