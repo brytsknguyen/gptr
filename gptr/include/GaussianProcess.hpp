@@ -40,6 +40,21 @@ using namespace Eigen;
 // Threshold to use approximation to avoid numerical issues
 #define DOUBLE_EPSILON 1e-4
 
+template <typename Derived>
+Eigen::MatrixXd CastJetToDouble(const MatrixBase<Derived> &M_)
+{
+    MatrixXd M(M_.rows(), M_.cols());
+    for(int ridx = 0; ridx < M_.rows(); ridx++)
+        for(int cidx = 0; cidx < M_.cols(); cidx++)
+        {
+            if constexpr (!std::is_same_v<typename Derived::Scalar, double>)
+                M(ridx, cidx) = M_(ridx, cidx).a;
+            else
+                M(ridx, cidx) = M_(ridx, cidx);
+        }
+    return M;
+}
+
 /* #region Define the states for convenience in initialization and copying ------------------------------------------*/
 
 #define STATE_DIM 18
@@ -114,10 +129,14 @@ public:
 
     void GetTUW(SE3T &Tf, Vec6T &Tw, Vec6T &Wr) const
     {
-        SO3T Rinv = R.inverse();
         Tf = SE3T(R, P);
-        Tw << O, Rinv*V;
-        Wr << S, Rinv*S - SO3T::hat(O)*(Rinv*V);
+
+        SO3T Rinv = R.inverse();
+        Vec3T N = Rinv*V;
+        Vec3T B = Rinv*A - SO3T::hat(O)*N;
+
+        Tw << O, N;
+        Wr << S, B;
     }
 
     Matrix<double, STATE_DIM, 1> boxminus(const GPState &Xother) const
@@ -778,11 +797,13 @@ public:
         Mat3T H1_TheThed = DJrUV_DU(The, Thed);
         Mat3T H1_TheRhod = DJrUV_DU(The, Rhod);
         Mat3T S1_XiThed, S2_XiThed;
-        SE3Q<T>::ComputeS(The, Rho, Thed, Rhod, S1_XiThed, S2_XiThed);
+
+        SE3Q<T> myQ_XiXid;
+        myQ_XiXid.ComputeS(The, Rho, Thed);
         
         Mat6T H1_XiXid;
         H1_XiXid << H1_TheThed, Mat3T::Zero(),
-                    S1_XiThed + H1_TheRhod, S2_XiThed;
+                    myQ_XiXid.S1 + H1_TheRhod, myQ_XiXid.S2;
 
         return H1_XiXid;
     }
@@ -808,12 +829,13 @@ public:
 
         Mat3T Hp1_TheOmg = DJrUV_DU(The, Omg);
         Mat3T Hp1_TheNuy = DJrUV_DU(The, Nuy);
-        Mat3T Sp1_XiOmg, Sp2_XiOmg;
-        SE3Qp<T>::ComputeS(The, Rho, Omg, Sp1_XiOmg, Sp2_XiOmg);
+
+        SE3Qp<T> myQp_XiOmg;
+        myQp_XiOmg.ComputeS(The, Rho, Omg);
         
         Mat6T Hp1_XiTau;
         Hp1_XiTau << Hp1_TheOmg, Mat3T::Zero(),
-                     Sp1_XiOmg + Hp1_TheNuy, Sp2_XiOmg;
+                     myQp_XiOmg.S1 + Hp1_TheNuy, myQp_XiOmg.S2;
 
         return Hp1_XiTau;
     }
@@ -846,7 +868,7 @@ public:
         myQ_XiXid.ComputeQSC(The, Rho, Thed, Rhod);
         
         SE3Q<T> myQ_XiXidd;
-        myQ_XiXidd.ComputeS(The, Rho, Thedd, Rhodd);
+        myQ_XiXidd.ComputeS(The, Rho, Thedd);
         
         Mat3T Zero = Mat3T::Zero(3, 3);
         Mat3T Jr_The = Jr(The);
@@ -1171,8 +1193,8 @@ public:
         /* #region Processing the R3 states -------------------------------------------------------------------------*/
         
         // Performing interpolation on R3
-        Matrix<T, Dynamic, Dynamic> LAM_PVAt = LMD(tau, SigNu).cast<T>();
-        Matrix<T, Dynamic, Dynamic> PSI_PVAt = PSI(tau, SigNu).cast<T>();
+        Matrix<T, 9, 9> LAM_PVAt = LMD(tau, SigNu).cast<T>();
+        Matrix<T, 9, 9> PSI_PVAt = PSI(tau, SigNu).cast<T>();
 
         // Calculate the knot euclid states and put them in vector form
         Vec9T pvaa; pvaa << Xa.P, Xa.V, Xa.A;
@@ -1272,8 +1294,9 @@ public:
         using MatTT  = Eigen::Matrix<T, 6, 3>;   // L is for long T is for tall
 
         // Prepare the the mixer matrixes
-        Matrix<T, 18, 18> LAM_TTWt = LMD(Xt.t, SigGN).template cast<T>();
-        Matrix<T, 18, 18> PSI_TTWt = PSI(Xt.t, SigGN).template cast<T>();
+        double tau = Xt.t;
+        Matrix<T, 18, 18> LAM_TTWt = LMD(tau, SigGN).cast<T>();
+        Matrix<T, 18, 18> PSI_TTWt = PSI(tau, SigGN).cast<T>();
 
         // Find the global 6DOF states
         
@@ -1295,14 +1318,14 @@ public:
         Vec6T Xibd1;
         Vec6T Xibd2;
 
-        Mat6T JrInv_Xib;
-        Mat6T Hp1_XibTwb;
-        Mat6T Hp1_XibWrb;
-        Mat6T Lp11_XibTwbXibd1;
-        Mat6T Lp12_XibTwbXibd1;
+        Mat6T JrInv_Xib;         JrInv_Xib.setZero();
+        Mat6T Hp1_XibTwb;        Hp1_XibTwb.setZero();
+        Mat6T Hp1_XibWrb;        Hp1_XibWrb.setZero();
+        Mat6T Lp11_XibTwbXibd1;  Lp11_XibTwbXibd1.setZero();
+        Mat6T Lp12_XibTwbXibd1;  Lp12_XibTwbXibd1.setZero();
 
         // Populate the matrices related to Xib
-        Get_JrInvHpLp(Xib, Twb, Wrb, Xibd1, Xibd2, JrInv_Xib, Hp1_XibTwb, Hp1_XibWrb, Lp11_XibTwbXibd1, Lp12_XibTwbXibd1);
+        Get_JrInvHpLp<T>(Xib, Twb, Wrb, Xibd1, Xibd2, JrInv_Xib, Hp1_XibTwb, Hp1_XibWrb, Lp11_XibTwbXibd1, Lp12_XibTwbXibd1);
 
         // Stack the local variables in vector form
         Matrix<T, 18, 1> Gammaa; Gammaa << Xiad0, Xiad1, Xiad2;
@@ -1323,7 +1346,7 @@ public:
         Mat6T L12_XitXitd1Xitd1;
 
         // Populate the matrices related to Xit
-        Get_JHL(Xitd0, Xitd1, Xitd2, Jr_Xit, H1_XitXitd1, H1_XitXitd2, L11_XitXitd1Xitd1, L12_XitXitd1Xitd1);
+        Get_JHL<T>(Xitd0, Xitd1, Xitd2, Jr_Xit, H1_XitXitd1, H1_XitXitd2, L11_XitXitd1Xitd1, L12_XitXitd1Xitd1);
 
         SE3T  Exp_Xit = SE3T::exp(Xitd0);
 

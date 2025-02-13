@@ -41,7 +41,7 @@ public:
         C13.setZero(); C23.setZero();
     }
 
-    void ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, const Vec3T &Rhod)
+    void ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed)
     {
         T Un = The.norm();
         Matrix<T, 3, 1> Ub = The / Un;
@@ -71,7 +71,6 @@ public:
         T rx = Rho(0), ry = Rho(1), rz = Rho(2);
 
         T tdx = Thed(0), tdy = Thed(1), tdz = Thed(2);
-        T rdx = Rhod(0), rdy = Rhod(1), rdz = Rhod(2);
 
         {
             T t2 = rx*tx, t3 = rx*ty, t4 = ry*tx, t5 = rx*tz, t6 = ry*ty, t7 = rz*tx, t8 = ry*tz, t9 = rz*ty, t10 = rz*tz, t11 = tx*ty, t12 = tx*tz, t13 = ty*tz, t14 = tx*tx, t15 = ty*ty, t16 = tz*tz, t17 = t2*2.0, t18 = t2*3.0, t19 = t3*2.0;
@@ -838,7 +837,7 @@ public:
         }
     }
 
-    void ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, const Vec3T &Rhod, const Vec3T &Omg)
+    void ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, const Vec3T &Rhod, const Vec3T &Omg, bool debug = false)
     {
         T Un = The.norm();
         Matrix<T, 3, 1> Ub = The / Un;
@@ -846,10 +845,10 @@ public:
         Matrix<T, 3, 3> JUb = (Mat3T::Identity(3, 3) - Ub*Ubtp) / Un;
 
         // This Q has 4 g and each has 3 derivatives 0th, 1st and 2nd
-        Matrix<T, Eigen::Dynamic, 3> gdrv(COMPONENTS, 3);
+        Matrix<T, Eigen::Dynamic, 3> gdrv(COMPONENTS, 3); gdrv.setZero();
 
         // This Q has 4 fs and each f has 9 derivatives (f, S1, C11, C12, C13, S2, C21, C22, C23) (4x3 x 9x3)
-        Matrix<T, Eigen::Dynamic, 27> fdrv(3*COMPONENTS, 27);
+        Matrix<T, Eigen::Dynamic, 27> fdrv(3*COMPONENTS, 27); fdrv.setZero();
 
         /* #region Calculating the derivatives of g -----------------------------------------------------------------*/
 

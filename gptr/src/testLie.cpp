@@ -1,5 +1,4 @@
 #include "utility.h"
-
 #include "GaussianProcess.hpp"
 #include "SE3JQ.hpp"
 
@@ -838,7 +837,7 @@ int main(int argc, char **argv)
 
     SE3Q<double> myQ_;
     TicToc tt_s;
-    myQ_.ComputeS(The, Rho, Thed, Rhod);
+    myQ_.ComputeS(The, Rho, Thed);
     tt_s.Toc();
 
     compare("S1 numerical error: ", myQ.S1, myQ_.S1);
@@ -982,6 +981,10 @@ int main(int argc, char **argv)
                0, maxDiff(residual_autodiff, residual_analytic), maxDiff(Jacobian_autodiff, Jacobian_analytic),
                time_autodiff, time_analytic,
                time_autodiff_eval/time_analytic_eval*100);
+
+        cout << "residual_autodiff: " << residual_autodiff.transpose() << endl;
+        cout << "residual_analytic: " << residual_analytic.transpose() << endl;
+        cout << "residual_diff    : " << (residual_autodiff - residual_analytic).transpose() << endl;
     }
 
 }
