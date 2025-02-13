@@ -1,6 +1,9 @@
 #include "utility.h"
+
 #include "GaussianProcess.hpp"
 #include "SE3JQ.hpp"
+
+#include "AutoDiffSO3Parameterization.hpp"
 
 using namespace Eigen;
 using namespace std;
@@ -9,10 +12,462 @@ typedef Eigen::Vector3d Vec3;
 typedef Eigen::Matrix3d Mat3;
 typedef Eigen::Matrix3d Mat6;
 
+class IntrinsicJcbTestAutodiffFactor
+{
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    IntrinsicJcbTestAutodiffFactor(GPMixerPtr gpm_, double s_)
+    :   s          (s_               ),
+        gpm        (gpm_             )
+    {}
+
+    template <class T>
+    bool operator()(T const *const *parameters, T *residuals) const
+    {
+        using SO3T  = Sophus::SO3<T>;
+        using Vec3T = Eigen::Matrix<T, 3, 1>;
+        using Mat3T = Eigen::Matrix<T, 3, 3>;
+
+        /* #region Map the memory to control points -----------------------------------------------------------------*/
+
+        double Dt = gpm->getDt();
+
+        // Map parameters to the control point states
+        GPState<T> Xa(0);  gpm->MapParamToState<T>(parameters, RaIdx, Xa);
+        GPState<T> Xb(Dt); gpm->MapParamToState<T>(parameters, RbIdx, Xb);
+
+        /* #endregion Map the memory to control points --------------------------------------------------------------*/
+
+        /* #region Calculate the pose at sampling time --------------------------------------------------------------*/
+
+        GPState<T> Xt(s*Dt); vector<vector<Mat3T>> DXt_DXa; vector<vector<Mat3T>> DXt_DXb;
+        
+        Eigen::Matrix<T, Eigen::Dynamic, 1> gammaa;
+        Eigen::Matrix<T, Eigen::Dynamic, 1> gammab;
+        Eigen::Matrix<T, Eigen::Dynamic, 1> gammat;
+
+        gpm->ComputeXtAndJacobians<T>(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+
+        // Residual
+        Eigen::Map<Matrix<T, 18, 1>> residual(residuals);
+        residual << Xt.R.log(), Xt.O, Xt.S, Xt.P, Xt.V, Xt.A;
+
+        // cout << residual.cast<double>() << endl;
+
+        /* #endregion Calculate the residual ------------------------------------------------------------------------*/
+
+        return true;
+    }
+
+private:
+
+    // Gaussian process params
+    
+    const int Ridx = 0;
+    const int Oidx = 1;
+    const int Sidx = 2;
+    const int Pidx = 3;
+    const int Vidx = 4;
+    const int Aidx = 5;
+
+    const int RaIdx = 0;
+    const int OaIdx = 1;
+    const int SaIdx = 2;
+    const int PaIdx = 3;
+    const int VaIdx = 4;
+    const int AaIdx = 5;
+
+    const int RbIdx = 6;
+    const int ObIdx = 7;
+    const int SbIdx = 8;
+    const int PbIdx = 9;
+    const int VbIdx = 10;
+    const int AbIdx = 11;
+
+    // Interpolation param
+    double s;
+    GPMixerPtr gpm;
+};
+
+class IntrinsicJcbTestAnalyticFactor: public ceres::CostFunction
+{
+public:
+
+    // Destructor
+    ~IntrinsicJcbTestAnalyticFactor() {};
+
+    // Constructor
+    IntrinsicJcbTestAnalyticFactor(GPMixerPtr gpm_, double s_)
+    :   s          (s_               ),
+        gpm        (gpm_             )
+
+    {
+        // 1-element residual: n^T*(Rt*f + pt) + m
+        set_num_residuals(18);
+
+        // Rotation of the first knot
+        mutable_parameter_block_sizes()->push_back(4);
+        // Angular velocity of the first knot
+        mutable_parameter_block_sizes()->push_back(3);
+        // Angular acceleration of the first knot
+        mutable_parameter_block_sizes()->push_back(3);
+        // Position of the first knot
+        mutable_parameter_block_sizes()->push_back(3);
+        // Velocity of the first knot
+        mutable_parameter_block_sizes()->push_back(3);
+        // Acceleration of the first knot
+        mutable_parameter_block_sizes()->push_back(3);
+
+        // Rotation of the second knot
+        mutable_parameter_block_sizes()->push_back(4);
+        // Angular velocity of the second knot
+        mutable_parameter_block_sizes()->push_back(3);
+        // Angular acceleration of the second knot
+        mutable_parameter_block_sizes()->push_back(3);
+        // Position of the second knot
+        mutable_parameter_block_sizes()->push_back(3);
+        // Velocity of the second knot
+        mutable_parameter_block_sizes()->push_back(3);
+        // Acceleration of the second knot
+        mutable_parameter_block_sizes()->push_back(3);
+    }
+
+    virtual bool Evaluate(double const *const *parameters, double *residuals, double **jacobians) const
+    {
+        /* #region Map the memory to control points -----------------------------------------------------------------*/
+        
+        double Dt = gpm->getDt();
+
+        // Map parameters to the control point states
+        GPState Xa(0);  gpm->MapParamToState(parameters, RaIdx, Xa);
+        GPState Xb(Dt); gpm->MapParamToState(parameters, RbIdx, Xb);
+
+        /* #endregion Map the memory to control points --------------------------------------------------------------*/
+
+        /* #region Calculate the pose at sampling time --------------------------------------------------------------*/
+
+        GPState Xt(s*Dt); vector<vector<Matrix3d>> DXt_DXa; vector<vector<Matrix3d>> DXt_DXb;
+
+        Eigen::Matrix<double, Eigen::Dynamic, 1> gammaa;
+        Eigen::Matrix<double, Eigen::Dynamic, 1> gammab;
+        Eigen::Matrix<double, Eigen::Dynamic, 1> gammat;
+
+        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+
+        // Residual
+        Eigen::Map<Matrix<double, 18, 1>> residual(residuals);
+        residual << Xt.R.log(), Xt.O, Xt.S, Xt.P, Xt.V, Xt.A;
+
+        // cout << residual << endl;
+
+        /* #endregion Calculate the pose at sampling time -----------------------------------------------------------*/
+    
+        if (!jacobians)
+            return true;
+
+        Mat3 Eye = Mat3::Identity(3, 3);
+
+        Matrix<double, 18, 3> Dr_DRt = Matrix<double, 18, 3>::Zero(18, 3); Dr_DRt.block<3, 3>(Ridx*3, 0) = gpm->JrInv(Xt.R.log());
+        Matrix<double, 18, 3> Dr_DOt = Matrix<double, 18, 3>::Zero(18, 3); Dr_DOt.block<3, 3>(Oidx*3, 0) = Eye;
+        Matrix<double, 18, 3> Dr_DSt = Matrix<double, 18, 3>::Zero(18, 3); Dr_DSt.block<3, 3>(Sidx*3, 0) = Eye;
+        Matrix<double, 18, 3> Dr_DPt = Matrix<double, 18, 3>::Zero(18, 3); Dr_DPt.block<3, 3>(Pidx*3, 0) = Eye;
+        Matrix<double, 18, 3> Dr_DVt = Matrix<double, 18, 3>::Zero(18, 3); Dr_DVt.block<3, 3>(Vidx*3, 0) = Eye;
+        Matrix<double, 18, 3> Dr_DAt = Matrix<double, 18, 3>::Zero(18, 3); Dr_DAt.block<3, 3>(Aidx*3, 0) = Eye;
+
+        for(size_t idx = Ridx; idx <= Aidx; idx++)
+        {
+            if (!jacobians[idx])
+                continue;
+
+            if (idx == Ridx)
+            {
+                Eigen::Map<Eigen::Matrix<double, 18, 4, Eigen::RowMajor>> Dr_DXa(jacobians[idx]);
+                Eigen::Map<Eigen::Matrix<double, 18, 4, Eigen::RowMajor>> Dr_DXb(jacobians[idx+RbIdx]);
+
+                Dr_DXa.setZero();
+                // Dr_DXa.block<18, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx]
+                //                           + Dr_DOt*DXt_DXa[Oidx][idx]
+                //                           + Dr_DSt*DXt_DXa[Sidx][idx]
+                //                           + Dr_DPt*DXt_DXa[Pidx][idx]
+                //                           + Dr_DVt*DXt_DXa[Vidx][idx]
+                //                           + Dr_DAt*DXt_DXa[Aidx][idx];
+                Dr_DXb.setZero();
+                // Dr_DXb.block<18, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx]
+                //                           + Dr_DOt*DXt_DXb[Oidx][idx]
+                //                           + Dr_DSt*DXt_DXb[Sidx][idx]
+                //                           + Dr_DPt*DXt_DXb[Pidx][idx]
+                //                           + Dr_DVt*DXt_DXb[Vidx][idx]
+                //                           + Dr_DAt*DXt_DXb[Aidx][idx];
+            }
+            else
+            {
+                Eigen::Map<Eigen::Matrix<double, 18, 3, Eigen::RowMajor>> Dr_DXa(jacobians[idx]);
+                Eigen::Map<Eigen::Matrix<double, 18, 3, Eigen::RowMajor>> Dr_DXb(jacobians[idx+RbIdx]);
+
+                Dr_DXa.setZero();
+                // Dr_DXa.block<18, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx]
+                //                           + Dr_DRt*DXt_DXa[Oidx][idx]
+                //                           + Dr_DRt*DXt_DXa[Sidx][idx]
+                //                           + Dr_DRt*DXt_DXa[Pidx][idx]
+                //                           + Dr_DRt*DXt_DXa[Vidx][idx]
+                //                           + Dr_DRt*DXt_DXa[Aidx][idx];
+                Dr_DXb.setZero();
+                // Dr_DXb.block<18, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx]
+                //                           + Dr_DOt*DXt_DXb[Oidx][idx]
+                //                           + Dr_DSt*DXt_DXb[Sidx][idx]
+                //                           + Dr_DPt*DXt_DXb[Pidx][idx]
+                //                           + Dr_DVt*DXt_DXb[Vidx][idx]
+                //                           + Dr_DAt*DXt_DXb[Aidx][idx];
+            }
+        }
+        
+        return true;
+    }
+
+private:
+
+    // Gaussian process params
+    
+    const int Ridx = 0;
+    const int Oidx = 1;
+    const int Sidx = 2;
+    const int Pidx = 3;
+    const int Vidx = 4;
+    const int Aidx = 5;
+
+    const int RaIdx = 0;
+    const int OaIdx = 1;
+    const int SaIdx = 2;
+    const int PaIdx = 3;
+    const int VaIdx = 4;
+    const int AaIdx = 5;
+
+    const int RbIdx = 6;
+    const int ObIdx = 7;
+    const int SbIdx = 8;
+    const int PbIdx = 9;
+    const int VbIdx = 10;
+    const int AbIdx = 11;
+
+    // Interpolation param
+    double s;
+    GPMixerPtr gpm;
+};
+
+struct FactorMeta
+{
+    vector<double *> so3_parameter_blocks;
+    vector<double *> rv3_parameter_blocks;
+    vector<ceres::ResidualBlockId> residual_blocks;
+
+    int parameter_blocks()
+    {
+        return (so3_parameter_blocks.size() + rv3_parameter_blocks.size());
+    }
+};
+
+Eigen::MatrixXd GetJacobian(ceres::CRSMatrix &J)
+{
+    Eigen::MatrixXd dense_jacobian(J.num_rows, J.num_cols);
+    dense_jacobian.setZero();
+    for (int r = 0; r < J.num_rows; ++r)
+    {
+        for (int idx = J.rows[r]; idx < J.rows[r + 1]; ++idx)
+        {
+            const int c = J.cols[idx];
+            dense_jacobian(r, c) = J.values[idx];
+        }
+    }
+
+    return dense_jacobian;
+}
+
+void EvaluateFactorRJ(ceres::Problem &problem, FactorMeta &factorMeta,
+                      int local_pamaterization_type,
+                      double &cost, vector<double> &residual,
+                      MatrixXd &Jacobian, double &eval_time)
+{
+    ceres::LocalParameterization *localparameterization;
+    for(auto parameter : factorMeta.so3_parameter_blocks)
+    {
+        if (local_pamaterization_type == 0)
+        {
+            localparameterization = new AutoDiffSO3Parameterization<SO3d>();
+            problem.SetParameterization(parameter, localparameterization);
+        }
+        else
+        {   
+            localparameterization = new GPSO3dLocalParameterization();
+            problem.SetParameterization(parameter, localparameterization);
+        }
+    }
+
+    ceres::Problem::EvaluateOptions e_option;
+    ceres::CRSMatrix Jacobian_;
+    e_option.residual_blocks = factorMeta.residual_blocks;
+
+    TicToc tt_eval;
+    problem.Evaluate(e_option, &cost, &residual, NULL, &Jacobian_);
+    tt_eval.Toc();
+    eval_time = tt_eval.GetLastStop();
+
+    Jacobian = GetJacobian(Jacobian_);
+}
+
+void RemoveResidualBlock(ceres::Problem &problem, FactorMeta &factorMeta)
+{
+    for(auto res_block : factorMeta.residual_blocks)
+        problem.RemoveResidualBlock(res_block);
+}
+
+
+void CreateCeresProblem(ceres::Problem &problem, ceres::Solver::Options &options, ceres::Solver::Summary &summary,
+                        GaussianProcessPtr &swTraj, double fixed_start, double fixed_end)
+{
+    options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+    options.num_threads = MAX_THREADS;
+    options.max_num_iterations = 50;
+    int KNOTS = swTraj->getNumKnots();
+    // Add the parameter blocks for rotation
+    for (int kidx = 0; kidx < KNOTS; kidx++)
+    {
+        problem.AddParameterBlock(swTraj->getKnotSO3(kidx).data(), 4, new GPSO3dLocalParameterization());
+        problem.AddParameterBlock(swTraj->getKnotOmg(kidx).data(), 3);
+        problem.AddParameterBlock(swTraj->getKnotAlp(kidx).data(), 3);
+        problem.AddParameterBlock(swTraj->getKnotPos(kidx).data(), 3);
+        problem.AddParameterBlock(swTraj->getKnotVel(kidx).data(), 3);
+        problem.AddParameterBlock(swTraj->getKnotAcc(kidx).data(), 3);
+    }
+    // Fix the knots
+    if (fixed_start >= 0)
+        for (int kidx = 0; kidx < KNOTS; kidx++)
+        {
+            if (swTraj->getKnotTime(kidx) <= swTraj->getMinTime() + fixed_start)
+            {
+                problem.SetParameterBlockConstant(swTraj->getKnotSO3(kidx).data());
+                problem.SetParameterBlockConstant(swTraj->getKnotOmg(kidx).data());
+                problem.SetParameterBlockConstant(swTraj->getKnotAlp(kidx).data());
+                problem.SetParameterBlockConstant(swTraj->getKnotPos(kidx).data());
+                problem.SetParameterBlockConstant(swTraj->getKnotVel(kidx).data());
+                problem.SetParameterBlockConstant(swTraj->getKnotAcc(kidx).data());
+                // printf("Fixed knot %d\n", kidx);
+            }
+        }
+    if (fixed_end >= 0)
+        for (int kidx = 0; kidx < KNOTS; kidx++)
+        {
+            if (swTraj->getKnotTime(kidx) >= swTraj->getMaxTime() - fixed_end)
+            {
+                problem.SetParameterBlockConstant(swTraj->getKnotSO3(kidx).data());
+                problem.SetParameterBlockConstant(swTraj->getKnotOmg(kidx).data());
+                problem.SetParameterBlockConstant(swTraj->getKnotAlp(kidx).data());
+                problem.SetParameterBlockConstant(swTraj->getKnotPos(kidx).data());
+                problem.SetParameterBlockConstant(swTraj->getKnotVel(kidx).data());
+                problem.SetParameterBlockConstant(swTraj->getKnotAcc(kidx).data());
+                // printf("Fixed knot %d\n", kidx);
+            }
+        }
+}
+
+double maxDiff(const MatrixXd &A, const MatrixXd &B)
+{
+    return (A - B).cwiseAbs().maxCoeff();
+}
+
 void compare(string s, const MatrixXd &A, const MatrixXd &B)
 {
     cout << s << (A - B).cwiseAbs().maxCoeff() << endl;
 }
+
+void AddAutodiffIntrzJcbFactor(GaussianProcessPtr &traj, ceres::Problem &problem, FactorMeta &factorMeta)
+{
+    vector<double *> so3_param;
+    vector<double *> rv3_param;
+    vector<ceres::ResidualBlockId> res_ids_gp;
+    // Add the GP factors based on knot difference
+    for (int kidx = 0; kidx < traj->getNumKnots() - 1; kidx++)
+    {
+        // Create the factor
+        double gp_loss_thres = -1;
+        IntrinsicJcbTestAutodiffFactor *intrzJcb = new IntrinsicJcbTestAutodiffFactor(traj->getGPMixerPtr(), 0.57);
+        auto *cost_function = new ceres::DynamicAutoDiffCostFunction<IntrinsicJcbTestAutodiffFactor>(intrzJcb);
+        cost_function->SetNumResiduals(18);
+        vector<double *> factor_param_blocks;
+        // Add the parameter blocks
+        for (int knot_idx = kidx; knot_idx < kidx + 2; knot_idx++)
+        {
+            so3_param.push_back(traj->getKnotSO3(knot_idx).data());
+            rv3_param.push_back(traj->getKnotOmg(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAlp(knot_idx).data());
+            rv3_param.push_back(traj->getKnotPos(knot_idx).data());
+            rv3_param.push_back(traj->getKnotVel(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAcc(knot_idx).data());
+            factor_param_blocks.push_back(traj->getKnotSO3(knot_idx).data());
+            factor_param_blocks.push_back(traj->getKnotOmg(knot_idx).data());
+            factor_param_blocks.push_back(traj->getKnotAlp(knot_idx).data());
+            factor_param_blocks.push_back(traj->getKnotPos(knot_idx).data());
+            factor_param_blocks.push_back(traj->getKnotVel(knot_idx).data());
+            factor_param_blocks.push_back(traj->getKnotAcc(knot_idx).data());
+            cost_function->AddParameterBlock(4);
+            cost_function->AddParameterBlock(3);
+            cost_function->AddParameterBlock(3);
+            cost_function->AddParameterBlock(3);
+            cost_function->AddParameterBlock(3);
+            cost_function->AddParameterBlock(3);
+        }
+
+        auto res_block = problem.AddResidualBlock(cost_function, NULL, factor_param_blocks);
+        res_ids_gp.push_back(res_block);
+
+        break;
+    }
+
+    factorMeta.so3_parameter_blocks = so3_param;
+    factorMeta.rv3_parameter_blocks = rv3_param;
+    factorMeta.residual_blocks = res_ids_gp;
+}
+
+void AddAnalyticIntrzJcbFactor(GaussianProcessPtr &traj, ceres::Problem &problem, FactorMeta &factorMeta)
+{
+    vector<double *> so3_param;
+    vector<double *> rv3_param;
+    vector<ceres::ResidualBlockId> res_ids_gp;
+    // Add GP factors between consecutive knots
+    for (int kidx = 0; kidx < traj->getNumKnots() - 1; kidx++)
+    {
+        vector<double *> factor_param_blocks;
+        // Add the parameter blocks
+        for (int knot_idx = kidx; knot_idx < kidx + 2; knot_idx++)
+        {
+            so3_param.push_back(traj->getKnotSO3(knot_idx).data());
+            rv3_param.push_back(traj->getKnotOmg(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAlp(knot_idx).data());
+            rv3_param.push_back(traj->getKnotPos(knot_idx).data());
+            rv3_param.push_back(traj->getKnotVel(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAcc(knot_idx).data());
+            factor_param_blocks.push_back(traj->getKnotSO3(knot_idx).data());
+            factor_param_blocks.push_back(traj->getKnotOmg(knot_idx).data());
+            factor_param_blocks.push_back(traj->getKnotAlp(knot_idx).data());
+            factor_param_blocks.push_back(traj->getKnotPos(knot_idx).data());
+            factor_param_blocks.push_back(traj->getKnotVel(knot_idx).data());
+            factor_param_blocks.push_back(traj->getKnotAcc(knot_idx).data());
+        }
+        // Create the factors
+        double mp_loss_thres = -1;
+        // nh_ptr->getParam("mp_loss_thres", mp_loss_thres);
+        ceres::CostFunction *cost_function = new IntrinsicJcbTestAnalyticFactor(traj->getGPMixerPtr(), 0.57);
+        auto res_block = problem.AddResidualBlock(cost_function, NULL, factor_param_blocks);
+        res_ids_gp.push_back(res_block);
+
+        break;
+    }
+    
+    factorMeta.so3_parameter_blocks = so3_param;
+    factorMeta.rv3_parameter_blocks = rv3_param;
+    factorMeta.residual_blocks = res_ids_gp;
+}
+
 
 int main(int argc, char **argv)
 {
@@ -381,58 +836,152 @@ int main(int argc, char **argv)
     Mat3 S1, S2;
     S1.setZero(); S2.setZero();
 
+    SE3Q<double> myQ_;
     TicToc tt_s;
-    SE3Q<double>::ComputeS(The, Rho, Thed, Rhod, S1, S2);
+    myQ_.ComputeS(The, Rho, Thed, Rhod);
     tt_s.Toc();
 
-    compare("S1 numerical error: ", myQ.S1, S1);
-    compare("S2 numerical error: ", myQ.S2, S2);
+    compare("S1 numerical error: ", myQ.S1, myQ_.S1);
+    compare("S2 numerical error: ", myQ.S2, myQ_.S2);
 
     Mat3 Sp1, Sp2;
     Sp1.setZero(); Sp2.setZero();
     
+    SE3Qp<double> myQp_;
     TicToc tt_sp;
-    SE3Qp<double>::ComputeS(The, Rho, Omg, Sp1, Sp2);
+    myQp_.ComputeS(The, Rho, Omg);
     tt_sp.Toc();
 
-    compare("Sp1 numerical error: ", myQp.S1, Sp1);
-    compare("Sp2 numerical error: ", myQp.S2, Sp2);
+    compare("Sp1 numerical error: ", myQp.S1, myQp.S1);
+    compare("Sp2 numerical error: ", myQp.S2, myQp.S2);
 
-    Mat3 SigGa, SigNu;
-    SigGa = Vec3(9.4, 4.7, 3.1).asDiagonal();
-    SigNu = Vec3(6.3, 6.5, 0.7).asDiagonal();
+    double Dt = 0.1102;
+    Mat3 SigGa = Vec3(9.4, 4.7, 3.1).asDiagonal();
+    Mat3 SigNu = Vec3(6.3, 6.5, 0.7).asDiagonal();
     GPMixer mygpm(0.1102, SigGa, SigNu);
 
-    GPState Xa(0.1102, SO3d::exp(Vec3(5.7, 4.3, 9.1)),
-                       Vec3(9.6489, 1.5761, 9.7059),
-                       Vec3(9.1338, 6.3236, 0.9754),
-                       Vec3(2.7850, 5.4688, 9.5751),
-                       Vec3(1.4189, 4.2176, 9.1574),
-                       Vec3(7.9221, 9.5949, 6.5574));
+    GPState Xa(0.213,
+        SO3d::exp(Vec3(5.7, 4.3, 9.1)),
+        Vec3(9.6489, 1.5761, 9.7059),
+        Vec3(9.1338, 6.3236, 0.9754),
+        Vec3(2.7850, 5.4688, 9.5751),
+        Vec3(1.4189, 4.2176, 9.1574),
+        Vec3(7.9221, 9.5949, 6.5574));
 
-    GPState Xb(0.2204, SO3d::exp(Vec3(9.3399, 8.4913, 0.3571)),
-                       Vec3(3.9223, 2.7692, 3.1710),
-                       Vec3(6.5548, 0.4617, 9.5022),
-                       Vec3(1.7119, 0.9713, 0.3445),
-                       Vec3(7.0605, 8.2346, 4.3874),
-                       Vec3(0.3183, 6.9483, 3.8156));
+    GPState Xb(Xa.t + Dt,
+        SO3d::exp(Vec3(9.3399, 8.4913, 0.3571)),
+        Vec3(3.9223, 2.7692, 3.1710),
+        Vec3(6.5548, 0.4617, 9.5022),
+        Vec3(1.7119, 0.9713, 0.3445),
+        Vec3(7.0605, 8.2346, 4.3874),
+        Vec3(0.3183, 6.9483, 3.8156));
 
-    double ts = 0.0844;
+    double ts = 0.57*Dt;
     GPState Xt(Xa.t + ts);
     vector<vector<Matrix3d>> DXt_DXa;
     vector<vector<Matrix3d>> DXt_DXb;
     Eigen::Matrix<double, Eigen::Dynamic, 1> gammaa, gammab, gammat;
 
     // Interpolate and find Jacobian
-    TicToc tt_se3;
-    mygpm.ComputeXtAndJacobiansSO3xR3(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
-    tt_se3.Toc();
-
     TicToc tt_split;
-    mygpm.ComputeXtAndJacobiansSE3(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+    mygpm.ComputeXtAndJacobiansSO3xR3(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
     tt_split.Toc();
 
-    printf("tt_se3   : %f s\n", tt_se3.GetLastStop());
-    printf("tt_split : %f s\n", tt_split.GetLastStop());
+    TicToc tt_se3;
+    mygpm.ComputeXtAndJacobiansSE3(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+    tt_se3.Toc();
+
+    printf("tt_se3   : %f ms\n", tt_se3.GetLastStop());
+    printf("tt_split : %f ms\n", tt_split.GetLastStop());
+
+    // POSE_GROUP pr = POSE_GROUP::SO3xR3;
+    POSE_GROUP pr = POSE_GROUP::SE3;    
+    GaussianProcessPtr traj(new GaussianProcess(Dt, SigGa, SigNu, false, POSE_GROUP::SE3));
+    traj->setStartTime(Xa.t);
+    traj->genRandomTrajectory(2);
+    traj->setKnot(0, Xa);
+    traj->setKnot(1, Xb);
+
+    ceres::Problem problem;
+    ceres::Solver::Options options;
+    ceres::Solver::Summary summary;
+
+    // Create the ceres problem
+    CreateCeresProblem(problem, options, summary, traj, -0.1, -0.1);
+
+
+    auto EvaluateFactorClass = [](ceres::Problem &problem, FactorMeta &factors, int local_pamaterization_type, VectorXd &res, MatrixXd &Jcb, double &cost, double &total_time, double &eval_time) -> void
+    {
+        TicToc tt_autodiff;
+        
+        eval_time = 0;
+
+        res.setZero(); Jcb.setZero();
+        
+        vector <double> residual;
+        MatrixXd J_autodiff;
+        int count = 1;
+        while(count-- > 0)
+        {
+            double eval_time_ = 0;
+            EvaluateFactorRJ(problem, factors, local_pamaterization_type, cost, residual, J_autodiff, eval_time_);
+            eval_time += eval_time_;
+        }
+
+        // Remove sidual block
+        RemoveResidualBlock(problem, factors);
+
+        // Extract residual and Jacobian
+        res = Eigen::Map<Eigen::VectorXd>(residual.data(), residual.size());
+        Jcb = J_autodiff;
+
+        total_time = tt_autodiff.Toc();
+    };
+
+    // Motion priors
+    {
+        double cost_autodiff;
+        double time_autodiff;
+        double time_autodiff_eval;
+        VectorXd residual_autodiff;
+        MatrixXd Jacobian_autodiff;
+        {
+            // Test the autodiff Jacobian
+            FactorMeta intrzJcbFactorMetaAutodiff;
+            AddAutodiffIntrzJcbFactor(traj, problem, intrzJcbFactorMetaAutodiff);
+            // if (intrzJcbFactorMetaAutodiff.parameter_blocks() == 0)
+            //     return;
+
+            EvaluateFactorClass(problem, intrzJcbFactorMetaAutodiff, 0, residual_autodiff, Jacobian_autodiff, cost_autodiff, time_autodiff, time_autodiff_eval);
+            printf(KCYN "Intrinsic Jacobian Autodiff Jacobian: Size %2d x %2d. Params: %d. Cost: %f. Time: %f, %f\n",
+                   Jacobian_autodiff.rows(), Jacobian_autodiff.cols(),
+                   intrzJcbFactorMetaAutodiff.parameter_blocks(),
+                   cost_autodiff, time_autodiff, time_autodiff_eval);
+        }
+
+        double cost_analytic;
+        double time_analytic;
+        double time_analytic_eval;
+        VectorXd residual_analytic;
+        MatrixXd Jacobian_analytic;
+        {
+            // Test the analytic Jacobian
+            FactorMeta intrzJcbFactorMetaAnalytic;
+            AddAnalyticIntrzJcbFactor(traj, problem, intrzJcbFactorMetaAnalytic);
+            // if (intrzJcbFactorMetaAnalytic.parameter_blocks() == 0)
+            //     return;
+
+            EvaluateFactorClass(problem, intrzJcbFactorMetaAnalytic, 1, residual_analytic, Jacobian_analytic, cost_analytic, time_analytic, time_analytic_eval);
+            printf(KCYN "Intrinsic Jacobian Analytic Jacobian: Size %2d x %2d. Params: %d. Cost: %f. Time: %f, %f\n",
+                   Jacobian_analytic.rows(), Jacobian_analytic.cols(),
+                   intrzJcbFactorMetaAnalytic.parameter_blocks(),
+                   cost_analytic, time_analytic, time_analytic_eval);
+        }
+
+        printf(KGRN "CIDX: %d. Intrinsic Jacobian Factor. Residual max error: %.4f. Jacobian max error: %.4f. Time: %.3f, %.3f. Ratio: %.0f\%\n\n" RESET,
+               0, maxDiff(residual_autodiff, residual_analytic), maxDiff(Jacobian_autodiff, Jacobian_analytic),
+               time_autodiff, time_analytic,
+               time_autodiff_eval/time_analytic_eval*100);
+    }
 
 }

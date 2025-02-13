@@ -176,7 +176,7 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(PointBPearl,
 struct PointTQXYZI 
 {
     PCL_ADD_POINT4D
-    PCL_ADD_INTENSITY;              // preferred way of adding a XYZ+padding
+    PCL_ADD_INTENSITY              // preferred way of adding a XYZ+padding
     double t;
     float  qx;
     float  qy;
@@ -196,7 +196,7 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(PointTQXYZI,
 struct PointXYZIT
 {
     PCL_ADD_POINT4D;
-    PCL_ADD_INTENSITY;
+    PCL_ADD_INTENSITY
     double t;
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 } EIGEN_ALIGN16;

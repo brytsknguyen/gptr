@@ -1,8 +1,8 @@
 #include "utility.h"
 #include <Eigen/Dense>
 
-#ifndef SE3Q_HPP
-#define SE3Q_HPP
+#ifndef SE3JQ_HPP
+#define SE3JQ_HPP
 
 using namespace Eigen;
 
@@ -29,7 +29,7 @@ public:
     // Constructor
     SE3Q()
     {
-        ResetQSC();
+        // ResetQSC();
     }
 
     void ResetQSC()
@@ -41,7 +41,7 @@ public:
         C13.setZero(); C23.setZero();
     }
 
-    static void ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, const Vec3T &Rhod, Mat3T &S1_, Mat3T &S2_)
+    void ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, const Vec3T &Rhod)
     {
         T Un = The.norm();
         Matrix<T, 3, 1> Ub = The / Un;
@@ -104,7 +104,7 @@ public:
         
         /* #endregion Calculating the derivatives of f --------------------------------------------------------------*/
 
-        S1_.setZero(); S2_.setZero();
+        S1.setZero(); S2.setZero();
 
         // Calculating the component jacobians
         for (int idx = 0; idx < COMPONENTS; idx++)
@@ -124,8 +124,8 @@ public:
             const Vec3T &W = Thed;
             Vec3T fXiW = fXi*W;
 
-            S1_ += dfXi_W_dU*g + fXiW*Jdg_U;
-            S2_ += dfXi_W_dV*g;
+            S1 += dfXi_W_dU*g + fXiW*Jdg_U;
+            S2 += dfXi_W_dV*g;
 
             // cout << "ComputeS " << idx << ": g\n" << g << endl;
             // cout << "ComputeS " << idx << ": dfXi_W_dU\n" << dfXi_W_dU << endl;
@@ -350,7 +350,7 @@ public:
     // Constructor
     SE3Qp()
     {
-        ResetQSC();
+        // ResetQSC();
     }
 
     void ResetQSC()
@@ -362,7 +362,7 @@ public:
         C13.setZero(); C23.setZero();
     }
 
-    static void ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Omg, Mat3T &S1_, Mat3T &S2_)
+    void ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Omg)
     {
         T Un = The.norm();
         Matrix<T, 3, 1> Ub = The / Un;
@@ -807,7 +807,7 @@ public:
         
         /* #endregion Calculating the derivatives of f --------------------------------------------------------------*/
 
-        S1_.setZero(); S2_.setZero();
+        S1.setZero(); S2.setZero();
         
         // Calculating the component jacobians
         for (int idx = 0; idx < COMPONENTS; idx++)
@@ -827,8 +827,8 @@ public:
             const Vec3T &W = Omg;
             Vec3T fXiW = fXi*W;
 
-            S1_ += dfXi_W_dU*g + fXiW*Jdg_U;
-            S2_ += dfXi_W_dV*g;
+            S1 += dfXi_W_dU*g + fXiW*Jdg_U;
+            S2 += dfXi_W_dV*g;
 
             // cout << "ComputeS " << idx << ": g\n" << g << endl;
             // cout << "ComputeS " << idx << ": dfXi_W_dU\n" << dfXi_W_dU << endl;
@@ -2326,5 +2326,10 @@ public:
     Mat3T C22;
     Mat3T C23;
 };
+
+// extern template class SE3Q<double>;
+// extern template class SE3Q<ceres::Jet<double, 4>>;
+// extern template class SE3Qp<double>;
+// extern template class SE3Qp<ceres::Jet<double, 4>>;
 
 #endif // SE3Q_HPP
