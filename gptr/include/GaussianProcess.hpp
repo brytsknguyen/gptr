@@ -728,6 +728,27 @@ public:
 
     /* #region Lie operations for SE3 --------------------------------------------------------------------------------------------------------------------------------*/
 
+
+    // right Jacobian for SE3
+    template <class T = double>
+    static Sophus::SE3<T> SE3Exp(const Eigen::Matrix<T, 6, 1> &Xi)
+    {
+        Eigen::Matrix<T, 3, 1> The = Xi.template head<3>();
+        Eigen::Matrix<T, 3, 1> Rho = Xi.template tail<3>();
+
+        return Sophus::SE3<T>(Sophus::SO3<T>::exp(The), Rho);
+    }
+
+    template <class T = double>
+    static Eigen::Matrix<T, 6, 1> SE3Log(const Sophus::SE3<T> &Tf)
+    {
+        Eigen::Matrix<T, 6, 1> Xi_ = Tf.log();
+        Eigen::Matrix<T, 6, 1> Xi;
+        Xi << Xi_.template tail<3>(), Xi_.template head<3>();
+
+        return Xi;
+    }
+
     // right Jacobian for SE3
     template <class T = double>
     static Eigen::Matrix<T, 6, 6> Jr(const Eigen::Matrix<T, 6, 1> &Xi)
@@ -1313,7 +1334,7 @@ public:
         Vec6T Xiad1; Xiad1 << Twa;
         Vec6T Xiad2; Xiad2 << Wra;
 
-        Vec6T Xib = Tfab.log();
+        Vec6T Xib = SE3Log(Tfab);
         Vec6T Xibd0 = Xib;
         Vec6T Xibd1;
         Vec6T Xibd2;
@@ -1348,7 +1369,7 @@ public:
         // Populate the matrices related to Xit
         Get_JHL<T>(Xitd0, Xitd1, Xitd2, Jr_Xit, H1_XitXitd1, H1_XitXitd2, L11_XitXitd1Xitd1, L12_XitXitd1Xitd1);
 
-        SE3T  Exp_Xit = SE3T::exp(Xitd0);
+        SE3T Exp_Xit = SE3Exp(Xitd0);
 
         SE3T  Tft = Tfa*Exp_Xit;
         Vec6T Twt = Jr_Xit*Xitd1;
@@ -1369,7 +1390,8 @@ public:
 
 
             // Jacobians from L2 to L1
-            Mat6T  J_Xiad1_Twa = Mat6T::Identity(); Mat6T J_Xiad2_Wra = Mat6T::Identity();
+            Mat6T  J_Xiad1_Twa = Mat6T::Identity();
+            Mat6T  J_Xiad2_Wra = Mat6T::Identity();
 
             Mat6T  J_Xibd0_Tfa = -JrInv_Xib*Tfab.Adj().inverse();
             Mat6T &J_Xibd0_Tfb =  JrInv_Xib;
@@ -1382,6 +1404,20 @@ public:
             Mat6T  J_Xibd2_Tfb = Hp1_XibWrb*J_Xibd0_Tfb + Hp1_XibTwb*J_Xibd1_Tfb + Lp11_XibTwbXibd1*J_Xibd0_Tfb;
             Mat6T  J_Xibd2_Twb = Lp12_XibTwbXibd1 + Hp1_XibTwb*J_Xibd1_Twb;
             Mat6T &J_Xibd2_Wrb = JrInv_Xib;
+
+            // cout << "J_Xiad1_Twa:\n" << J_Xiad1_Twa << endl;
+            // cout << "J_Xiad2_Wra:\n" << J_Xiad2_Wra << endl;
+
+            // cout << "J_Xibd0_Tfa:\n" << J_Xibd0_Tfa << endl;
+            // cout << "J_Xibd0_Tfb:\n" << J_Xibd0_Tfb << endl;
+            // cout << "J_Xibd1_Tfa:\n" << J_Xibd1_Tfa << endl;
+            // cout << "J_Xibd1_Tfb:\n" << J_Xibd1_Tfb << endl;
+            // cout << "J_Xibd1_Twb:\n" << J_Xibd1_Twb << endl;
+
+            // cout << "J_Xibd2_Tfa:\n" << J_Xibd2_Tfa << endl;
+            // cout << "J_Xibd2_Tfb:\n" << J_Xibd2_Tfb << endl;
+            // cout << "J_Xibd2_Twb:\n" << J_Xibd2_Twb << endl;
+            // cout << "J_Xibd2_Wrb:\n" << J_Xibd2_Wrb << endl;            
 
 
             // Jacobians from L3 to L2
@@ -1415,7 +1451,28 @@ public:
             Mat6T J_Xitd2_Wra = J_Xitd2_Xiad2*J_Xiad2_Wra;
             Mat6T J_Xitd2_Wrb = J_Xitd2_Xibd2*J_Xibd2_Wrb;
 
+            // cout << "J_Xitd0_Tfa\n" << J_Xitd0_Tfa << endl;
+            // cout << "J_Xitd0_Tfb\n" << J_Xitd0_Tfb << endl;
+            // cout << "J_Xitd0_Twa\n" << J_Xitd0_Twa << endl;
+            // cout << "J_Xitd0_Twb\n" << J_Xitd0_Twb << endl;
+            // cout << "J_Xitd0_Wra\n" << J_Xitd0_Wra << endl;
+            // cout << "J_Xitd0_Wrb\n" << J_Xitd0_Wrb << endl;
 
+            // cout << "J_Xitd1_Tfa\n" << J_Xitd1_Tfa << endl;
+            // cout << "J_Xitd1_Tfb\n" << J_Xitd1_Tfb << endl;
+            // cout << "J_Xitd1_Twa\n" << J_Xitd1_Twa << endl;
+            // cout << "J_Xitd1_Twb\n" << J_Xitd1_Twb << endl;
+            // cout << "J_Xitd1_Wra\n" << J_Xitd1_Wra << endl;
+            // cout << "J_Xitd1_Wrb\n" << J_Xitd1_Wrb << endl;
+
+            // cout << "J_Xitd2_Tfa\n" << J_Xitd2_Tfa << endl;
+            // cout << "J_Xitd2_Tfb\n" << J_Xitd2_Tfb << endl;
+            // cout << "J_Xitd2_Twa\n" << J_Xitd2_Twa << endl;
+            // cout << "J_Xitd2_Twb\n" << J_Xitd2_Twb << endl;
+            // cout << "J_Xitd2_Wra\n" << J_Xitd2_Wra << endl;
+            // cout << "J_Xitd2_Wrb\n" << J_Xitd2_Wrb << endl;
+
+            
             // Jacobians from L4 to L3
             Mat6T &J_Tft_Xitd0 = Jr_Xit;
             Mat6T &J_Twt_Xitd0 = H1_XitXitd1;
@@ -1423,6 +1480,14 @@ public:
             Mat6T  J_Wrt_Xitd0 = H1_XitXitd2 + L11_XitXitd1Xitd1;
             Mat6T  J_Wrt_Xitd1 = L12_XitXitd1Xitd1 + H1_XitXitd1;
             Mat6T &J_Wrt_Xitd2 = Jr_Xit;
+
+
+            // cout << "J_Tft_Xitd0: \n" << J_Tft_Xitd0 << endl;
+            // cout << "J_Twt_Xitd0: \n" << J_Twt_Xitd0 << endl;
+            // cout << "J_Twt_Xitd1: \n" << J_Twt_Xitd1 << endl;
+            // cout << "J_Wrt_Xitd0: \n" << J_Wrt_Xitd0 << endl;
+            // cout << "J_Wrt_Xitd1: \n" << J_Wrt_Xitd1 << endl;
+            // cout << "J_Wrt_Xitd2: \n" << J_Wrt_Xitd2 << endl;
 
 
             // Jacobian from L4 to L1
@@ -1450,9 +1515,35 @@ public:
             Mat6T J_Wrt_Twb = J_Wrt_Xitd0*J_Xitd0_Twb + J_Wrt_Xitd1*J_Xitd1_Twb + J_Wrt_Xitd2*J_Xitd2_Twb; // DTwt_DTwb
             Mat6T J_Wrt_Wrb = J_Wrt_Xitd0*J_Xitd0_Wrb + J_Wrt_Xitd1*J_Xitd1_Wrb + J_Wrt_Xitd2*J_Xitd2_Wrb; // DTwt_DWrb
 
+
+            // cout << "J_Tft_Tfa:\n" << J_Tft_Tfa << endl;
+            // cout << "J_Tft_Twa:\n" << J_Tft_Twa << endl;
+            // cout << "J_Tft_Wra:\n" << J_Tft_Wra << endl;
+
+            // cout << "J_Twt_Tfa:\n" << J_Twt_Tfa << endl;
+            // cout << "J_Twt_Twa:\n" << J_Twt_Twa << endl;
+            // cout << "J_Twt_Wra:\n" << J_Twt_Wra << endl;
+
+            // cout << "J_Wrt_Tfa:\n" << J_Wrt_Tfa << endl;
+            // cout << "J_Wrt_Twa:\n" << J_Wrt_Twa << endl;
+            // cout << "J_Wrt_Wra:\n" << J_Wrt_Wra << endl;
+
+            // cout << "J_Tft_Tfb:\n" << J_Tft_Tfb << endl;
+            // cout << "J_Tft_Twb:\n" << J_Tft_Twb << endl;
+            // cout << "J_Tft_Wrb:\n" << J_Tft_Wrb << endl;
+
+            // cout << "J_Twt_Tfb:\n" << J_Twt_Tfb << endl;
+            // cout << "J_Twt_Twb:\n" << J_Twt_Twb << endl;
+            // cout << "J_Twt_Wrb:\n" << J_Twt_Wrb << endl;
+
+            // cout << "J_Wrt_Tfb:\n" << J_Wrt_Tfb << endl;
+            // cout << "J_Wrt_Twb:\n" << J_Wrt_Twb << endl;
+            // cout << "J_Wrt_Wrb:\n" << J_Wrt_Wrb << endl;
+
+            
             // Jacobian from L5 to L4
-            MatLT U; U.block(0, 0, 3, 3) = Mat3T::Identity();
-            MatLT D; U.block(0, 3, 3, 3) = Mat3T::Identity();
+            MatLT U; U.setZero(); U.block(0, 0, 3, 3) = Mat3T::Identity();
+            MatLT D; D.setZero(); D.block(0, 3, 3, 3) = Mat3T::Identity();
             MatTT Utp = U.transpose();
             MatTT Dtp = D.transpose();
 
@@ -1478,6 +1569,18 @@ public:
             Mat3T J_At_Ot  =  J_Vt_Rt;
             MatLT J_At_Wrt =  Rtmat*D;
 
+
+            // cout << "J_Rt_Tft:\n" << J_Rt_Tft << endl;
+            // cout << "J_Ot_Twt:\n" << J_Ot_Twt << endl;
+            // cout << "J_St_Wrt:\n" << J_St_Wrt << endl;
+            // cout << "J_Pt_Tft:\n" << J_Pt_Tft << endl;
+            // cout << "J_Vt_Rt :\n" << J_Vt_Rt  << endl;
+            // cout << "J_Vt_Twt:\n" << J_Vt_Twt << endl;
+            // cout << "J_At_Rt :\n" << J_At_Rt  << endl;
+            // cout << "J_At_Ot :\n" << J_At_Ot  << endl;
+            // cout << "J_At_Wrt:\n" << J_At_Wrt << endl;
+            
+
             // Jacobian from L1 to L0
             Mat3T hat_Oa = SO3T::hat(Oa);                               Mat3T hat_Ob = SO3T::hat(Ob);                           
             Mat3T Ratp = Ra.inverse().matrix();                         Mat3T Rbtp = Rb.inverse().matrix();                     
@@ -1497,6 +1600,28 @@ public:
             MatTT J_Wra_Oa =  Utp*hat_RatpVa;                           MatTT J_Wrb_Ob =  Utp*hat_RbtpVb;                       
             MatTT J_Wra_Va = -Utp*hat_Oa*Ratp;                          MatTT J_Wrb_Vb = -Utp*hat_Ob*Rbtp;                      
 
+
+            // cout << "J_Tfa_Ra\n" << J_Tfa_Ra << endl;
+            // cout << "J_Tfa_Pa\n" << J_Tfa_Pa << endl;
+            // cout << "J_Twa_Oa\n" << J_Twa_Oa << endl;
+            // cout << "J_Twa_Ra\n" << J_Twa_Ra << endl;
+            // cout << "J_Twa_Va\n" << J_Twa_Va << endl;
+            // cout << "J_Wra_Sa\n" << J_Wra_Sa << endl;
+            // cout << "J_Wra_Ra\n" << J_Wra_Ra << endl;
+            // cout << "J_Wra_Aa\n" << J_Wra_Aa << endl;
+            // cout << "J_Wra_Oa\n" << J_Wra_Oa << endl;
+            // cout << "J_Wra_Va\n" << J_Wra_Va << endl;
+
+            // cout << "J_Tfb_Rb\n" << J_Tfb_Rb << endl;
+            // cout << "J_Tfb_Pb\n" << J_Tfb_Pb << endl;
+            // cout << "J_Twb_Ob\n" << J_Twb_Ob << endl;
+            // cout << "J_Twb_Rb\n" << J_Twb_Rb << endl;
+            // cout << "J_Twb_Vb\n" << J_Twb_Vb << endl;
+            // cout << "J_Wrb_Sb\n" << J_Wrb_Sb << endl;
+            // cout << "J_Wrb_Rb\n" << J_Wrb_Rb << endl;
+            // cout << "J_Wrb_Ab\n" << J_Wrb_Ab << endl;
+            // cout << "J_Wrb_Ob\n" << J_Wrb_Ob << endl;
+            // cout << "J_Wrb_Vb\n" << J_Wrb_Vb << endl;
 
             // Jacobians from L5 to L0, dXt/dXa
 
@@ -1731,14 +1856,14 @@ public:
             return Xb;
         }
 
-        SO3d Tab = Xa.R.inverse()*Xb.R;
+        SO3d Rab = Xa.R.inverse()*Xb.R;
 
         // Relative angle between two knots
         Vec3 Thea     = Vec3::Zero();
         Vec3 Thedota  = Xa.O;
         Vec3 Theddota = Xa.S;
 
-        Vec3 Theb     = Tab.log();
+        Vec3 Theb     = Rab.log();
         Vec3 Thedotb  = gpm->JrInv(Theb)*Xb.O;
         Vec3 Theddotb = gpm->JrInv(Theb)*Xb.S + gpm->DJrInvUV_DU(Theb, Xb.O)*Thedotb;
 
@@ -2256,6 +2381,52 @@ typedef std::shared_ptr<GaussianProcess> GaussianProcessPtr;
 
 template <class Groupd>
 class GPSO3LocalParameterization : public ceres::LocalParameterization
+{
+public:
+    // virtual ~GPSO3LocalParameterization() {}
+
+    using Tangentd = typename Groupd::Tangent;
+
+    /// @brief plus operation for Ceres
+    ///
+    ///  T * exp(x)
+    ///
+    virtual bool Plus(double const *T_raw, double const *delta_raw,
+                      double *T_plus_delta_raw) const
+    {
+        Eigen::Map<Groupd const> const T(T_raw);
+        Eigen::Map<Tangentd const> const delta(delta_raw);
+        Eigen::Map<Groupd> T_plus_delta(T_plus_delta_raw);
+        T_plus_delta = T * Groupd::exp(delta);
+        return true;
+    }
+
+    virtual bool ComputeJacobian(double const *T_raw,
+                                 double *jacobian_raw) const
+    {
+        Eigen::Map<Groupd const> T(T_raw);
+        Eigen::Map<Eigen::Matrix<double, Groupd::num_parameters, Groupd::DoF, Eigen::RowMajor>>
+        
+        jacobian(jacobian_raw);
+        jacobian.setZero();
+
+        jacobian(0, 0) = 1;
+        jacobian(1, 1) = 1;
+        jacobian(2, 2) = 1;
+        return true;
+    }
+
+    ///@brief Global size
+    virtual int GlobalSize() const { return Groupd::num_parameters; }
+
+    ///@brief Local size
+    virtual int LocalSize() const { return Groupd::DoF; }
+};
+typedef GPSO3LocalParameterization<SO3d> GPSO3dLocalParameterization;
+
+
+template <class Groupd>
+class GPSE3LocalParameterization : public ceres::LocalParameterization
 {
 public:
     // virtual ~GPSO3LocalParameterization() {}
