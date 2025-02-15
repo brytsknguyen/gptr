@@ -2023,7 +2023,7 @@ public:
 
             MatLT J_Rt_Tft =  U;
             MatLT J_Ot_Twt =  U;
-            MatLT J_St_Wrt =  D;
+            MatLT J_St_Wrt =  U;
 
             MatLT J_Pt_Tft =  Rtmat*D;
             Mat3T J_Vt_Rt  = -Rtmat*SO3T::hat(Nt);
