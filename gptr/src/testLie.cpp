@@ -1,4 +1,5 @@
 #include "utility.h"
+
 #include "GaussianProcess.hpp"
 #include "SE3JQ.hpp"
 
@@ -7,9 +8,53 @@
 using namespace Eigen;
 using namespace std;
 
-typedef Eigen::Vector3d Vec3;
-typedef Eigen::Matrix3d Mat3;
-typedef Eigen::Matrix3d Mat6;
+
+namespace Sophus
+{
+    namespace test
+    {
+
+        class LocalParameterizationSE3 : public ceres::LocalParameterization
+        {
+        public:
+            virtual ~LocalParameterizationSE3() {}
+
+            // SE3 plus operation for Ceres
+            //
+            //  T * exp(x)
+            //
+            virtual bool Plus(double const *T_raw, double const *delta_raw,
+                              double *T_plus_delta_raw) const
+            {
+                Eigen::Map<SE3d const> const T(T_raw);
+                Eigen::Map<Vector6d const> const delta(delta_raw);
+                Eigen::Map<SE3d> T_plus_delta(T_plus_delta_raw);
+                T_plus_delta = T * SE3d::exp(delta);
+                return true;
+            }
+
+            // Jacobian of SE3 plus operation for Ceres
+            //
+            // Dx T * exp(x)  with  x=0
+            //
+            virtual bool ComputeJacobian(double const *T_raw,
+                                         double *jacobian_raw) const
+            {
+                Eigen::Map<SE3d const> T(T_raw);
+                Eigen::Map<Eigen::Matrix<double, 7, 6, Eigen::RowMajor>> jacobian(
+                    jacobian_raw);
+                jacobian = T.Dx_this_mul_exp_x_at_0();
+                return true;
+            }
+
+            virtual int GlobalSize() const { return SE3d::num_parameters; }
+
+            virtual int LocalSize() const { return SE3d::DoF; }
+        };
+    } // namespace test
+} // namespace Sophus
+
+static constexpr int RESITRZ_SIZE = 18;
 
 class IntrinsicJcbTestAutodiffFactor
 {
@@ -49,8 +94,8 @@ public:
         gpm->ComputeXtAndJacobians<T>(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
 
         // Residual
-        Eigen::Map<Matrix<T, 3, 1>> residual(residuals);
-        residual << Xt.P;
+        Eigen::Map<Matrix<T, RESITRZ_SIZE, 1>> residual(residuals);
+        residual << gammab;
 
         // cout << residual.cast<double>() << endl;
 
@@ -89,6 +134,8 @@ private:
     GPMixerPtr gpm;
 };
 
+map<string, MatrixXd> Jdebug;
+
 class IntrinsicJcbTestAnalyticFactor: public ceres::CostFunction
 {
 public:
@@ -103,7 +150,7 @@ public:
 
     {
         // 1-element residual: n^T*(Rt*f + pt) + m
-        set_num_residuals(3);
+        set_num_residuals(RESITRZ_SIZE);
 
         // Rotation of the first knot
         mutable_parameter_block_sizes()->push_back(4);
@@ -152,11 +199,11 @@ public:
         Eigen::Matrix<double, Eigen::Dynamic, 1> gammab;
         Eigen::Matrix<double, Eigen::Dynamic, 1> gammat;
 
-        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+        gpm->ComputeXtAndJacobiansSE3Debug(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat, Jdebug);
 
         // Residual
-        Eigen::Map<Matrix<double, 3, 1>> residual(residuals);
-        residual << Xt.P;
+        Eigen::Map<Matrix<double, RESITRZ_SIZE, 1>> residual(residuals);
+        residual << gammab;
 
         // cout << residual << endl;
 
@@ -165,14 +212,8 @@ public:
         if (!jacobians)
             return true;
 
-        Mat3 Eye = Mat3::Identity(3, 3);
-
-        // Matrix<double, 18, 3> Dr_DRt = Matrix<double, 18, 3>::Zero(18, 3); Dr_DRt.block<3, 3>(Ridx*3, 0) = gpm->JrInv(Xt.R.log());
-        // Matrix<double, 18, 3> Dr_DOt = Matrix<double, 18, 3>::Zero(18, 3); Dr_DOt.block<3, 3>(Oidx*3, 0) = Eye;
-        // Matrix<double, 18, 3> Dr_DSt = Matrix<double, 18, 3>::Zero(18, 3); Dr_DSt.block<3, 3>(Sidx*3, 0) = Eye;
-        Matrix<double, 3, 3> Dr_DPt = Matrix<double, 3, 3>::Zero(3, 3); Dr_DPt.block<3, 3>(0, 0) = Eye;
-        // Matrix<double, 18, 3> Dr_DVt = Matrix<double, 18, 3>::Zero(18, 3); Dr_DVt.block<3, 3>(Vidx*3, 0) = Eye;
-        // Matrix<double, 18, 3> Dr_DAt = Matrix<double, 18, 3>::Zero(18, 3); Dr_DAt.block<3, 3>(Aidx*3, 0) = Eye;
+        // Mat3 Eye = Mat3::Identity(3, 3);
+        // Matrix<double, RESITRZ_SIZE, 3> Dr_DPa = Matrix<double, 3, 3>::Zero(3, 3); Dr_DPt.block<3, 3>(0, 0) = Eye;
 
         for(size_t idx = Ridx; idx <= Aidx; idx++)
         {
@@ -181,23 +222,25 @@ public:
 
             if (idx == Ridx)
             {
-                Eigen::Map<Eigen::Matrix<double, 3, 4, Eigen::RowMajor>> Dr_DXa(jacobians[idx]);
-                Eigen::Map<Eigen::Matrix<double, 3, 4, Eigen::RowMajor>> Dr_DXb(jacobians[idx+RbIdx]);
+                Eigen::Map<Eigen::Matrix<double, RESITRZ_SIZE, 4, Eigen::RowMajor>> Dr_DXa(jacobians[idx]);
+                Eigen::Map<Eigen::Matrix<double, RESITRZ_SIZE, 4, Eigen::RowMajor>> Dr_DXb(jacobians[idx+RbIdx]);
 
                 Dr_DXa.setZero();
-                Dr_DXa.block<3, 3>(0, 0) = Dr_DPt*DXt_DXa[Pidx][idx];
+                // Dr_DXa.block<3, 3>(0, 0) = Dr_DPt*DXt_DXa[Pidx][idx];
+                
                 Dr_DXb.setZero();
-                Dr_DXb.block<3, 3>(0, 0) = Dr_DPt*DXt_DXb[Pidx][idx];
+                // Dr_DXb.block<3, 3>(0, 0) = Dr_DPt*DXt_DXb[Pidx][idx];
             }
             else
             {
-                Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> Dr_DXa(jacobians[idx]);
-                Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> Dr_DXb(jacobians[idx+RbIdx]);
+                Eigen::Map<Eigen::Matrix<double, RESITRZ_SIZE, 3, Eigen::RowMajor>> Dr_DXa(jacobians[idx]);
+                Eigen::Map<Eigen::Matrix<double, RESITRZ_SIZE, 3, Eigen::RowMajor>> Dr_DXb(jacobians[idx+RbIdx]);
 
                 Dr_DXa.setZero();
-                Dr_DXa.block<3, 3>(0, 0) = Dr_DPt*DXt_DXa[Pidx][idx];
+                // Dr_DXa.block<3, 3>(0, 0) = Dr_DPt*DXt_DXa[Pidx][idx];
+
                 Dr_DXb.setZero();
-                Dr_DXb.block<3, 3>(0, 0) = Dr_DPt*DXt_DXb[Pidx][idx];
+                // Dr_DXb.block<3, 3>(0, 0) = Dr_DPt*DXt_DXb[Pidx][idx];
             }
         }
         
@@ -238,11 +281,12 @@ struct FactorMeta
 {
     vector<double *> so3_parameter_blocks;
     vector<double *> rv3_parameter_blocks;
+    vector<double *> se3_parameter_blocks;
     vector<ceres::ResidualBlockId> residual_blocks;
 
     int parameter_blocks()
     {
-        return (so3_parameter_blocks.size() + rv3_parameter_blocks.size());
+        return (so3_parameter_blocks.size() + rv3_parameter_blocks.size() + se3_parameter_blocks.size());
     }
 };
 
@@ -264,7 +308,7 @@ Eigen::MatrixXd GetJacobian(ceres::CRSMatrix &J)
 
 void EvaluateFactorRJ(ceres::Problem &problem, FactorMeta &factorMeta,
                       int local_pamaterization_type,
-                      double &cost, vector<double> &residual,
+                      double &cost, VectorXd &residual,
                       MatrixXd &Jacobian, double &eval_time)
 {
     ceres::LocalParameterization *localparameterization;
@@ -275,22 +319,31 @@ void EvaluateFactorRJ(ceres::Problem &problem, FactorMeta &factorMeta,
             localparameterization = new AutoDiffSO3Parameterization<SO3d>();
             problem.SetParameterization(parameter, localparameterization);
         }
-        else
+        else if(local_pamaterization_type == 1)
         {   
             localparameterization = new GPSO3dLocalParameterization();
             problem.SetParameterization(parameter, localparameterization);
         }
+        else if(local_pamaterization_type == 2)
+        {
+            localparameterization = new Sophus::test::LocalParameterizationSE3();
+            problem.SetParameterization(parameter, localparameterization);
+        }
+        else
+            cout << "Unknown local parameterization!" << endl;
     }
 
     ceres::Problem::EvaluateOptions e_option;
     ceres::CRSMatrix Jacobian_;
     e_option.residual_blocks = factorMeta.residual_blocks;
 
+    vector<double> residual_;
     TicToc tt_eval;
-    problem.Evaluate(e_option, &cost, &residual, NULL, &Jacobian_);
+    problem.Evaluate(e_option, &cost, &residual_, NULL, &Jacobian_);
     tt_eval.Toc();
     eval_time = tt_eval.GetLastStop();
 
+    residual = Eigen::Map<Eigen::VectorXd>(residual_.data(), residual_.size());
     Jacobian = GetJacobian(Jacobian_);
 }
 
@@ -371,7 +424,7 @@ void AddAutodiffIntrzJcbFactor(GaussianProcessPtr &traj, ceres::Problem &problem
         double gp_loss_thres = -1;
         IntrinsicJcbTestAutodiffFactor *intrzJcb = new IntrinsicJcbTestAutodiffFactor(traj->getGPMixerPtr(), 0.57);
         auto *cost_function = new ceres::DynamicAutoDiffCostFunction<IntrinsicJcbTestAutodiffFactor>(intrzJcb);
-        cost_function->SetNumResiduals(3);
+        cost_function->SetNumResiduals(RESITRZ_SIZE);
         vector<double *> factor_param_blocks;
         // Add the parameter blocks
         for (int knot_idx = kidx; knot_idx < kidx + 2; knot_idx++)
@@ -447,6 +500,83 @@ void AddAnalyticIntrzJcbFactor(GaussianProcessPtr &traj, ceres::Problem &problem
     factorMeta.residual_blocks = res_ids_gp;
 }
 
+struct TestSE3CostFunctor
+{
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    TestSE3CostFunctor(){};
+
+    template <class T>
+    bool operator()(T const *const paramsTf, T *sResiduals) const
+    {
+        Eigen::Map<Sophus::SE3<T> const> const Tf(paramsTf);
+        Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(sResiduals);
+
+        residuals.block(0, 0, 3, 1) = Tf.translation();
+        residuals.block(3, 0, 3, 1) = Tf.so3().log();
+        return true;
+    }
+};
+
+void testUnifiedJacobains()
+{
+    Matrix<double, 3, 1> The(5.7, 4.3, 9.1); //The = Vec3(0, 1, 0);
+    Matrix<double, 3, 1> Rho(1.9, 0.2, 1.1);
+    Matrix<double, 6, 1> Xi; Xi << Rho, The;
+
+    // Create an SE3 variable
+    SE3d mySE3 = SE3d::exp(Xi);
+
+    // Build the problem.
+    ceres::Problem problem;
+
+    // Factormeta
+    FactorMeta factorMeta;
+
+    // Add the param block
+    problem.AddParameterBlock(mySE3.data(), Sophus::SE3d::num_parameters,
+                              new Sophus::test::LocalParameterizationSE3);
+                              factorMeta.se3_parameter_blocks.push_back(mySE3.data());
+
+    // Add the residual block
+    ceres::CostFunction *cost_function =
+        new ceres::AutoDiffCostFunction<TestSE3CostFunctor, 6, SE3d::num_parameters>
+                (new TestSE3CostFunctor());  
+    auto res_block = problem.AddResidualBlock(cost_function, NULL, mySE3.data());
+    factorMeta.residual_blocks.push_back(res_block);
+
+    double cost;
+    double time;
+    VectorXd residual;
+    MatrixXd Jacobian;
+    EvaluateFactorRJ(problem, factorMeta, 2, cost, residual, Jacobian, time);
+
+    Vec3   The_ = residual.tail<3>();
+    double Un = The.norm(); 
+    Vec3   Ub = The/Un;
+
+    Un = Util::wrapTo180(Un/M_PI*180)/180*M_PI;
+    Ub = Ub*Un;
+
+    cout << "Ub:" << Ub.transpose() << endl;
+    cout << "Xi:" << Xi.transpose() << endl;
+    cout << "P: " << (GPMixer::Jr(-The)*Rho).transpose() << endl;
+    cout << "res:"           << residual.transpose() << endl;
+    cout << "J_r_Tf:\n"      << Jacobian << endl;
+    cout << "JrInv(The):\n"  << GPMixer::JrInv(The_) << endl;
+    cout << "Rt:\n"          << SO3d::exp(The).matrix() << endl;
+    cout << "Exp(The_):\n"   << SO3d::exp(The_).matrix() << endl;
+
+//     // Set solver options (precision / method)
+//     ceres::Solver::Options options;
+//     options.gradient_tolerance = 0.01 * Sophus::Constants<double>::epsilon();
+//     options.function_tolerance = 0.01 * Sophus::Constants<double>::epsilon();
+//     options.linear_solver_type = ceres::DENSE_QR;
+
+//     // Solve
+//     ceres::Solver::Summary summary;
+//     ceres::Solve(options, &problem, &summary);
+//     std::cout << summary.BriefReport() << std::endl;
+}
 
 int main(int argc, char **argv)
 {
@@ -835,7 +965,6 @@ int main(int argc, char **argv)
     compare("Sp2 numerical error: ", myQp.S2, myQp.S2);
 
     // Compare our SE3Jr SE3JrInv with sophus implemenation
-    
     {
         int count = 1;
 
@@ -874,6 +1003,8 @@ int main(int argc, char **argv)
         compare("JrXiuo 21 block error: ", JrXiuo.block(3, 0, 3, 3), JrXi.block(0, 3, 3, 3));
         compare("JrXiuo 22 block error: ", JrXiuo.block(3, 3, 3, 3), JrXi.block(3, 3, 3, 3));
     }
+
+    testUnifiedJacobains();
 
     double Dt = 0.1102;
     Mat3 SigGa = Vec3(9.4, 4.7, 3.1).asDiagonal();
@@ -938,22 +1069,16 @@ int main(int argc, char **argv)
 
         res.setZero(); Jcb.setZero();
         
-        vector <double> residual;
-        MatrixXd J_autodiff;
         int count = 1;
         while(count-- > 0)
         {
             double eval_time_ = 0;
-            EvaluateFactorRJ(problem, factors, local_pamaterization_type, cost, residual, J_autodiff, eval_time_);
+            EvaluateFactorRJ(problem, factors, local_pamaterization_type, cost, res, Jcb, eval_time_);
             eval_time += eval_time_;
         }
 
         // Remove sidual block
         RemoveResidualBlock(problem, factors);
-
-        // Extract residual and Jacobian
-        res = Eigen::Map<Eigen::VectorXd>(residual.data(), residual.size());
-        Jcb = J_autodiff;
 
         total_time = tt_autodiff.Toc();
     };
@@ -1007,9 +1132,57 @@ int main(int argc, char **argv)
         cout << "residual_analytic: " << residual_analytic.transpose() << endl;
         cout << "residual_diff    : " << (residual_autodiff - residual_analytic).transpose() << endl;
 
-        cout << "Jacobian_autodiff:\n" <<  Jacobian_autodiff.block(0, 0, 3, 18) << endl;
-        cout << "Jacobian_analytic:\n" <<  Jacobian_analytic.block(0, 0, 3, 18) << endl;
-        cout << "Jacobian_diff    :\n" << (Jacobian_autodiff - Jacobian_analytic).block(0, 0, 3, 18) << endl;
+        cout << "Jacobian Xa_autodiff:\n" <<  Jacobian_autodiff.block(0, 0, 18, 18) << endl;
+        cout << "Jacobian Xa_analytic:\n" <<  Jacobian_analytic.block(0, 0, 18, 18) << endl;
+
+        cout << "Jacobian Xb_autodiff:\n" <<  Jacobian_autodiff.block(0, 18, 18, 18) << endl;
+        cout << "Jacobian Xb_analytic:\n" <<  Jacobian_analytic.block(0, 18, 18, 18) << endl;
+
+        cout << "J_Xibd0_Ra:\n" << Jdebug["J_Xibd0_Ra"] << endl;
+        cout << "J_Xibd0_Oa:\n" << Jdebug["J_Xibd0_Oa"] << endl;
+        cout << "J_Xibd0_Sa:\n" << Jdebug["J_Xibd0_Sa"] << endl;
+        cout << "J_Xibd0_Pa:\n" << Jdebug["J_Xibd0_Pa"] << endl;
+        cout << "J_Xibd0_Va:\n" << Jdebug["J_Xibd0_Va"] << endl;
+        cout << "J_Xibd0_Aa:\n" << Jdebug["J_Xibd0_Aa"] << endl;
+
+        cout << "J_Xibd0_Rb:\n" << Jdebug["J_Xibd0_Rb"] << endl;
+        cout << "J_Xibd0_Ob:\n" << Jdebug["J_Xibd0_Ob"] << endl;
+        cout << "J_Xibd0_Sb:\n" << Jdebug["J_Xibd0_Sb"] << endl;
+        cout << "J_Xibd0_Pb:\n" << Jdebug["J_Xibd0_Pb"] << endl;
+        cout << "J_Xibd0_Vb:\n" << Jdebug["J_Xibd0_Vb"] << endl;
+        cout << "J_Xibd0_Ab:\n" << Jdebug["J_Xibd0_Ab"] << endl;
+
+
+        cout << "J_Xibd1_Ra:\n" << Jdebug["J_Xibd1_Ra"] << endl;
+        cout << "J_Xibd1_Oa:\n" << Jdebug["J_Xibd1_Oa"] << endl;
+        cout << "J_Xibd1_Va:\n" << Jdebug["J_Xibd1_Va"] << endl;
+        cout << "J_Xibd1_Ra:\n" << Jdebug["J_Xibd1_Ra"] << endl;
+        cout << "J_Xibd1_Oa:\n" << Jdebug["J_Xibd1_Oa"] << endl;
+        cout << "J_Xibd1_Va:\n" << Jdebug["J_Xibd1_Va"] << endl;
+
+        cout << "J_Xibd1_Rb:\n" << Jdebug["J_Xibd1_Rb"] << endl;
+        cout << "J_Xibd1_Ob:\n" << Jdebug["J_Xibd1_Ob"] << endl;
+        cout << "J_Xibd1_Sb:\n" << Jdebug["J_Xibd1_Sb"] << endl;
+        cout << "J_Xibd1_Pb:\n" << Jdebug["J_Xibd1_Pb"] << endl;
+        cout << "J_Xibd1_Vb:\n" << Jdebug["J_Xibd1_Vb"] << endl;
+        cout << "J_Xibd1_Ab:\n" << Jdebug["J_Xibd1_Ab"] << endl;
+
+        
+        cout << "J_Xibd2_Ra:\n" << Jdebug["J_Xibd2_Ra"] << endl;
+        cout << "J_Xibd2_Oa:\n" << Jdebug["J_Xibd2_Oa"] << endl;
+        cout << "J_Xibd2_Sa:\n" << Jdebug["J_Xibd2_Sa"] << endl;
+        cout << "J_Xibd2_Pa:\n" << Jdebug["J_Xibd2_Pa"] << endl;
+        cout << "J_Xibd2_Va:\n" << Jdebug["J_Xibd2_Va"] << endl;
+        cout << "J_Xibd2_Aa:\n" << Jdebug["J_Xibd2_Aa"] << endl;
+        
+        cout << "J_Xibd2_Rb:\n" << Jdebug["J_Xibd2_Rb"] << endl;
+        cout << "J_Xibd2_Ob:\n" << Jdebug["J_Xibd2_Ob"] << endl;
+        cout << "J_Xibd2_Sb:\n" << Jdebug["J_Xibd2_Sb"] << endl;
+        cout << "J_Xibd2_Pb:\n" << Jdebug["J_Xibd2_Pb"] << endl;
+        cout << "J_Xibd2_Vb:\n" << Jdebug["J_Xibd2_Vb"] << endl;
+        cout << "J_Xibd2_Ab:\n" << Jdebug["J_Xibd2_Ab"] << endl;
+        
+        // cout << "Jacobian_diff    :\n" << (Jacobian_autodiff - Jacobian_analytic).block(0, 0, 18, 18) << endl;
     }
 
 }
