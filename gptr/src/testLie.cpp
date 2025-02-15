@@ -95,7 +95,7 @@ public:
 
         // Residual
         Eigen::Map<Matrix<T, RESITRZ_SIZE, 1>> residual(residuals);
-        residual << gammab;
+        residual << gammat;
 
         // cout << residual.cast<double>() << endl;
 
@@ -203,7 +203,7 @@ public:
 
         // Residual
         Eigen::Map<Matrix<double, RESITRZ_SIZE, 1>> residual(residuals);
-        residual << gammab;
+        residual << gammat;
 
         // cout << residual << endl;
 
@@ -1161,14 +1161,14 @@ int main(int argc, char **argv)
         cout << "residual_diff    : " << (residual_autodiff - residual_analytic).transpose() << endl;
 
         cout << "Jacobian Xa_autodiff:\n" << Jacobian_autodiff.block(0, 0, 18, 18) << endl;
-        cout << "J_Gammab_Xa:\n" << Jdebug["J_Gammab_Xa"] << endl; 
-        cout << "J_Gammab_Xa diff:\n" << Jacobian_autodiff.block(0, 0, 18, 18) - Jdebug["J_Gammab_Xa"] << endl;
+        cout << "J_Gammat_Xa:\n" << Jdebug["J_Gammat_Xa"] << endl; 
+        cout << "J_Gammat_Xa diff:\n" << Jacobian_autodiff.block(0, 0, 18, 18) - Jdebug["J_Gammat_Xa"] << endl;
 
         cout << endl;
 
         cout << "Jacobian Xb_autodiff:\n" <<  Jacobian_autodiff.block(0, 18, 18, 18) << endl;
-        cout << "J_Gammab_Xb:\n" << Jdebug["J_Gammab_Xb"] << endl; 
-        cout << "J_Gammab_Xb diff :\n" << Jacobian_autodiff.block(0, 18, 18, 18) - Jdebug["J_Gammab_Xb"] << endl;
+        cout << "J_Gammat_Xb:\n" << Jdebug["J_Gammat_Xb"] << endl; 
+        cout << "J_Gammat_Xb diff :\n" << Jacobian_autodiff.block(0, 18, 18, 18) - Jdebug["J_Gammat_Xb"] << endl;
 
         // cout << "J_Pt_Tft"  << "\n" << Jdebug["J_Pt_Tft" ] << endl;
         // cout << "J_Tft_Tfa" << "\n" << Jdebug["J_Tft_Tfa"] << endl;
