@@ -1155,10 +1155,10 @@ int main(int argc, char **argv)
 
         cout << "J_Xibd1_Ra:\n" << Jdebug["J_Xibd1_Ra"] << endl;
         cout << "J_Xibd1_Oa:\n" << Jdebug["J_Xibd1_Oa"] << endl;
+        cout << "J_Xibd1_Sa:\n" << Jdebug["J_Xibd1_Sa"] << endl;
+        cout << "J_Xibd1_Pa:\n" << Jdebug["J_Xibd1_Pa"] << endl;
         cout << "J_Xibd1_Va:\n" << Jdebug["J_Xibd1_Va"] << endl;
-        cout << "J_Xibd1_Ra:\n" << Jdebug["J_Xibd1_Ra"] << endl;
-        cout << "J_Xibd1_Oa:\n" << Jdebug["J_Xibd1_Oa"] << endl;
-        cout << "J_Xibd1_Va:\n" << Jdebug["J_Xibd1_Va"] << endl;
+        cout << "J_Xibd1_Aa:\n" << Jdebug["J_Xibd1_Aa"] << endl;
 
         cout << "J_Xibd1_Rb:\n" << Jdebug["J_Xibd1_Rb"] << endl;
         cout << "J_Xibd1_Ob:\n" << Jdebug["J_Xibd1_Ob"] << endl;
