@@ -1765,7 +1765,7 @@ public:
             Mat6T  J_Xibd2_Tfa = Hp1_XibWrb*J_Xibd0_Tfa + Hp1_XibTwb*J_Xibd1_Tfa + Lp11_XibTwbXibd1*J_Xibd0_Tfa;
             Mat6T  J_Xibd2_Tfb = Hp1_XibWrb*J_Xibd0_Tfb + Hp1_XibTwb*J_Xibd1_Tfb + Lp11_XibTwbXibd1*J_Xibd0_Tfb;
             Mat6T  J_Xibd2_Twb = Lp12_XibTwbXibd1 + Hp1_XibTwb*J_Xibd1_Twb;
-            Mat6T &J_Xibd2_Wrb = JrInv_Xib;         
+            Mat6T &J_Xibd2_Wrb = JrInv_Xib;
 
 
             // Jacobians from L3 to L2
@@ -1879,7 +1879,7 @@ public:
                                                                                                                                 
             MatTT J_Wra_Sa =  Utp;                                      MatTT J_Wrb_Sb =  Utp;                                  
             MatTT J_Wra_Ra =  Dtp*(hat_RatpAa - hat_Oa*hat_RatpVa);     MatTT J_Wrb_Rb =  Dtp*(hat_RbtpAb - hat_Ob*hat_RbtpVb); 
-            MatTT J_Wra_Aa =  Dtp*Ratp;                                 MatTT J_Wrb_Ab =  Dtp*Ratp;                             
+            MatTT J_Wra_Aa =  Dtp*Ratp;                                 MatTT J_Wrb_Ab =  Dtp*Rbtp;                             
             MatTT J_Wra_Oa =  Dtp*hat_RatpVa;                           MatTT J_Wrb_Ob =  Dtp*hat_RbtpVb;                       
             MatTT J_Wra_Va = -Dtp*hat_Oa*Ratp;                          MatTT J_Wrb_Vb = -Dtp*hat_Ob*Rbtp;                      
 
@@ -1973,13 +1973,134 @@ public:
             DXt_DXb[AIDX][VIDX] =                               J_At_Wrt*J_Wrt_Twb*J_Twb_Vb + J_At_Wrt*J_Wrt_Wrb*J_Wrb_Vb + J_At_Rt*J_Rt_Vb + J_At_Ot*J_Ot_Vb; // DOt_DVb
             DXt_DXb[AIDX][AIDX] =                                                             J_At_Wrt*J_Wrt_Wrb*J_Wrb_Ab + J_At_Rt*J_Rt_Ab + J_At_Ot*J_Ot_Ab; // DOt_DAb
 
-            Jdebug["J_Pt_Tft" ] = J_Pt_Tft ;
-            Jdebug["J_Tft_Tfa"] = J_Tft_Tfa;
-            Jdebug["J_Tfa_Ra" ] = J_Tfa_Ra ;
-            Jdebug["J_Tft_Twa"] = J_Tft_Twa;
-            Jdebug["J_Twa_Ra" ] = J_Twa_Ra ;
-            Jdebug["J_Tft_Wra"] = J_Tft_Wra;
-            Jdebug["J_Wra_Ra" ] = J_Wra_Ra ;
+            // Jdebug["J_Pt_Tft" ] = J_Pt_Tft ;
+            // Jdebug["J_Tft_Tfa"] = J_Tft_Tfa;
+            // Jdebug["J_Tfa_Ra" ] = J_Tfa_Ra ;
+            // Jdebug["J_Tft_Twa"] = J_Tft_Twa;
+            // Jdebug["J_Twa_Ra" ] = J_Twa_Ra ;
+            // Jdebug["J_Tft_Wra"] = J_Tft_Wra;
+            // Jdebug["J_Wra_Ra" ] = J_Wra_Ra ;
+
+            // Jacobian L2-L0,
+
+            MatTT J_Xiad0_Ra = MatTT::Zero();
+            MatTT J_Xiad0_Oa = MatTT::Zero();
+            MatTT J_Xiad0_Sa = MatTT::Zero();
+            MatTT J_Xiad0_Pa = MatTT::Zero();
+            MatTT J_Xiad0_Va = MatTT::Zero();
+            MatTT J_Xiad0_Aa = MatTT::Zero();
+
+            MatTT J_Xiad1_Ra = J_Xiad1_Twa*J_Twa_Ra;
+            MatTT J_Xiad1_Oa = J_Xiad1_Twa*J_Twa_Oa;
+            MatTT J_Xiad1_Sa = MatTT::Zero();
+            MatTT J_Xiad1_Pa = MatTT::Zero();
+            MatTT J_Xiad1_Va = J_Xiad1_Twa*J_Twa_Va;
+            MatTT J_Xiad1_Aa = MatTT::Zero();
+
+            MatTT J_Xiad2_Ra = J_Xiad2_Wra*J_Wra_Ra;
+            MatTT J_Xiad2_Oa = J_Xiad2_Wra*J_Wra_Oa;
+            MatTT J_Xiad2_Sa = J_Xiad2_Wra*J_Wra_Sa;
+            MatTT J_Xiad2_Pa = MatTT::Zero();
+            MatTT J_Xiad2_Va = J_Xiad2_Wra*J_Wra_Va;
+            MatTT J_Xiad2_Aa = J_Xiad2_Wra*J_Wra_Aa;
+
+            Jdebug["J_Xiad0_Ra"] = J_Xiad0_Ra;   Jdebug["J_Xiad1_Ra"] = J_Xiad1_Ra;   Jdebug["J_Xiad2_Ra"] = J_Xiad2_Ra;
+            Jdebug["J_Xiad0_Oa"] = J_Xiad0_Oa;   Jdebug["J_Xiad1_Oa"] = J_Xiad1_Oa;   Jdebug["J_Xiad2_Oa"] = J_Xiad2_Oa;
+            Jdebug["J_Xiad0_Sa"] = J_Xiad0_Sa;   Jdebug["J_Xiad1_Sa"] = J_Xiad1_Sa;   Jdebug["J_Xiad2_Sa"] = J_Xiad2_Sa;
+            Jdebug["J_Xiad0_Pa"] = J_Xiad0_Pa;   Jdebug["J_Xiad1_Pa"] = J_Xiad1_Pa;   Jdebug["J_Xiad2_Pa"] = J_Xiad2_Pa;
+            Jdebug["J_Xiad0_Va"] = J_Xiad0_Va;   Jdebug["J_Xiad1_Va"] = J_Xiad1_Va;   Jdebug["J_Xiad2_Va"] = J_Xiad2_Va;
+            Jdebug["J_Xiad0_Aa"] = J_Xiad0_Aa;   Jdebug["J_Xiad1_Aa"] = J_Xiad1_Aa;   Jdebug["J_Xiad2_Aa"] = J_Xiad2_Aa;
+
+            Matrix<T, 18, 18> J_Gammaa_Xa; J_Gammaa_Xa.setZero();
+            
+            J_Gammaa_Xa.block(0, 0,  6, 3) = J_Xiad0_Ra;  J_Gammaa_Xa.block(6, 0,  6, 3) = J_Xiad1_Ra;  J_Gammaa_Xa.block(12, 0,  6, 3) = J_Xiad2_Ra;
+            J_Gammaa_Xa.block(0, 3,  6, 3) = J_Xiad0_Oa;  J_Gammaa_Xa.block(6, 3,  6, 3) = J_Xiad1_Oa;  J_Gammaa_Xa.block(12, 3,  6, 3) = J_Xiad2_Oa;
+            J_Gammaa_Xa.block(0, 6,  6, 3) = J_Xiad0_Sa;  J_Gammaa_Xa.block(6, 6,  6, 3) = J_Xiad1_Sa;  J_Gammaa_Xa.block(12, 6,  6, 3) = J_Xiad2_Sa;
+            J_Gammaa_Xa.block(0, 9,  6, 3) = J_Xiad0_Pa;  J_Gammaa_Xa.block(6, 9,  6, 3) = J_Xiad1_Pa;  J_Gammaa_Xa.block(12, 9,  6, 3) = J_Xiad2_Pa;
+            J_Gammaa_Xa.block(0, 12, 6, 3) = J_Xiad0_Va;  J_Gammaa_Xa.block(6, 12, 6, 3) = J_Xiad1_Va;  J_Gammaa_Xa.block(12, 12, 6, 3) = J_Xiad2_Va;
+            J_Gammaa_Xa.block(0, 15, 6, 3) = J_Xiad0_Aa;  J_Gammaa_Xa.block(6, 15, 6, 3) = J_Xiad1_Aa;  J_Gammaa_Xa.block(12, 15, 6, 3) = J_Xiad2_Aa;
+
+            Jdebug["J_Gammaa_Xa"] = J_Gammaa_Xa;
+
+
+
+            MatTT J_Xibd0_Ra = J_Xibd0_Tfa*J_Tfa_Ra;
+            MatTT J_Xibd0_Oa = MatTT::Zero();
+            MatTT J_Xibd0_Sa = MatTT::Zero();
+            MatTT J_Xibd0_Pa = J_Xibd0_Tfa*J_Tfa_Pa;
+            MatTT J_Xibd0_Va = MatTT::Zero();
+            MatTT J_Xibd0_Aa = MatTT::Zero();
+
+            MatTT J_Xibd1_Ra = J_Xibd1_Tfa*J_Tfa_Ra;
+            MatTT J_Xibd1_Oa = MatTT::Zero();
+            MatTT J_Xibd1_Sa = MatTT::Zero();
+            MatTT J_Xibd1_Pa = J_Xibd1_Tfa*J_Tfa_Pa;
+            MatTT J_Xibd1_Va = MatTT::Zero();
+            MatTT J_Xibd1_Aa = MatTT::Zero();
+
+            MatTT J_Xibd2_Ra = J_Xibd2_Tfa*J_Tfa_Ra;
+            MatTT J_Xibd2_Oa = MatTT::Zero();
+            MatTT J_Xibd2_Sa = MatTT::Zero();
+            MatTT J_Xibd2_Pa = J_Xibd2_Tfa*J_Tfa_Pa;
+            MatTT J_Xibd2_Va = MatTT::Zero();
+            MatTT J_Xibd2_Aa = MatTT::Zero();
+
+
+            MatTT J_Xibd0_Rb = J_Xibd0_Tfb*J_Tfb_Rb;
+            MatTT J_Xibd0_Ob = MatTT::Zero();
+            MatTT J_Xibd0_Sb = MatTT::Zero();
+            MatTT J_Xibd0_Pb = J_Xibd0_Tfb*J_Tfb_Pb;
+            MatTT J_Xibd0_Vb = MatTT::Zero();
+            MatTT J_Xibd0_Ab = MatTT::Zero();
+
+            MatTT J_Xibd1_Rb = J_Xibd1_Tfb*J_Tfb_Rb + J_Xibd1_Twb*J_Twb_Rb;
+            MatTT J_Xibd1_Ob =                        J_Xibd1_Twb*J_Twb_Ob;
+            MatTT J_Xibd1_Sb = MatTT::Zero();
+            MatTT J_Xibd1_Pb = J_Xibd1_Tfb*J_Tfb_Pb;
+            MatTT J_Xibd1_Vb =                        J_Xibd1_Twb*J_Twb_Vb;
+            MatTT J_Xibd1_Ab = MatTT::Zero();
+
+            MatTT J_Xibd2_Rb = J_Xibd2_Tfb*J_Tfb_Rb + J_Xibd2_Twb*J_Twb_Rb + J_Xibd2_Wrb*J_Wrb_Rb;
+            MatTT J_Xibd2_Ob =                        J_Xibd2_Twb*J_Twb_Ob + J_Xibd2_Wrb*J_Wrb_Ob;
+            MatTT J_Xibd2_Sb =                                               J_Xibd2_Wrb*J_Wrb_Sb;
+            MatTT J_Xibd2_Pb = J_Xibd2_Tfb*J_Tfb_Pb;
+            MatTT J_Xibd2_Vb =                        J_Xibd2_Twb*J_Twb_Vb + J_Xibd2_Wrb*J_Wrb_Vb;
+            MatTT J_Xibd2_Ab =                                               J_Xibd2_Wrb*J_Wrb_Ab;
+
+            Jdebug["J_Xibd0_Ra"] = J_Xibd0_Ra;   Jdebug["J_Xibd1_Ra"] = J_Xibd1_Ra;   Jdebug["J_Xibd2_Ra"] = J_Xibd2_Ra;
+            Jdebug["J_Xibd0_Oa"] = J_Xibd0_Oa;   Jdebug["J_Xibd1_Oa"] = J_Xibd1_Oa;   Jdebug["J_Xibd2_Oa"] = J_Xibd2_Oa;
+            Jdebug["J_Xibd0_Sa"] = J_Xibd0_Sa;   Jdebug["J_Xibd1_Sa"] = J_Xibd1_Sa;   Jdebug["J_Xibd2_Sa"] = J_Xibd2_Sa;
+            Jdebug["J_Xibd0_Pa"] = J_Xibd0_Pa;   Jdebug["J_Xibd1_Pa"] = J_Xibd1_Pa;   Jdebug["J_Xibd2_Pa"] = J_Xibd2_Pa;
+            Jdebug["J_Xibd0_Va"] = J_Xibd0_Va;   Jdebug["J_Xibd1_Va"] = J_Xibd1_Va;   Jdebug["J_Xibd2_Va"] = J_Xibd2_Va;
+            Jdebug["J_Xibd0_Aa"] = J_Xibd0_Aa;   Jdebug["J_Xibd1_Aa"] = J_Xibd1_Aa;   Jdebug["J_Xibd2_Aa"] = J_Xibd2_Aa;
+
+            Matrix<T, 18, 18> J_Gammab_Xa; J_Gammab_Xa.setZero();
+            
+            J_Gammab_Xa.block(0, 0,  6, 3) = J_Xibd0_Ra;   J_Gammab_Xa.block(6, 0,  6, 3) = J_Xibd1_Ra;  J_Gammab_Xa.block(12, 0,  6, 3) = J_Xibd2_Ra;
+            J_Gammab_Xa.block(0, 3,  6, 3) = J_Xibd0_Oa;   J_Gammab_Xa.block(6, 3,  6, 3) = J_Xibd1_Oa;  J_Gammab_Xa.block(12, 3,  6, 3) = J_Xibd2_Oa;
+            J_Gammab_Xa.block(0, 6,  6, 3) = J_Xibd0_Sa;   J_Gammab_Xa.block(6, 6,  6, 3) = J_Xibd1_Sa;  J_Gammab_Xa.block(12, 6,  6, 3) = J_Xibd2_Sa;
+            J_Gammab_Xa.block(0, 9,  6, 3) = J_Xibd0_Pa;   J_Gammab_Xa.block(6, 9,  6, 3) = J_Xibd1_Pa;  J_Gammab_Xa.block(12, 9,  6, 3) = J_Xibd2_Pa;
+            J_Gammab_Xa.block(0, 12, 6, 3) = J_Xibd0_Va;   J_Gammab_Xa.block(6, 12, 6, 3) = J_Xibd1_Va;  J_Gammab_Xa.block(12, 12, 6, 3) = J_Xibd2_Va;
+            J_Gammab_Xa.block(0, 15, 6, 3) = J_Xibd0_Aa;   J_Gammab_Xa.block(6, 15, 6, 3) = J_Xibd1_Aa;  J_Gammab_Xa.block(12, 15, 6, 3) = J_Xibd2_Aa;
+            
+            Jdebug["J_Xibd0_Ra"] = J_Xibd0_Ra;   Jdebug["J_Xibd1_Ra"] = J_Xibd1_Ra;   Jdebug["J_Xibd2_Ra"] = J_Xibd2_Ra;
+            Jdebug["J_Xibd0_Oa"] = J_Xibd0_Oa;   Jdebug["J_Xibd1_Oa"] = J_Xibd1_Oa;   Jdebug["J_Xibd2_Oa"] = J_Xibd2_Oa;
+            Jdebug["J_Xibd0_Sa"] = J_Xibd0_Sa;   Jdebug["J_Xibd1_Sa"] = J_Xibd1_Sa;   Jdebug["J_Xibd2_Sa"] = J_Xibd2_Sa;
+            Jdebug["J_Xibd0_Pa"] = J_Xibd0_Pa;   Jdebug["J_Xibd1_Pa"] = J_Xibd1_Pa;   Jdebug["J_Xibd2_Pa"] = J_Xibd2_Pa;
+            Jdebug["J_Xibd0_Va"] = J_Xibd0_Va;   Jdebug["J_Xibd1_Va"] = J_Xibd1_Va;   Jdebug["J_Xibd2_Va"] = J_Xibd2_Va;
+            Jdebug["J_Xibd0_Aa"] = J_Xibd0_Aa;   Jdebug["J_Xibd1_Aa"] = J_Xibd1_Aa;   Jdebug["J_Xibd2_Aa"] = J_Xibd2_Aa;
+
+            Matrix<T, 18, 18> J_Gammab_Xb; J_Gammab_Xb.setZero();
+            
+            J_Gammab_Xb.block(0, 0,  6, 3) = J_Xibd0_Rb;  J_Gammab_Xb.block(6, 0,  6, 3) = J_Xibd1_Rb;  J_Gammab_Xb.block(12, 0,  6, 3) = J_Xibd2_Rb;
+            J_Gammab_Xb.block(0, 3,  6, 3) = J_Xibd0_Ob;  J_Gammab_Xb.block(6, 3,  6, 3) = J_Xibd1_Ob;  J_Gammab_Xb.block(12, 3,  6, 3) = J_Xibd2_Ob;
+            J_Gammab_Xb.block(0, 6,  6, 3) = J_Xibd0_Sb;  J_Gammab_Xb.block(6, 6,  6, 3) = J_Xibd1_Sb;  J_Gammab_Xb.block(12, 6,  6, 3) = J_Xibd2_Sb;
+            J_Gammab_Xb.block(0, 9,  6, 3) = J_Xibd0_Pb;  J_Gammab_Xb.block(6, 9,  6, 3) = J_Xibd1_Pb;  J_Gammab_Xb.block(12, 9,  6, 3) = J_Xibd2_Pb;
+            J_Gammab_Xb.block(0, 12, 6, 3) = J_Xibd0_Vb;  J_Gammab_Xb.block(6, 12, 6, 3) = J_Xibd1_Vb;  J_Gammab_Xb.block(12, 12, 6, 3) = J_Xibd2_Vb;
+            J_Gammab_Xb.block(0, 15, 6, 3) = J_Xibd0_Ab;  J_Gammab_Xb.block(6, 15, 6, 3) = J_Xibd1_Ab;  J_Gammab_Xb.block(12, 15, 6, 3) = J_Xibd2_Ab;
+
+            Jdebug["J_Gammab_Xa"] = J_Gammab_Xa;
+            Jdebug["J_Gammab_Xb"] = J_Gammab_Xb;
         }
     }
 

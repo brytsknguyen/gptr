@@ -95,7 +95,7 @@ public:
 
         // Residual
         Eigen::Map<Matrix<T, RESITRZ_SIZE, 1>> residual(residuals);
-        residual << Xt.R*(Vec3(1.0, 0, 0).cast<T>()), Xt.O, Xt.S, Xt.P, Xt.V, Xt.A;
+        residual << gammab;
 
         // cout << residual.cast<double>() << endl;
 
@@ -203,7 +203,7 @@ public:
 
         // Residual
         Eigen::Map<Matrix<double, RESITRZ_SIZE, 1>> residual(residuals);
-        residual << Xt.R*Vec3(1, 0, 0), Xt.O, Xt.S, Xt.P, Xt.V, Xt.A;
+        residual << gammab;
 
         // cout << residual << endl;
 
@@ -232,20 +232,20 @@ public:
                 Eigen::Map<Eigen::Matrix<double, RESITRZ_SIZE, 4, Eigen::RowMajor>> Dr_DXb(jacobians[idx+RbIdx]);
 
                 Dr_DXa.setZero();
-                Dr_DXa.block<RESITRZ_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx]
-                                                    + Dr_DOt*DXt_DXa[Oidx][idx]
-                                                    + Dr_DSt*DXt_DXa[Sidx][idx]
-                                                    + Dr_DPt*DXt_DXa[Pidx][idx]
-                                                    + Dr_DVt*DXt_DXa[Vidx][idx]
-                                                    + Dr_DAt*DXt_DXa[Aidx][idx];
+                // Dr_DXa.block<RESITRZ_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx]
+                //                                     + Dr_DOt*DXt_DXa[Oidx][idx]
+                //                                     + Dr_DSt*DXt_DXa[Sidx][idx]
+                //                                     + Dr_DPt*DXt_DXa[Pidx][idx]
+                //                                     + Dr_DVt*DXt_DXa[Vidx][idx]
+                //                                     + Dr_DAt*DXt_DXa[Aidx][idx];
 
                 Dr_DXb.setZero();
-                Dr_DXb.block<RESITRZ_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx]
-                                                    + Dr_DOt*DXt_DXb[Oidx][idx]
-                                                    + Dr_DSt*DXt_DXb[Sidx][idx]
-                                                    + Dr_DPt*DXt_DXb[Pidx][idx]
-                                                    + Dr_DVt*DXt_DXb[Vidx][idx]
-                                                    + Dr_DAt*DXt_DXb[Aidx][idx];
+                // Dr_DXb.block<RESITRZ_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx]
+                //                                     + Dr_DOt*DXt_DXb[Oidx][idx]
+                //                                     + Dr_DSt*DXt_DXb[Sidx][idx]
+                //                                     + Dr_DPt*DXt_DXb[Pidx][idx]
+                //                                     + Dr_DVt*DXt_DXb[Vidx][idx]
+                //                                     + Dr_DAt*DXt_DXb[Aidx][idx];
 
             }
             else
@@ -254,20 +254,20 @@ public:
                 Eigen::Map<Eigen::Matrix<double, RESITRZ_SIZE, 3, Eigen::RowMajor>> Dr_DXb(jacobians[idx+RbIdx]);
 
                 Dr_DXa.setZero();
-                Dr_DXa.block<RESITRZ_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx]
-                                                    + Dr_DOt*DXt_DXa[Oidx][idx]
-                                                    + Dr_DSt*DXt_DXa[Sidx][idx]
-                                                    + Dr_DPt*DXt_DXa[Pidx][idx]
-                                                    + Dr_DVt*DXt_DXa[Vidx][idx]
-                                                    + Dr_DAt*DXt_DXa[Aidx][idx];
+                // Dr_DXa.block<RESITRZ_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx]
+                //                                     + Dr_DOt*DXt_DXa[Oidx][idx]
+                //                                     + Dr_DSt*DXt_DXa[Sidx][idx]
+                //                                     + Dr_DPt*DXt_DXa[Pidx][idx]
+                //                                     + Dr_DVt*DXt_DXa[Vidx][idx]
+                //                                     + Dr_DAt*DXt_DXa[Aidx][idx];
 
                 Dr_DXb.setZero();
-                Dr_DXb.block<RESITRZ_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx]
-                                                    + Dr_DOt*DXt_DXb[Oidx][idx]
-                                                    + Dr_DSt*DXt_DXb[Sidx][idx]
-                                                    + Dr_DPt*DXt_DXb[Pidx][idx]
-                                                    + Dr_DVt*DXt_DXb[Vidx][idx]
-                                                    + Dr_DAt*DXt_DXb[Aidx][idx];
+                // Dr_DXb.block<RESITRZ_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx]
+                //                                     + Dr_DOt*DXt_DXb[Oidx][idx]
+                //                                     + Dr_DSt*DXt_DXb[Sidx][idx]
+                //                                     + Dr_DPt*DXt_DXb[Pidx][idx]
+                //                                     + Dr_DVt*DXt_DXb[Vidx][idx]
+                //                                     + Dr_DAt*DXt_DXb[Aidx][idx];
 
             }
         }
@@ -1161,29 +1161,28 @@ int main(int argc, char **argv)
         cout << "residual_diff    : " << (residual_autodiff - residual_analytic).transpose() << endl;
 
         cout << "Jacobian Xa_autodiff:\n" << Jacobian_autodiff.block(0, 0, 18, 18) << endl;
-        cout << "Jacobian Xa_analytic:\n" << Jacobian_analytic.block(0, 0, 18, 18) << endl;
-        cout << "Jacobian Xa diff    :\n" << (Jacobian_autodiff - Jacobian_analytic).block(0, 0, 18, 18) << endl;
+        cout << "J_Gammab_Xa:\n" << Jdebug["J_Gammab_Xa"] << endl; 
+        cout << "J_Gammab_Xa diff:\n" << Jacobian_autodiff.block(0, 0, 18, 18) - Jdebug["J_Gammab_Xa"] << endl;
 
         cout << endl;
 
         cout << "Jacobian Xb_autodiff:\n" <<  Jacobian_autodiff.block(0, 18, 18, 18) << endl;
-        cout << "Jacobian Xb_analytic:\n" <<  Jacobian_analytic.block(0, 18, 18, 18) << endl;
-        cout << "Jacobian Xb diff    :\n" << (Jacobian_autodiff - Jacobian_analytic).block(0, 18, 18, 18) << endl;
+        cout << "J_Gammab_Xb:\n" << Jdebug["J_Gammab_Xb"] << endl; 
+        cout << "J_Gammab_Xb diff :\n" << Jacobian_autodiff.block(0, 18, 18, 18) - Jdebug["J_Gammab_Xb"] << endl;
 
-        cout << "J_Pt_Tft"  << "\n" << Jdebug["J_Pt_Tft" ] << endl;
-        cout << "J_Tft_Tfa" << "\n" << Jdebug["J_Tft_Tfa"] << endl;
-        cout << "J_Tfa_Ra"  << "\n" << Jdebug["J_Tfa_Ra" ] << endl;
-        cout << "J_Tft_Twa" << "\n" << Jdebug["J_Tft_Twa"] << endl;
-        cout << "J_Twa_Ra"  << "\n" << Jdebug["J_Twa_Ra" ] << endl;
-        cout << "J_Tft_Wra" << "\n" << Jdebug["J_Tft_Wra"] << endl;
-        cout << "J_Wra_Ra"  << "\n" << Jdebug["J_Wra_Ra" ] << endl;
+        // cout << "J_Pt_Tft"  << "\n" << Jdebug["J_Pt_Tft" ] << endl;
+        // cout << "J_Tft_Tfa" << "\n" << Jdebug["J_Tft_Tfa"] << endl;
+        // cout << "J_Tfa_Ra"  << "\n" << Jdebug["J_Tfa_Ra" ] << endl;
+        // cout << "J_Tft_Twa" << "\n" << Jdebug["J_Tft_Twa"] << endl;
+        // cout << "J_Twa_Ra"  << "\n" << Jdebug["J_Twa_Ra" ] << endl;
+        // cout << "J_Tft_Wra" << "\n" << Jdebug["J_Tft_Wra"] << endl;
+        // cout << "J_Wra_Ra"  << "\n" << Jdebug["J_Wra_Ra" ] << endl;
 
 
-        cout << "J_Pt_Tft*J_Tft_Tfa*J_Tfa_Ra" << "\n" << Jdebug["J_Pt_Tft"]*Jdebug["J_Tft_Tfa"]*Jdebug["J_Tfa_Ra"] << endl;
-        cout << "J_Pt_Tft*J_Tft_Twa*J_Twa_Ra" << "\n" << Jdebug["J_Pt_Tft"]*Jdebug["J_Tft_Twa"]*Jdebug["J_Twa_Ra"] << endl;
-        cout << "J_Pt_Tft*J_Tft_Wra*J_Wra_Ra" << "\n" << Jdebug["J_Pt_Tft"]*Jdebug["J_Tft_Wra"]*Jdebug["J_Wra_Ra"] << endl;
-        
-        // cout << "Jacobian_diff    :\n" << (Jacobian_autodiff - Jacobian_analytic).block(0, 0, 18, 18) << endl;
-    }
+        // cout << "J_Pt_Tft*J_Tft_Tfa*J_Tfa_Ra" << "\n" << Jdebug["J_Pt_Tft"]*Jdebug["J_Tft_Tfa"]*Jdebug["J_Tfa_Ra"] << endl;
+        // cout << "J_Pt_Tft*J_Tft_Twa*J_Twa_Ra" << "\n" << Jdebug["J_Pt_Tft"]*Jdebug["J_Tft_Twa"]*Jdebug["J_Twa_Ra"] << endl;
+        // cout << "J_Pt_Tft*J_Tft_Wra*J_Wra_Ra" << "\n" << Jdebug["J_Pt_Tft"]*Jdebug["J_Tft_Wra"]*Jdebug["J_Wra_Ra"] << endl;
+
+        }
 
 }
