@@ -1435,7 +1435,7 @@ public:
             Mat6T  J_Xibd2_Tfa = Hp1_XibWrb*J_Xibd0_Tfa + Hp1_XibTwb*J_Xibd1_Tfa + Lp11_XibTwbXibd1*J_Xibd0_Tfa;
             Mat6T  J_Xibd2_Tfb = Hp1_XibWrb*J_Xibd0_Tfb + Hp1_XibTwb*J_Xibd1_Tfb + Lp11_XibTwbXibd1*J_Xibd0_Tfb;
             Mat6T  J_Xibd2_Twb = Lp12_XibTwbXibd1 + Hp1_XibTwb*J_Xibd1_Twb;
-            Mat6T &J_Xibd2_Wrb = JrInv_Xib;         
+            Mat6T &J_Xibd2_Wrb = JrInv_Xib;
 
 
             // Jacobians from L3 to L2
@@ -1447,7 +1447,7 @@ public:
             Mat6T J_Xitd2_Xibd0 = PSI_TTWt.block(12, 0, 6, 6); Mat6T J_Xitd2_Xibd1 = PSI_TTWt.block(12, 6, 6, 6); Mat6T J_Xitd2_Xibd2 = PSI_TTWt.block(12, 12, 6, 6);
 
 
-            // Jacobians from L3 to L0
+            // Jacobians from L3 to L1
             Mat6T J_Xitd0_Tfa = J_Xitd0_Xibd0*J_Xibd0_Tfa + J_Xitd0_Xibd1*J_Xibd1_Tfa + J_Xitd0_Xibd2*J_Xibd2_Tfa;
             Mat6T J_Xitd0_Tfb = J_Xitd0_Xibd0*J_Xibd0_Tfb + J_Xitd0_Xibd1*J_Xibd1_Tfb + J_Xitd0_Xibd2*J_Xibd2_Tfb;
             Mat6T J_Xitd0_Twa = J_Xitd0_Xiad1*J_Xiad1_Twa;
@@ -1549,7 +1549,7 @@ public:
                                                                                                                                 
             MatTT J_Wra_Sa =  Utp;                                      MatTT J_Wrb_Sb =  Utp;                                  
             MatTT J_Wra_Ra =  Dtp*(hat_RatpAa - hat_Oa*hat_RatpVa);     MatTT J_Wrb_Rb =  Dtp*(hat_RbtpAb - hat_Ob*hat_RbtpVb); 
-            MatTT J_Wra_Aa =  Dtp*Ratp;                                 MatTT J_Wrb_Ab =  Dtp*Ratp;                             
+            MatTT J_Wra_Aa =  Dtp*Ratp;                                 MatTT J_Wrb_Ab =  Dtp*Rbtp;                             
             MatTT J_Wra_Oa =  Dtp*hat_RatpVa;                           MatTT J_Wrb_Ob =  Dtp*hat_RbtpVb;                       
             MatTT J_Wra_Va = -Dtp*hat_Oa*Ratp;                          MatTT J_Wrb_Vb = -Dtp*hat_Ob*Rbtp;                      
 
@@ -2185,45 +2185,149 @@ public:
 
 
             // L4-L0, dTt/dXa
-yolo();
+
             MatTT J_Tft_Ra = SE3AdjInv(Exp_Xit)*J_Tfa_Ra + J_Tft_Xitd0*J_Xitd0_Ra;
             MatTT J_Tft_Oa = J_Tft_Xitd0*J_Xitd0_Oa;
             MatTT J_Tft_Sa = J_Tft_Xitd0*J_Xitd0_Sa;
             MatTT J_Tft_Pa = SE3AdjInv(Exp_Xit)*J_Tfa_Pa + J_Tft_Xitd0*J_Xitd0_Pa;
             MatTT J_Tft_Va = J_Tft_Xitd0*J_Xitd0_Va;
             MatTT J_Tft_Aa = J_Tft_Xitd0*J_Xitd0_Aa;
-yolo();
+
+            Matrix<T, 6, 18> J_Tft_Xa; J_Tft_Xa.setZero();
+            
+            J_Tft_Xa.block(0, 0,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Ra;
+            J_Tft_Xa.block(0, 3,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Oa;
+            J_Tft_Xa.block(0, 6,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Sa;
+            J_Tft_Xa.block(0, 9,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Pa;
+            J_Tft_Xa.block(0, 12, 3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Va;
+            J_Tft_Xa.block(0, 15, 3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Aa;
+
+            J_Tft_Xa.block(3, 0,  3, 3) = J_Pt_Tft*J_Tft_Ra;
+            J_Tft_Xa.block(3, 3,  3, 3) = J_Pt_Tft*J_Tft_Oa;
+            J_Tft_Xa.block(3, 6,  3, 3) = J_Pt_Tft*J_Tft_Sa;
+            J_Tft_Xa.block(3, 9,  3, 3) = J_Pt_Tft*J_Tft_Pa;
+            J_Tft_Xa.block(3, 12, 3, 3) = J_Pt_Tft*J_Tft_Va;
+            J_Tft_Xa.block(3, 15, 3, 3) = J_Pt_Tft*J_Tft_Aa;
+
+            Jdebug["J_Tft_Xa"] = J_Tft_Xa;
+            
+
+
+
+            // L4-L0, dTt/dXb
+
+            MatTT J_Tft_Rb = J_Tft_Xitd0*J_Xitd0_Rb;
+            MatTT J_Tft_Ob = J_Tft_Xitd0*J_Xitd0_Ob;
+            MatTT J_Tft_Sb = J_Tft_Xitd0*J_Xitd0_Sb;
+            MatTT J_Tft_Pb = J_Tft_Xitd0*J_Xitd0_Pb;
+            MatTT J_Tft_Vb = J_Tft_Xitd0*J_Xitd0_Vb;
+            MatTT J_Tft_Ab = J_Tft_Xitd0*J_Xitd0_Ab;
+
+            Matrix<T, 6, 18> J_Tft_Xb; J_Tft_Xb.setZero();
+            
+            J_Tft_Xb.block(0, 0,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Rb;
+            J_Tft_Xb.block(0, 3,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Ob;
+            J_Tft_Xb.block(0, 6,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Sb;
+            J_Tft_Xb.block(0, 9,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Pb;
+            J_Tft_Xb.block(0, 12, 3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Vb;
+            J_Tft_Xb.block(0, 15, 3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Ab;
+
+            J_Tft_Xb.block(3, 0,  3, 3) = J_Pt_Tft*J_Tft_Rb;
+            J_Tft_Xb.block(3, 3,  3, 3) = J_Pt_Tft*J_Tft_Ob;
+            J_Tft_Xb.block(3, 6,  3, 3) = J_Pt_Tft*J_Tft_Sb;
+            J_Tft_Xb.block(3, 9,  3, 3) = J_Pt_Tft*J_Tft_Pb;
+            J_Tft_Xb.block(3, 12, 3, 3) = J_Pt_Tft*J_Tft_Vb;
+            J_Tft_Xb.block(3, 15, 3, 3) = J_Pt_Tft*J_Tft_Ab;
+
+            Jdebug["J_Tft_Xb"] = J_Tft_Xb;
+
+
+
+            // L4-L0, dTwt/dXa
+
             MatTT J_Twt_Ra = J_Twt_Xitd0*J_Xitd0_Ra + J_Twt_Xitd1*J_Xitd1_Ra;
             MatTT J_Twt_Oa = J_Twt_Xitd0*J_Xitd0_Oa + J_Twt_Xitd1*J_Xitd1_Oa;
             MatTT J_Twt_Sa = J_Twt_Xitd0*J_Xitd0_Sa + J_Twt_Xitd1*J_Xitd1_Sa;
             MatTT J_Twt_Pa = J_Twt_Xitd0*J_Xitd0_Pa + J_Twt_Xitd1*J_Xitd1_Pa;
             MatTT J_Twt_Va = J_Twt_Xitd0*J_Xitd0_Va + J_Twt_Xitd1*J_Xitd1_Va;
             MatTT J_Twt_Aa = J_Twt_Xitd0*J_Xitd0_Aa + J_Twt_Xitd1*J_Xitd1_Aa;
-yolo();
+
+            Matrix<T, 6, 18> J_Twt_Xa; J_Twt_Xa.setZero();
+            
+            J_Twt_Xa.block(0, 0,  6, 3) = J_Twt_Ra;
+            J_Twt_Xa.block(0, 3,  6, 3) = J_Twt_Oa;
+            J_Twt_Xa.block(0, 6,  6, 3) = J_Twt_Sa;
+            J_Twt_Xa.block(0, 9,  6, 3) = J_Twt_Pa;
+            J_Twt_Xa.block(0, 12, 6, 3) = J_Twt_Va;
+            J_Twt_Xa.block(0, 15, 6, 3) = J_Twt_Aa;
+
+            Jdebug["J_Twt_Xa"] = J_Twt_Xa;
+
+
+
+            // L4-L0, dTwt/dXb
+
+            MatTT J_Twt_Rb = J_Twt_Xitd0*J_Xitd0_Rb + J_Twt_Xitd1*J_Xitd1_Rb;
+            MatTT J_Twt_Ob = J_Twt_Xitd0*J_Xitd0_Ob + J_Twt_Xitd1*J_Xitd1_Ob;
+            MatTT J_Twt_Sb = J_Twt_Xitd0*J_Xitd0_Sb + J_Twt_Xitd1*J_Xitd1_Sb;
+            MatTT J_Twt_Pb = J_Twt_Xitd0*J_Xitd0_Pb + J_Twt_Xitd1*J_Xitd1_Pb;
+            MatTT J_Twt_Vb = J_Twt_Xitd0*J_Xitd0_Vb + J_Twt_Xitd1*J_Xitd1_Vb;
+            MatTT J_Twt_Ab = J_Twt_Xitd0*J_Xitd0_Ab + J_Twt_Xitd1*J_Xitd1_Ab;
+
+            Matrix<T, 6, 18> J_Twt_Xb; J_Twt_Xb.setZero();
+
+            J_Twt_Xb.block(0, 0,  6, 3) = J_Twt_Rb;
+            J_Twt_Xb.block(0, 3,  6, 3) = J_Twt_Ob;
+            J_Twt_Xb.block(0, 6,  6, 3) = J_Twt_Sb;
+            J_Twt_Xb.block(0, 9,  6, 3) = J_Twt_Pb;
+            J_Twt_Xb.block(0, 12, 6, 3) = J_Twt_Vb;
+            J_Twt_Xb.block(0, 15, 6, 3) = J_Twt_Ab;
+
+            Jdebug["J_Twt_Xb"] = J_Twt_Xb;
+
+
+
+            // L4-L0, dWrt/dXa
+
             MatTT J_Wrt_Ra = J_Wrt_Xitd0*J_Xitd0_Ra + J_Wrt_Xitd1*J_Xitd1_Ra + J_Wrt_Xitd2*J_Xitd2_Ra;
             MatTT J_Wrt_Oa = J_Wrt_Xitd0*J_Xitd0_Oa + J_Wrt_Xitd1*J_Xitd1_Oa + J_Wrt_Xitd2*J_Xitd2_Oa;
             MatTT J_Wrt_Sa = J_Wrt_Xitd0*J_Xitd0_Sa + J_Wrt_Xitd1*J_Xitd1_Sa + J_Wrt_Xitd2*J_Xitd2_Sa;
             MatTT J_Wrt_Pa = J_Wrt_Xitd0*J_Xitd0_Pa + J_Wrt_Xitd1*J_Xitd1_Pa + J_Wrt_Xitd2*J_Xitd2_Pa;
             MatTT J_Wrt_Va = J_Wrt_Xitd0*J_Xitd0_Va + J_Wrt_Xitd1*J_Xitd1_Va + J_Wrt_Xitd2*J_Xitd2_Va;
             MatTT J_Wrt_Aa = J_Wrt_Xitd0*J_Xitd0_Aa + J_Wrt_Xitd1*J_Xitd1_Aa + J_Wrt_Xitd2*J_Xitd2_Aa;
-yolo();
-            Matrix<T, 6, 18> J_TTW_Xa; J_TTW_Xa.setZero();
-            
-            J_TTW_Xa.block(0, 0,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Ra;
-            J_TTW_Xa.block(0, 3,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Oa;
-            J_TTW_Xa.block(0, 6,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Sa;
-            J_TTW_Xa.block(0, 9,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Pa;
-            J_TTW_Xa.block(0, 12, 3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Va;
-            J_TTW_Xa.block(0, 15, 3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Aa;
-yolo();
-            J_TTW_Xa.block(3, 0,  3, 3) = J_Pt_Tft*J_Tft_Ra;
-            J_TTW_Xa.block(3, 3,  3, 3) = J_Pt_Tft*J_Tft_Oa;
-            J_TTW_Xa.block(3, 6,  3, 3) = J_Pt_Tft*J_Tft_Sa;
-            J_TTW_Xa.block(3, 9,  3, 3) = J_Pt_Tft*J_Tft_Pa;
-            J_TTW_Xa.block(3, 12, 3, 3) = J_Pt_Tft*J_Tft_Va;
-            J_TTW_Xa.block(3, 15, 3, 3) = J_Pt_Tft*J_Tft_Aa;
-yolo();
-            Jdebug["J_TTW_Xa"] = J_TTW_Xa;
+
+            Matrix<T, 6, 18> J_Wrt_Xa; J_Wrt_Xa.setZero();
+
+            J_Wrt_Xa.block(0, 0,  6, 3) = J_Wrt_Ra;
+            J_Wrt_Xa.block(0, 3,  6, 3) = J_Wrt_Oa;
+            J_Wrt_Xa.block(0, 6,  6, 3) = J_Wrt_Sa;
+            J_Wrt_Xa.block(0, 9,  6, 3) = J_Wrt_Pa;
+            J_Wrt_Xa.block(0, 12, 6, 3) = J_Wrt_Va;
+            J_Wrt_Xa.block(0, 15, 6, 3) = J_Wrt_Aa;
+
+            Jdebug["J_Wrt_Xa"] = J_Wrt_Xa;
+
+
+
+            // L4-L0, dWrt/dXa
+
+            MatTT J_Wrt_Rb = J_Wrt_Xitd0*J_Xitd0_Rb + J_Wrt_Xitd1*J_Xitd1_Rb + J_Wrt_Xitd2*J_Xitd2_Rb;
+            MatTT J_Wrt_Ob = J_Wrt_Xitd0*J_Xitd0_Ob + J_Wrt_Xitd1*J_Xitd1_Ob + J_Wrt_Xitd2*J_Xitd2_Ob;
+            MatTT J_Wrt_Sb = J_Wrt_Xitd0*J_Xitd0_Sb + J_Wrt_Xitd1*J_Xitd1_Sb + J_Wrt_Xitd2*J_Xitd2_Sb;
+            MatTT J_Wrt_Pb = J_Wrt_Xitd0*J_Xitd0_Pb + J_Wrt_Xitd1*J_Xitd1_Pb + J_Wrt_Xitd2*J_Xitd2_Pb;
+            MatTT J_Wrt_Vb = J_Wrt_Xitd0*J_Xitd0_Vb + J_Wrt_Xitd1*J_Xitd1_Vb + J_Wrt_Xitd2*J_Xitd2_Vb;
+            MatTT J_Wrt_Ab = J_Wrt_Xitd0*J_Xitd0_Ab + J_Wrt_Xitd1*J_Xitd1_Ab + J_Wrt_Xitd2*J_Xitd2_Ab;
+
+            Matrix<T, 6, 18> J_Wrt_Xb; J_Wrt_Xb.setZero();
+
+            J_Wrt_Xb.block(0, 0,  6, 3) = J_Wrt_Rb;
+            J_Wrt_Xb.block(0, 3,  6, 3) = J_Wrt_Ob;
+            J_Wrt_Xb.block(0, 6,  6, 3) = J_Wrt_Sb;
+            J_Wrt_Xb.block(0, 9,  6, 3) = J_Wrt_Pb;
+            J_Wrt_Xb.block(0, 12, 6, 3) = J_Wrt_Vb;
+            J_Wrt_Xb.block(0, 15, 6, 3) = J_Wrt_Ab;
+
+            Jdebug["J_Wrt_Xb"] = J_Wrt_Xb;
         }
     }
 
