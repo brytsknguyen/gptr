@@ -54,7 +54,7 @@ namespace Sophus
     } // namespace test
 } // namespace Sophus
 
-static constexpr int RESITRZ_SIZE = 18;
+static constexpr int RESITRZ_SIZE = 6;
 
 class IntrinsicJcbTestAutodiffFactor
 {
@@ -70,7 +70,9 @@ public:
     bool operator()(T const *const *parameters, T *residuals) const
     {
         using SO3T  = Sophus::SO3<T>;
+        using SE3T  = Sophus::SE3<T>;
         using Vec3T = Eigen::Matrix<T, 3, 1>;
+        using Vec6T = Eigen::Matrix<T, 6, 1>;
         using Mat3T = Eigen::Matrix<T, 3, 3>;
 
         /* #region Map the memory to control points -----------------------------------------------------------------*/
@@ -92,10 +94,13 @@ public:
         Eigen::Matrix<T, Eigen::Dynamic, 1> gammat;
 
         gpm->ComputeXtAndJacobians<T>(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+        
+        SE3T Tft; Vec6T Twt; Vec6T Wrt;
+        Xt.GetTUW(Tft, Twt, Wrt);
 
         // Residual
         Eigen::Map<Matrix<T, RESITRZ_SIZE, 1>> residual(residuals);
-        residual << gammat;
+        residual << Tft.so3().log(), Tft.translation();
 
         // cout << residual.cast<double>() << endl;
 
@@ -201,9 +206,12 @@ public:
 
         gpm->ComputeXtAndJacobiansSE3Debug(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat, Jdebug);
 
+        SE3d Tft; Eigen::Matrix<double, 6, 1> Twt; Eigen::Matrix<double, 6, 1> Wrt;
+        Xt.GetTUW(Tft, Twt, Wrt);
+
         // Residual
         Eigen::Map<Matrix<double, RESITRZ_SIZE, 1>> residual(residuals);
-        residual << gammat;
+        residual << Tft.so3().log(), Tft.translation();
 
         // cout << residual << endl;
 
@@ -212,13 +220,13 @@ public:
         if (!jacobians)
             return true;
 
-        Mat3 Eye = Mat3::Identity(3, 3);
-        Matrix<double, RESITRZ_SIZE, 3> Dr_DRt; Dr_DRt.setZero(); Dr_DRt.block<3, 3>(Ridx*3, 0) = Xt.R.matrix()*SO3d::hat(Vec3(1, 0, 0));
-        Matrix<double, RESITRZ_SIZE, 3> Dr_DOt; Dr_DOt.setZero(); Dr_DOt.block<3, 3>(Oidx*3, 0) = Eye;
-        Matrix<double, RESITRZ_SIZE, 3> Dr_DSt; Dr_DSt.setZero(); Dr_DSt.block<3, 3>(Sidx*3, 0) = Eye;
-        Matrix<double, RESITRZ_SIZE, 3> Dr_DPt; Dr_DPt.setZero(); Dr_DPt.block<3, 3>(Pidx*3, 0) = Eye;
-        Matrix<double, RESITRZ_SIZE, 3> Dr_DVt; Dr_DVt.setZero(); Dr_DVt.block<3, 3>(Vidx*3, 0) = Eye;
-        Matrix<double, RESITRZ_SIZE, 3> Dr_DAt; Dr_DAt.setZero(); Dr_DAt.block<3, 3>(Aidx*3, 0) = Eye;
+        // Mat3 Eye = Mat3::Identity(3, 3);
+        // Matrix<double, RESITRZ_SIZE, 3> Dr_DRt; Dr_DRt.setZero(); Dr_DRt.block<3, 3>(0, 0) = Xt.R.matrix()*SO3d::hat(Vec3(1, 0, 0));
+        // Matrix<double, RESITRZ_SIZE, 3> Dr_DOt; Dr_DOt.setZero(); Dr_DOt.block<3, 3>(Oidx*3, 0) = Eye;
+        // Matrix<double, RESITRZ_SIZE, 3> Dr_DSt; Dr_DSt.setZero(); Dr_DSt.block<3, 3>(Sidx*3, 0) = Eye;
+        // Matrix<double, RESITRZ_SIZE, 3> Dr_DPt; Dr_DPt.setZero(); Dr_DPt.block<3, 3>(6, 0) = Eye;
+        // Matrix<double, RESITRZ_SIZE, 3> Dr_DVt; Dr_DVt.setZero(); Dr_DVt.block<3, 3>(Vidx*3, 0) = Eye;
+        // Matrix<double, RESITRZ_SIZE, 3> Dr_DAt; Dr_DAt.setZero(); Dr_DAt.block<3, 3>(Aidx*3, 0) = Eye;
         
 
         for(size_t idx = Ridx; idx <= Aidx; idx++)
@@ -1160,15 +1168,25 @@ int main(int argc, char **argv)
         cout << "residual_analytic: " << residual_analytic.transpose() << endl;
         cout << "residual_diff    : " << (residual_autodiff - residual_analytic).transpose() << endl;
 
-        cout << "Jacobian Xa_autodiff:\n" << Jacobian_autodiff.block(0, 0, 18, 18) << endl;
-        cout << "J_Gammat_Xa:\n" << Jdebug["J_Gammat_Xa"] << endl; 
-        cout << "J_Gammat_Xa diff:\n" << Jacobian_autodiff.block(0, 0, 18, 18) - Jdebug["J_Gammat_Xa"] << endl;
+        // cout << "Jacobian Xa_autodiff:\n" << Jacobian_autodiff.block(0, 0, 18, 18) << endl;
+        // cout << "J_Gammat_Xa:\n" << Jdebug["J_Gammat_Xa"] << endl; 
+        // cout << "J_Gammat_Xa diff:\n" << Jacobian_autodiff.block(0, 0, 18, 18) - Jdebug["J_Gammat_Xa"] << endl;
 
-        cout << endl;
+        // cout << endl;
 
-        cout << "Jacobian Xb_autodiff:\n" <<  Jacobian_autodiff.block(0, 18, 18, 18) << endl;
-        cout << "J_Gammat_Xb:\n" << Jdebug["J_Gammat_Xb"] << endl; 
-        cout << "J_Gammat_Xb diff :\n" << Jacobian_autodiff.block(0, 18, 18, 18) - Jdebug["J_Gammat_Xb"] << endl;
+        // cout << "Jacobian Xb_autodiff:\n" <<  Jacobian_autodiff.block(0, 18, 18, 18) << endl;
+        // cout << "J_Gammat_Xb:\n" << Jdebug["J_Gammat_Xb"] << endl; 
+        // cout << "J_Gammat_Xb diff :\n" << Jacobian_autodiff.block(0, 18, 18, 18) - Jdebug["J_Gammat_Xb"] << endl;
+
+        cout << "Jacobian Xa_autodiff:\n" << Jacobian_autodiff.block(0, 0, RESITRZ_SIZE, 18) << endl;
+        cout << "J_Gammat_Xa:\n"          << Jdebug["J_TTW_Xa"] << endl; 
+        cout << "J_Gammat_Xa diff:\n"     << Jacobian_autodiff.block(0, 0, RESITRZ_SIZE, 18) - Jdebug["J_TTW_Xa"] << endl;
+
+        // cout << endl;
+
+        // cout << "Jacobian Xb_autodiff:\n" << Jacobian_autodiff.block(0, 18, RESITRZ_SIZE, 18) << endl;
+        // cout << "J_Gammat_Xb:\n"          << Jdebug["J_TTW_Xa"] << endl; 
+        // cout << "J_Gammat_Xb diff :\n"    << Jacobian_autodiff.block(0, 18, 18, 18) - Jdebug["J_Gammat_Xb"] << endl;
 
         // cout << "J_Pt_Tft"  << "\n" << Jdebug["J_Pt_Tft" ] << endl;
         // cout << "J_Tft_Tfa" << "\n" << Jdebug["J_Tft_Tfa"] << endl;

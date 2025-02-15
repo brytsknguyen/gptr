@@ -776,7 +776,7 @@ public:
 
         Matrix<T, 6, 6> AdjInv;
         AdjInv << Rinv, Eigen::Matrix<T, 3, 3>::Zero(),
-                  Rinv*Sophus::SO3<T>::hat(Pos), Rinv;
+                 -Rinv*Sophus::SO3<T>::hat(Pos), Rinv;
 
         return AdjInv;
     }
@@ -2005,6 +2005,7 @@ public:
 
 
 
+
             // Jacobian L2-L0, dXia/dXa
 
             MatTT J_Xiad0_Rb = MatTT::Zero();   MatTT J_Xiad1_Rb = MatTT::Zero();   MatTT J_Xiad2_Rb = MatTT::Zero();
@@ -2031,6 +2032,7 @@ public:
             J_Gammaa_Xb.block(0, 15, 6, 3) = J_Xiad0_Ab;  J_Gammaa_Xb.block(6, 15, 6, 3) = J_Xiad1_Ab;  J_Gammaa_Xb.block(12, 15, 6, 3) = J_Xiad2_Ab;
 
             Jdebug["J_Gammaa_Xa"] = J_Gammaa_Xb;
+
 
 
 
@@ -2106,6 +2108,8 @@ public:
             Jdebug["J_Gammab_Xb"] = J_Gammab_Xb;
 
 
+
+
             // L3-L0, dGammat/dXa
 
             MatTT J_Xitd0_Ra = J_Xitd0_Xiad0*J_Xiad0_Ra + J_Xitd0_Xiad1*J_Xiad1_Ra + J_Xitd0_Xiad2*J_Xiad2_Ra + J_Xitd0_Xibd0*J_Xibd0_Ra + J_Xitd0_Xibd1*J_Xibd1_Ra + J_Xitd0_Xibd2*J_Xibd2_Ra;
@@ -2141,6 +2145,8 @@ public:
             Jdebug["J_Gammat_Xa"] = J_Gammat_Xa;
 
 
+
+
             // L3-L0, dGammat/dXb
 
             MatTT J_Xitd0_Rb = J_Xitd0_Xiad0*J_Xiad0_Rb + J_Xitd0_Xiad1*J_Xiad1_Rb + J_Xitd0_Xiad2*J_Xiad2_Rb + J_Xitd0_Xibd0*J_Xibd0_Rb + J_Xitd0_Xibd1*J_Xibd1_Rb + J_Xitd0_Xibd2*J_Xibd2_Rb;
@@ -2174,6 +2180,50 @@ public:
             J_Gammat_Xb.block(0, 15, 6, 3) = J_Xitd0_Ab;  J_Gammat_Xb.block(6, 15, 6, 3) = J_Xitd1_Ab;  J_Gammat_Xb.block(12, 15, 6, 3) = J_Xitd2_Ab;
 
             Jdebug["J_Gammat_Xb"] = J_Gammat_Xb;
+
+
+
+
+            // L4-L0, dTt/dXa
+yolo();
+            MatTT J_Tft_Ra = SE3AdjInv(Exp_Xit)*J_Tfa_Ra + J_Tft_Xitd0*J_Xitd0_Ra;
+            MatTT J_Tft_Oa = J_Tft_Xitd0*J_Xitd0_Oa;
+            MatTT J_Tft_Sa = J_Tft_Xitd0*J_Xitd0_Sa;
+            MatTT J_Tft_Pa = SE3AdjInv(Exp_Xit)*J_Tfa_Pa + J_Tft_Xitd0*J_Xitd0_Pa;
+            MatTT J_Tft_Va = J_Tft_Xitd0*J_Xitd0_Va;
+            MatTT J_Tft_Aa = J_Tft_Xitd0*J_Xitd0_Aa;
+yolo();
+            MatTT J_Twt_Ra = J_Twt_Xitd0*J_Xitd0_Ra + J_Twt_Xitd1*J_Xitd1_Ra;
+            MatTT J_Twt_Oa = J_Twt_Xitd0*J_Xitd0_Oa + J_Twt_Xitd1*J_Xitd1_Oa;
+            MatTT J_Twt_Sa = J_Twt_Xitd0*J_Xitd0_Sa + J_Twt_Xitd1*J_Xitd1_Sa;
+            MatTT J_Twt_Pa = J_Twt_Xitd0*J_Xitd0_Pa + J_Twt_Xitd1*J_Xitd1_Pa;
+            MatTT J_Twt_Va = J_Twt_Xitd0*J_Xitd0_Va + J_Twt_Xitd1*J_Xitd1_Va;
+            MatTT J_Twt_Aa = J_Twt_Xitd0*J_Xitd0_Aa + J_Twt_Xitd1*J_Xitd1_Aa;
+yolo();
+            MatTT J_Wrt_Ra = J_Wrt_Xitd0*J_Xitd0_Ra + J_Wrt_Xitd1*J_Xitd1_Ra + J_Wrt_Xitd2*J_Xitd2_Ra;
+            MatTT J_Wrt_Oa = J_Wrt_Xitd0*J_Xitd0_Oa + J_Wrt_Xitd1*J_Xitd1_Oa + J_Wrt_Xitd2*J_Xitd2_Oa;
+            MatTT J_Wrt_Sa = J_Wrt_Xitd0*J_Xitd0_Sa + J_Wrt_Xitd1*J_Xitd1_Sa + J_Wrt_Xitd2*J_Xitd2_Sa;
+            MatTT J_Wrt_Pa = J_Wrt_Xitd0*J_Xitd0_Pa + J_Wrt_Xitd1*J_Xitd1_Pa + J_Wrt_Xitd2*J_Xitd2_Pa;
+            MatTT J_Wrt_Va = J_Wrt_Xitd0*J_Xitd0_Va + J_Wrt_Xitd1*J_Xitd1_Va + J_Wrt_Xitd2*J_Xitd2_Va;
+            MatTT J_Wrt_Aa = J_Wrt_Xitd0*J_Xitd0_Aa + J_Wrt_Xitd1*J_Xitd1_Aa + J_Wrt_Xitd2*J_Xitd2_Aa;
+yolo();
+            Matrix<T, 6, 18> J_TTW_Xa; J_TTW_Xa.setZero();
+            
+            J_TTW_Xa.block(0, 0,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Ra;
+            J_TTW_Xa.block(0, 3,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Oa;
+            J_TTW_Xa.block(0, 6,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Sa;
+            J_TTW_Xa.block(0, 9,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Pa;
+            J_TTW_Xa.block(0, 12, 3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Va;
+            J_TTW_Xa.block(0, 15, 3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Aa;
+yolo();
+            J_TTW_Xa.block(3, 0,  3, 3) = J_Pt_Tft*J_Tft_Ra;
+            J_TTW_Xa.block(3, 3,  3, 3) = J_Pt_Tft*J_Tft_Oa;
+            J_TTW_Xa.block(3, 6,  3, 3) = J_Pt_Tft*J_Tft_Sa;
+            J_TTW_Xa.block(3, 9,  3, 3) = J_Pt_Tft*J_Tft_Pa;
+            J_TTW_Xa.block(3, 12, 3, 3) = J_Pt_Tft*J_Tft_Va;
+            J_TTW_Xa.block(3, 15, 3, 3) = J_Pt_Tft*J_Tft_Aa;
+yolo();
+            Jdebug["J_TTW_Xa"] = J_TTW_Xa;
         }
     }
 
