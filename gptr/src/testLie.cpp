@@ -105,9 +105,6 @@ public:
 
         gpm->ComputeXtAndJacobians<T>(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
         
-        SE3T Tft; Vec6T Twt; Vec6T Wrt;
-        Xt.GetTUW(Tft, Twt, Wrt);
-
         // Residual
         Eigen::Map<Matrix<T, RESITRZ_SIZE, 1>> residual(residuals);
         residual << Xt.R.log(), Xt.O, Xt.S, Xt.P, Xt.V, Xt.A;
@@ -219,7 +216,7 @@ public:
         Eigen::Matrix<double, Eigen::Dynamic, 1> gammab;
         Eigen::Matrix<double, Eigen::Dynamic, 1> gammat;
 
-        gpm->ComputeXtAndJacobiansSE3Debug(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat, Jdebug);
+        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
 
         SE3d Tft; Vec6d Twt; Vec6d Wrt;
         Xt.GetTUW(Tft, Twt, Wrt);
