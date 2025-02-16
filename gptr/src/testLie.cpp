@@ -1210,7 +1210,7 @@ int main(int argc, char **argv)
             //     return;
 
             EvaluateFactorClass(problem, intrzJcbFactorMetaAutodiff, 0, residual_autodiff, Jacobian_autodiff, cost_autodiff, time_autodiff, time_autodiff_eval);
-            printf(KCYN "Intrinsic Jacobian Autodiff Jacobian: Size %2d x %2d. Params: %d. Cost: %f. Time: %f, %f\n",
+            printf(KCYN "Intrinsic Jacobian Autodiff Jacobian: Size %2d x %2d. Params: %d. Cost: %f. Time (ms): %f, %f\n",
                    Jacobian_autodiff.rows(), Jacobian_autodiff.cols(),
                    intrzJcbFactorMetaAutodiff.parameter_blocks(),
                    cost_autodiff, time_autodiff, time_autodiff_eval);
@@ -1229,13 +1229,13 @@ int main(int argc, char **argv)
             //     return;
 
             EvaluateFactorClass(problem, intrzJcbFactorMetaAnalytic, 1, residual_analytic, Jacobian_analytic, cost_analytic, time_analytic, time_analytic_eval);
-            printf(KCYN "Intrinsic Jacobian Analytic Jacobian: Size %2d x %2d. Params: %d. Cost: %f. Time: %f, %f\n",
+            printf(KCYN "Intrinsic Jacobian Analytic Jacobian: Size %2d x %2d. Params: %d. Cost: %f. Time (ms): %f, %f\n",
                    Jacobian_analytic.rows(), Jacobian_analytic.cols(),
                    intrzJcbFactorMetaAnalytic.parameter_blocks(),
                    cost_analytic, time_analytic, time_analytic_eval);
         }
 
-        printf(KGRN "CIDX: %d. Intrinsic Jacobian Factor. Residual max error: %.4f. Jacobian max error: %.4f. Time: %.3f, %.3f. Ratio: %.0f\%\n\n" RESET,
+        printf(KGRN "CIDX: %d. Intrinsic Jacobian Factor. Residual max error: %.4f. Jacobian max error: %.4f. Time (ms): %.3f, %.3f. Ratio: %.0f\%\n\n" RESET,
                0, maxDiff(residual_autodiff, residual_analytic), maxDiff(Jacobian_autodiff, Jacobian_analytic),
                time_autodiff, time_analytic,
                time_autodiff_eval / time_analytic_eval * 100);
