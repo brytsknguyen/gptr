@@ -112,7 +112,7 @@ public:
 
         P = Tf.translation();
         V = R*N;
-        A = R*(SO3T::hat(O)*N) + R*B;
+        A = R*B + R*(SO3T::hat(O)*N);
     }
 
     GPState &operator=(const GPState &Xother)
@@ -1850,484 +1850,511 @@ public:
             const Vec3T Nt = Twt.tail(3); const Vec3T Na = Twa.tail(3); const Vec3T Nb = Twb.tail(3);
             const Vec3T Bt = Wrt.tail(3); const Vec3T Ba = Wra.tail(3); const Vec3T Bb = Wrb.tail(3);
 
-            Mat3T Rtmat = Rt.matrix();
+            Mat3T Rtmat  = Rt.matrix();
+            MatLT RtmatD = Rtmat*D;
+            Mat3T RtmatNthat = Rtmat*SO3T::hat(Nt);
 
-            MatLT J_Rt_Tft =  U;
-            MatLT J_Ot_Twt =  U;
-            MatLT J_St_Wrt =  U;
+            MatLT &J_Rt_Tft = U;    const MatLT &J_Pt_Tft = RtmatD;
+            MatLT &J_Ot_Twt = U;    const MatLT &J_Vt_Twt = RtmatD;
+            MatLT &J_St_Wrt = U;    const MatLT &J_At_Wrt = RtmatD;
 
-            MatLT J_Pt_Tft =  Rtmat*D;
-            Mat3T J_Vt_Rt  = -Rtmat*SO3T::hat(Nt);
-            MatLT J_Vt_Twt =  Rtmat*D;
-            Mat3T J_At_Rt  = -Rtmat*(SO3T::hat(Bt) + SO3T::hat(SO3T::hat(Ot)*Nt)); 
-            Mat3T J_At_Ot  =  J_Vt_Rt;
-            MatLT J_At_Wrt =  Rtmat*D;
+            Mat3T  J_Vt_Rt  = -RtmatNthat;
+            MatLT  J_Vt_Tft =  J_Vt_Rt*J_Rt_Tft;
+
+            Mat3T  J_At_Rt  = -Rtmat*(SO3T::hat(Bt) + SO3T::hat(SO3T::hat(Ot)*Nt));
+            MatLT  J_At_Tft =  J_At_Rt*J_Rt_Tft;
+            
+            Mat3T &J_At_Ot  =  J_Vt_Rt;
+            MatLT  J_At_Twt =  J_At_Ot*J_Ot_Twt + Rtmat*SO3T::hat(Ot)*D;
             
 
             // Jacobian from L1 to L0
-            Mat3T hat_Oa = SO3T::hat(Oa);                               Mat3T hat_Ob = SO3T::hat(Ob);                           
-            Mat3T Ratp = Ra.inverse().matrix();                         Mat3T Rbtp = Rb.inverse().matrix();                     
-            Mat3T hat_RatpVa = SO3T::hat(Ratp*Va);                      Mat3T hat_RbtpVb = SO3T::hat(Rbtp*Vb);                  
-            Mat3T hat_RatpAa = SO3T::hat(Ratp*Aa);                      Mat3T hat_RbtpAb = SO3T::hat(Rbtp*Ab);                  
-                                                                                                                                
-            MatTT J_Tfa_Ra =  Utp;                                      MatTT J_Tfb_Rb =  Utp;                                  
-            MatTT J_Tfa_Pa =  Dtp*Ratp;                                 MatTT J_Tfb_Pb =  Dtp*Rbtp;                                  
-                                                                                                                                
-            MatTT J_Twa_Oa =  Utp;                                      MatTT J_Twb_Ob =  Utp;                                  
-            MatTT J_Twa_Ra =  Dtp*hat_RatpVa;                           MatTT J_Twb_Rb =  Dtp*hat_RbtpVb;                       
-            MatTT J_Twa_Va =  Dtp*Ratp;                                 MatTT J_Twb_Vb =  Dtp*Rbtp;                             
-                                                                                                                                
-            MatTT J_Wra_Sa =  Utp;                                      MatTT J_Wrb_Sb =  Utp;                                  
-            MatTT J_Wra_Ra =  Dtp*(hat_RatpAa - hat_Oa*hat_RatpVa);     MatTT J_Wrb_Rb =  Dtp*(hat_RbtpAb - hat_Ob*hat_RbtpVb); 
-            MatTT J_Wra_Aa =  Dtp*Ratp;                                 MatTT J_Wrb_Ab =  Dtp*Rbtp;                             
-            MatTT J_Wra_Oa =  Dtp*hat_RatpVa;                           MatTT J_Wrb_Ob =  Dtp*hat_RbtpVb;                       
-            MatTT J_Wra_Va = -Dtp*hat_Oa*Ratp;                          MatTT J_Wrb_Vb = -Dtp*hat_Ob*Rbtp;                      
+            Mat3T hat_Oa = SO3T::hat(Oa);                                                       Mat3T hat_Ob = SO3T::hat(Ob);                           
+            Mat3T Ratp = Ra.inverse().matrix();                                                 Mat3T Rbtp = Rb.inverse().matrix();                     
+            Mat3T hat_RatpVa = SO3T::hat(Ratp*Va);                                              Mat3T hat_RbtpVb = SO3T::hat(Rbtp*Vb);                  
+            Mat3T hat_RatpAa = SO3T::hat(Ratp*Aa);                                              Mat3T hat_RbtpAb = SO3T::hat(Rbtp*Ab);                  
+                                                                                                                                                        
+            MatTT J_Tfa_Ra =  Utp;                                                              MatTT J_Tfb_Rb =  Utp;                                  
+            MatTT J_Tfa_Pa =  Dtp*Ratp;                                                         MatTT J_Tfb_Pb =  Dtp*Rbtp;                             
+                                                                                                                                                        
+            MatTT J_Twa_Oa =  Utp;                                                              MatTT J_Twb_Ob =  Utp;                                  
+            MatTT J_Twa_Ra =  Dtp*hat_RatpVa;                                                   MatTT J_Twb_Rb =  Dtp*hat_RbtpVb;                       
+            MatTT J_Twa_Va =  Dtp*Ratp;                                                         MatTT J_Twb_Vb =  Dtp*Rbtp;                             
+                                                                                                                                                        
+            MatTT J_Wra_Sa =  Utp;                                                              MatTT J_Wrb_Sb =  Utp;                                  
+            MatTT J_Wra_Ra =  Dtp*(hat_RatpAa - hat_Oa*hat_RatpVa);                             MatTT J_Wrb_Rb =  Dtp*(hat_RbtpAb - hat_Ob*hat_RbtpVb); 
+            MatTT J_Wra_Aa =  Dtp*Ratp;                                                         MatTT J_Wrb_Ab =  Dtp*Rbtp;                             
+            MatTT J_Wra_Oa =  Dtp*hat_RatpVa;                                                   MatTT J_Wrb_Ob =  Dtp*hat_RbtpVb;                       
+            MatTT J_Wra_Va = -Dtp*hat_Oa*Ratp;                                                  MatTT J_Wrb_Vb = -Dtp*hat_Ob*Rbtp;                      
+
+
+            // Jacobians from L4 to L0 (Swap Xa and Xa because Xa has sepecial terms, needs extra space)
+            MatTT J_Tft_Ra = J_Tft_Tfa*J_Tfa_Ra + J_Tft_Twa*J_Twa_Ra + J_Tft_Wra*J_Wra_Ra;      MatTT J_Tft_Rb = J_Tft_Tfb*J_Tfb_Rb + J_Tft_Twb*J_Twb_Rb + J_Tft_Wrb*J_Wrb_Rb;
+            MatTT J_Tft_Oa =                      J_Tft_Twa*J_Twa_Oa + J_Tft_Wra*J_Wra_Oa;      MatTT J_Tft_Ob =                      J_Tft_Twb*J_Twb_Ob + J_Tft_Wrb*J_Wrb_Ob;
+            MatTT J_Tft_Sa =                                           J_Tft_Wra*J_Wra_Sa;      MatTT J_Tft_Sb =                                           J_Tft_Wrb*J_Wrb_Sb;
+            MatTT J_Tft_Pa = J_Tft_Tfa*J_Tfa_Pa                                          ;      MatTT J_Tft_Pb = J_Tft_Tfb*J_Tfb_Pb                                          ;
+            MatTT J_Tft_Va =                      J_Tft_Twa*J_Twa_Va + J_Tft_Wra*J_Wra_Va;      MatTT J_Tft_Vb =                      J_Tft_Twb*J_Twb_Vb + J_Tft_Wrb*J_Wrb_Vb;
+            MatTT J_Tft_Aa =                                           J_Tft_Wra*J_Wra_Aa;      MatTT J_Tft_Ab =                                           J_Tft_Wrb*J_Wrb_Ab;
+
+            MatTT J_Twt_Ra = J_Twt_Tfa*J_Tfa_Ra + J_Twt_Twa*J_Twa_Ra + J_Twt_Wra*J_Wra_Ra;      MatTT J_Twt_Rb = J_Twt_Tfb*J_Tfb_Rb + J_Twt_Twb*J_Twb_Rb + J_Twt_Wrb*J_Wrb_Rb;
+            MatTT J_Twt_Oa =                      J_Twt_Twa*J_Twa_Oa + J_Twt_Wra*J_Wra_Oa;      MatTT J_Twt_Ob =                      J_Twt_Twb*J_Twb_Ob + J_Twt_Wrb*J_Wrb_Ob;
+            MatTT J_Twt_Sa =                                           J_Twt_Wra*J_Wra_Sa;      MatTT J_Twt_Sb =                                           J_Twt_Wrb*J_Wrb_Sb;
+            MatTT J_Twt_Pa = J_Twt_Tfa*J_Tfa_Pa                                          ;      MatTT J_Twt_Pb = J_Twt_Tfb*J_Tfb_Pb                                          ;
+            MatTT J_Twt_Va =                      J_Twt_Twa*J_Twa_Va + J_Twt_Wra*J_Wra_Va;      MatTT J_Twt_Vb =                      J_Twt_Twb*J_Twb_Vb + J_Twt_Wrb*J_Wrb_Vb;
+            MatTT J_Twt_Aa =                                           J_Twt_Wra*J_Wra_Aa;      MatTT J_Twt_Ab =                                           J_Twt_Wrb*J_Wrb_Ab;
+
+            MatTT J_Wrt_Ra = J_Wrt_Tfa*J_Tfa_Ra + J_Wrt_Twa*J_Twa_Ra + J_Wrt_Wra*J_Wra_Ra;      MatTT J_Wrt_Rb = J_Wrt_Tfb*J_Tfb_Rb + J_Wrt_Twb*J_Twb_Rb + J_Wrt_Wrb*J_Wrb_Rb;
+            MatTT J_Wrt_Oa =                      J_Wrt_Twa*J_Twa_Oa + J_Wrt_Wra*J_Wra_Oa;      MatTT J_Wrt_Ob =                      J_Wrt_Twb*J_Twb_Ob + J_Wrt_Wrb*J_Wrb_Ob;
+            MatTT J_Wrt_Sa =                                           J_Wrt_Wra*J_Wra_Sa;      MatTT J_Wrt_Sb =                                           J_Wrt_Wrb*J_Wrb_Sb;
+            MatTT J_Wrt_Pa = J_Wrt_Tfa*J_Tfa_Pa                                          ;      MatTT J_Wrt_Pb = J_Wrt_Tfb*J_Tfb_Pb                                          ;
+            MatTT J_Wrt_Va =                      J_Wrt_Twa*J_Twa_Va + J_Wrt_Wra*J_Wra_Va;      MatTT J_Wrt_Vb =                      J_Wrt_Twb*J_Twb_Vb + J_Wrt_Wrb*J_Wrb_Vb;
+            MatTT J_Wrt_Aa =                                           J_Wrt_Wra*J_Wra_Aa;      MatTT J_Wrt_Ab =                                           J_Wrt_Wrb*J_Wrb_Ab;
 
 
             // Jacobians from L5 to L0, dXt/dXa
 
-            Mat3T &J_Rt_Ra = DXt_DXa[RIDX][RIDX] = J_Rt_Tft*J_Tft_Tfa*J_Tfa_Ra + J_Rt_Tft*J_Tft_Twa*J_Twa_Ra + J_Rt_Tft*J_Tft_Wra*J_Wra_Ra                   ; // DRt_DRa
-            Mat3T &J_Rt_Oa = DXt_DXa[RIDX][OIDX] =                               J_Rt_Tft*J_Tft_Twa*J_Twa_Oa + J_Rt_Tft*J_Tft_Wra*J_Wra_Oa                   ; // DRt_DOa
-            Mat3T &J_Rt_Sa = DXt_DXa[RIDX][SIDX] =                                                             J_Rt_Tft*J_Tft_Wra*J_Wra_Sa                   ; // DRt_DSa
-            Mat3T &J_Rt_Pa = DXt_DXa[RIDX][PIDX] = J_Rt_Tft*J_Tft_Tfa*J_Tfa_Pa                                                                               ; // DRt_DPa
-            Mat3T &J_Rt_Va = DXt_DXa[RIDX][VIDX] =                               J_Rt_Tft*J_Tft_Twa*J_Twa_Va + J_Rt_Tft*J_Tft_Wra*J_Wra_Va                   ; // DRt_DVa
-            Mat3T &J_Rt_Aa = DXt_DXa[RIDX][AIDX] =                                                             J_Rt_Tft*J_Tft_Wra*J_Wra_Aa                   ; // DRt_DAa
-            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
-            Mat3T &J_Ot_Ra = DXt_DXa[OIDX][RIDX] = J_Ot_Twt*J_Twt_Tfa*J_Tfa_Ra + J_Ot_Twt*J_Twt_Twa*J_Twa_Ra + J_Ot_Twt*J_Twt_Wra*J_Wra_Ra                   ; // DOt_DRa
-            Mat3T &J_Ot_Oa = DXt_DXa[OIDX][OIDX] =                               J_Ot_Twt*J_Twt_Twa*J_Twa_Oa + J_Ot_Twt*J_Twt_Wra*J_Wra_Oa                   ; // DOt_DOa
-            Mat3T &J_Ot_Sa = DXt_DXa[OIDX][SIDX] =                                                             J_Ot_Twt*J_Twt_Wra*J_Wra_Sa                   ; // DOt_DSa
-            Mat3T &J_Ot_Pa = DXt_DXa[OIDX][PIDX] = J_Ot_Twt*J_Twt_Tfa*J_Tfa_Pa                                                                               ; // DOt_DPa
-            Mat3T &J_Ot_Va = DXt_DXa[OIDX][VIDX] =                               J_Ot_Twt*J_Twt_Twa*J_Twa_Va + J_Ot_Twt*J_Twt_Wra*J_Wra_Va                   ; // DOt_DVa
-            Mat3T &J_Ot_Aa = DXt_DXa[OIDX][AIDX] =                                                             J_Ot_Twt*J_Twt_Wra*J_Wra_Aa                   ; // DOt_DAa
-            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
-                             DXt_DXa[SIDX][RIDX] = J_St_Wrt*J_Wrt_Tfa*J_Tfa_Ra + J_St_Wrt*J_Wrt_Twa*J_Twa_Ra + J_St_Wrt*J_Wrt_Wra*J_Wra_Ra                   ; // DSt_DRa
-                             DXt_DXa[SIDX][OIDX] =                               J_St_Wrt*J_Wrt_Twa*J_Twa_Oa + J_St_Wrt*J_Wrt_Wra*J_Wra_Oa                   ; // DSt_DOa
-                             DXt_DXa[SIDX][SIDX] =                                                             J_St_Wrt*J_Wrt_Wra*J_Wra_Sa                   ; // DSt_DSa
-                             DXt_DXa[SIDX][PIDX] = J_St_Wrt*J_Wrt_Tfa*J_Tfa_Pa                                                                               ; // DSt_DPa
-                             DXt_DXa[SIDX][VIDX] =                               J_St_Wrt*J_Wrt_Twa*J_Twa_Va + J_St_Wrt*J_Wrt_Wra*J_Wra_Va                   ; // DSt_DVa
-                             DXt_DXa[SIDX][AIDX] =                                                             J_St_Wrt*J_Wrt_Wra*J_Wra_Aa                   ; // DSt_DAa
-            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
-                             DXt_DXa[PIDX][RIDX] = J_Pt_Tft*J_Tft_Tfa*J_Tfa_Ra + J_Pt_Tft*J_Tft_Twa*J_Twa_Ra + J_Pt_Tft*J_Tft_Wra*J_Wra_Ra                   ; // DRt_DRb
-                             DXt_DXa[PIDX][OIDX] =                               J_Pt_Tft*J_Tft_Twa*J_Twa_Oa + J_Pt_Tft*J_Tft_Wra*J_Wra_Oa                   ; // DRt_DOb
-                             DXt_DXa[PIDX][SIDX] =                                                             J_Pt_Tft*J_Tft_Wra*J_Wra_Sa                   ; // DRt_DSb
-                             DXt_DXa[PIDX][PIDX] = J_Pt_Tft*J_Tft_Tfa*J_Tfa_Pa                                                                               ; // DRt_DPb
-                             DXt_DXa[PIDX][VIDX] =                               J_Pt_Tft*J_Tft_Twa*J_Twa_Va + J_Pt_Tft*J_Tft_Wra*J_Wra_Va                   ; // DRt_DVb
-                             DXt_DXa[PIDX][AIDX] =                                                             J_Pt_Tft*J_Tft_Wra*J_Wra_Aa                   ; // DRt_DAb
-            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
-            DXt_DXa[VIDX][RIDX] = J_Vt_Twt*J_Twt_Tfa*J_Tfa_Ra + J_Vt_Twt*J_Twt_Twa*J_Twa_Ra + J_Vt_Twt*J_Twt_Wra*J_Wra_Ra + J_Vt_Rt*J_Rt_Ra                  ; // DOt_DRb
-            DXt_DXa[VIDX][OIDX] =                               J_Vt_Twt*J_Twt_Twa*J_Twa_Oa + J_Vt_Twt*J_Twt_Wra*J_Wra_Oa + J_Vt_Rt*J_Rt_Oa                  ; // DOt_DOb
-            DXt_DXa[VIDX][SIDX] =                                                             J_Vt_Twt*J_Twt_Wra*J_Wra_Sa + J_Vt_Rt*J_Rt_Sa                  ; // DOt_DSb
-            DXt_DXa[VIDX][PIDX] = J_Vt_Twt*J_Twt_Tfa*J_Tfa_Pa                                                             + J_Vt_Rt*J_Rt_Pa                  ; // DOt_DPb
-            DXt_DXa[VIDX][VIDX] =                               J_Vt_Twt*J_Twt_Twa*J_Twa_Va + J_Vt_Twt*J_Twt_Wra*J_Wra_Va + J_Vt_Rt*J_Rt_Va                  ; // DOt_DVb
-            DXt_DXa[VIDX][AIDX] =                                                             J_Vt_Twt*J_Twt_Wra*J_Wra_Aa + J_Vt_Rt*J_Rt_Aa                  ; // DOt_DAb
-            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
-            DXt_DXa[AIDX][RIDX] = J_At_Wrt*J_Wrt_Tfa*J_Tfa_Ra + J_At_Wrt*J_Wrt_Twa*J_Twa_Ra + J_At_Wrt*J_Wrt_Wra*J_Wra_Ra + J_At_Rt*J_Rt_Ra + J_At_Ot*J_Ot_Ra; // DOt_DRb
-            DXt_DXa[AIDX][OIDX] =                               J_At_Wrt*J_Wrt_Twa*J_Twa_Oa + J_At_Wrt*J_Wrt_Wra*J_Wra_Oa + J_At_Rt*J_Rt_Oa + J_At_Ot*J_Ot_Oa; // DOt_DOb
-            DXt_DXa[AIDX][SIDX] =                                                             J_At_Wrt*J_Wrt_Wra*J_Wra_Sa + J_At_Rt*J_Rt_Sa + J_At_Ot*J_Ot_Sa; // DOt_DSb
-            DXt_DXa[AIDX][PIDX] = J_At_Wrt*J_Wrt_Tfa*J_Tfa_Pa                                                             + J_At_Rt*J_Rt_Pa + J_At_Ot*J_Ot_Pa; // DOt_DPb
-            DXt_DXa[AIDX][VIDX] =                               J_At_Wrt*J_Wrt_Twa*J_Twa_Va + J_At_Wrt*J_Wrt_Wra*J_Wra_Va + J_At_Rt*J_Rt_Va + J_At_Ot*J_Ot_Va; // DOt_DVb
-            DXt_DXa[AIDX][AIDX] =                                                             J_At_Wrt*J_Wrt_Wra*J_Wra_Aa + J_At_Rt*J_Rt_Aa + J_At_Ot*J_Ot_Aa; // DOt_DAb
+            DXt_DXa[RIDX][RIDX] = J_Rt_Tft*J_Tft_Ra;                                            DXt_DXb[RIDX][RIDX] = J_Rt_Tft*J_Tft_Rb;                                         // DRt_DRa
+            DXt_DXa[RIDX][OIDX] = J_Rt_Tft*J_Tft_Oa;                                            DXt_DXb[RIDX][OIDX] = J_Rt_Tft*J_Tft_Ob;                                         // DRt_DOa
+            DXt_DXa[RIDX][SIDX] = J_Rt_Tft*J_Tft_Sa;                                            DXt_DXb[RIDX][SIDX] = J_Rt_Tft*J_Tft_Sb;                                         // DRt_DSa
+            DXt_DXa[RIDX][PIDX] = J_Rt_Tft*J_Tft_Pa;                                            DXt_DXb[RIDX][PIDX] = J_Rt_Tft*J_Tft_Pb;                                         // DRt_DPa
+            DXt_DXa[RIDX][VIDX] = J_Rt_Tft*J_Tft_Va;                                            DXt_DXb[RIDX][VIDX] = J_Rt_Tft*J_Tft_Vb;                                         // DRt_DVa
+            DXt_DXa[RIDX][AIDX] = J_Rt_Tft*J_Tft_Aa;                                            DXt_DXb[RIDX][AIDX] = J_Rt_Tft*J_Tft_Ab;                                         // DRt_DAa
+            //------------------------------------------------------------------------------    //-----------------------------------------------------------------------------------------
+            DXt_DXa[OIDX][RIDX] =                     J_Ot_Twt*J_Twt_Ra;                        DXt_DXb[OIDX][RIDX] =                     J_Ot_Twt*J_Twt_Rb;                     // DOt_DRa
+            DXt_DXa[OIDX][OIDX] =                     J_Ot_Twt*J_Twt_Oa;                        DXt_DXb[OIDX][OIDX] =                     J_Ot_Twt*J_Twt_Ob;                     // DOt_DOa
+            DXt_DXa[OIDX][SIDX] =                     J_Ot_Twt*J_Twt_Sa;                        DXt_DXb[OIDX][SIDX] =                     J_Ot_Twt*J_Twt_Sb;                     // DOt_DSa
+            DXt_DXa[OIDX][PIDX] =                     J_Ot_Twt*J_Twt_Pa;                        DXt_DXb[OIDX][PIDX] =                     J_Ot_Twt*J_Twt_Pb;                     // DOt_DPa
+            DXt_DXa[OIDX][VIDX] =                     J_Ot_Twt*J_Twt_Va;                        DXt_DXb[OIDX][VIDX] =                     J_Ot_Twt*J_Twt_Vb;                     // DOt_DVa
+            DXt_DXa[OIDX][AIDX] =                     J_Ot_Twt*J_Twt_Aa;                        DXt_DXb[OIDX][AIDX] =                     J_Ot_Twt*J_Twt_Ab;                     // DOt_DAa
+            //------------------------------------------------------------------------------    //-----------------------------------------------------------------------------------------
+            DXt_DXa[SIDX][RIDX] =                                         J_St_Wrt*J_Wrt_Ra;    DXt_DXb[SIDX][RIDX] =                                         J_St_Wrt*J_Wrt_Rb; // DSt_DRa
+            DXt_DXa[SIDX][OIDX] =                                         J_St_Wrt*J_Wrt_Oa;    DXt_DXb[SIDX][OIDX] =                                         J_St_Wrt*J_Wrt_Ob; // DSt_DOa
+            DXt_DXa[SIDX][SIDX] =                                         J_St_Wrt*J_Wrt_Sa;    DXt_DXb[SIDX][SIDX] =                                         J_St_Wrt*J_Wrt_Sb; // DSt_DSa
+            DXt_DXa[SIDX][PIDX] =                                         J_St_Wrt*J_Wrt_Pa;    DXt_DXb[SIDX][PIDX] =                                         J_St_Wrt*J_Wrt_Pb; // DSt_DPa
+            DXt_DXa[SIDX][VIDX] =                                         J_St_Wrt*J_Wrt_Va;    DXt_DXb[SIDX][VIDX] =                                         J_St_Wrt*J_Wrt_Vb; // DSt_DVa
+            DXt_DXa[SIDX][AIDX] =                                         J_St_Wrt*J_Wrt_Aa;    DXt_DXb[SIDX][AIDX] =                                         J_St_Wrt*J_Wrt_Ab; // DSt_DAa
+            //------------------------------------------------------------------------------    //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+            DXt_DXa[PIDX][RIDX] = J_Pt_Tft*J_Tft_Ra;                                            DXt_DXb[PIDX][RIDX] = J_Pt_Tft*J_Tft_Rb;                                         // DRt_DRb
+            DXt_DXa[PIDX][OIDX] = J_Pt_Tft*J_Tft_Oa;                                            DXt_DXb[PIDX][OIDX] = J_Pt_Tft*J_Tft_Ob;                                         // DRt_DOb
+            DXt_DXa[PIDX][SIDX] = J_Pt_Tft*J_Tft_Sa;                                            DXt_DXb[PIDX][SIDX] = J_Pt_Tft*J_Tft_Sb;                                         // DRt_DSb
+            DXt_DXa[PIDX][PIDX] = J_Pt_Tft*J_Tft_Pa;                                            DXt_DXb[PIDX][PIDX] = J_Pt_Tft*J_Tft_Pb;                                         // DRt_DPb
+            DXt_DXa[PIDX][VIDX] = J_Pt_Tft*J_Tft_Va;                                            DXt_DXb[PIDX][VIDX] = J_Pt_Tft*J_Tft_Vb;                                         // DRt_DVb
+            DXt_DXa[PIDX][AIDX] = J_Pt_Tft*J_Tft_Aa;                                            DXt_DXb[PIDX][AIDX] = J_Pt_Tft*J_Tft_Ab;                                         // DRt_DAb
+            //------------------------------------------------------------------------------    //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+            DXt_DXa[VIDX][RIDX] = J_Vt_Tft*J_Tft_Ra + J_Vt_Twt*J_Twt_Ra;                        DXt_DXb[VIDX][RIDX] = J_Vt_Tft*J_Tft_Rb + J_Vt_Twt*J_Twt_Rb;                     // DOt_DRb
+            DXt_DXa[VIDX][OIDX] = J_Vt_Tft*J_Tft_Oa + J_Vt_Twt*J_Twt_Oa;                        DXt_DXb[VIDX][OIDX] = J_Vt_Tft*J_Tft_Ob + J_Vt_Twt*J_Twt_Ob;                     // DOt_DOb
+            DXt_DXa[VIDX][SIDX] = J_Vt_Tft*J_Tft_Sa + J_Vt_Twt*J_Twt_Sa;                        DXt_DXb[VIDX][SIDX] = J_Vt_Tft*J_Tft_Sb + J_Vt_Twt*J_Twt_Sb;                     // DOt_DSb
+            DXt_DXa[VIDX][PIDX] = J_Vt_Tft*J_Tft_Pa + J_Vt_Twt*J_Twt_Pa;                        DXt_DXb[VIDX][PIDX] = J_Vt_Tft*J_Tft_Pb + J_Vt_Twt*J_Twt_Pb;                     // DOt_DPb
+            DXt_DXa[VIDX][VIDX] = J_Vt_Tft*J_Tft_Va + J_Vt_Twt*J_Twt_Va;                        DXt_DXb[VIDX][VIDX] = J_Vt_Tft*J_Tft_Vb + J_Vt_Twt*J_Twt_Vb;                     // DOt_DVb
+            DXt_DXa[VIDX][AIDX] = J_Vt_Tft*J_Tft_Aa + J_Vt_Twt*J_Twt_Aa;                        DXt_DXb[VIDX][AIDX] = J_Vt_Tft*J_Tft_Ab + J_Vt_Twt*J_Twt_Ab;                     // DOt_DAb
+            //------------------------------------------------------------------------------    //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+            DXt_DXa[AIDX][RIDX] = J_At_Tft*J_Tft_Ra + J_At_Twt*J_Twt_Ra + J_At_Wrt*J_Wrt_Ra;    DXt_DXb[AIDX][RIDX] = J_At_Tft*J_Tft_Rb + J_At_Twt*J_Twt_Rb + J_At_Wrt*J_Wrt_Rb; // DOt_DRb
+            DXt_DXa[AIDX][OIDX] = J_At_Tft*J_Tft_Oa + J_At_Twt*J_Twt_Oa + J_At_Wrt*J_Wrt_Oa;    DXt_DXb[AIDX][OIDX] = J_At_Tft*J_Tft_Ob + J_At_Twt*J_Twt_Ob + J_At_Wrt*J_Wrt_Ob; // DOt_DOb
+            DXt_DXa[AIDX][SIDX] = J_At_Tft*J_Tft_Sa + J_At_Twt*J_Twt_Sa + J_At_Wrt*J_Wrt_Sa;    DXt_DXb[AIDX][SIDX] = J_At_Tft*J_Tft_Sb + J_At_Twt*J_Twt_Sb + J_At_Wrt*J_Wrt_Sb; // DOt_DSb
+            DXt_DXa[AIDX][PIDX] = J_At_Tft*J_Tft_Pa + J_At_Twt*J_Twt_Pa + J_At_Wrt*J_Wrt_Pa;    DXt_DXb[AIDX][PIDX] = J_At_Tft*J_Tft_Pb + J_At_Twt*J_Twt_Pb + J_At_Wrt*J_Wrt_Pb; // DOt_DPb
+            DXt_DXa[AIDX][VIDX] = J_At_Tft*J_Tft_Va + J_At_Twt*J_Twt_Va + J_At_Wrt*J_Wrt_Va;    DXt_DXb[AIDX][VIDX] = J_At_Tft*J_Tft_Vb + J_At_Twt*J_Twt_Vb + J_At_Wrt*J_Wrt_Vb; // DOt_DVb
+            DXt_DXa[AIDX][AIDX] = J_At_Tft*J_Tft_Aa + J_At_Twt*J_Twt_Aa + J_At_Wrt*J_Wrt_Aa;    DXt_DXb[AIDX][AIDX] = J_At_Tft*J_Tft_Ab + J_At_Twt*J_Twt_Ab + J_At_Wrt*J_Wrt_Ab; // DOt_DAb
 
 
-            // Jacobians from L5 to L0, dXt/dXb
+            // // Jacobians from L5 to L0, dXt/dXb
 
-            Mat3T &J_Rt_Rb = DXt_DXb[RIDX][RIDX] = J_Rt_Tft*J_Tft_Tfb*J_Tfb_Rb + J_Rt_Tft*J_Tft_Twb*J_Twb_Rb + J_Rt_Tft*J_Tft_Wrb*J_Wrb_Rb                   ; // DRt_DRb
-            Mat3T &J_Rt_Ob = DXt_DXb[RIDX][OIDX] =                               J_Rt_Tft*J_Tft_Twb*J_Twb_Ob + J_Rt_Tft*J_Tft_Wrb*J_Wrb_Ob                   ; // DRt_DOb
-            Mat3T &J_Rt_Sb = DXt_DXb[RIDX][SIDX] =                                                             J_Rt_Tft*J_Tft_Wrb*J_Wrb_Sb                   ; // DRt_DSb
-            Mat3T &J_Rt_Pb = DXt_DXb[RIDX][PIDX] = J_Rt_Tft*J_Tft_Tfb*J_Tfb_Pb                                                                               ; // DRt_DPb
-            Mat3T &J_Rt_Vb = DXt_DXb[RIDX][VIDX] =                               J_Rt_Tft*J_Tft_Twb*J_Twb_Vb + J_Rt_Tft*J_Tft_Wrb*J_Wrb_Vb                   ; // DRt_DVb
-            Mat3T &J_Rt_Ab = DXt_DXb[RIDX][AIDX] =                                                             J_Rt_Tft*J_Tft_Wrb*J_Wrb_Ab                   ; // DRt_DAb
-            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
-            Mat3T &J_Ot_Rb = DXt_DXb[OIDX][RIDX] = J_Ot_Twt*J_Twt_Tfb*J_Tfb_Rb + J_Ot_Twt*J_Twt_Twb*J_Twb_Rb + J_Ot_Twt*J_Twt_Wrb*J_Wrb_Rb                   ; // DOt_DRb
-            Mat3T &J_Ot_Ob = DXt_DXb[OIDX][OIDX] =                               J_Ot_Twt*J_Twt_Twb*J_Twb_Ob + J_Ot_Twt*J_Twt_Wrb*J_Wrb_Ob                   ; // DOt_DOb
-            Mat3T &J_Ot_Sb = DXt_DXb[OIDX][SIDX] =                                                             J_Ot_Twt*J_Twt_Wrb*J_Wrb_Sb                   ; // DOt_DSb
-            Mat3T &J_Ot_Pb = DXt_DXb[OIDX][PIDX] = J_Ot_Twt*J_Twt_Tfb*J_Tfb_Pb                                                                               ; // DOt_DPb
-            Mat3T &J_Ot_Vb = DXt_DXb[OIDX][VIDX] =                               J_Ot_Twt*J_Twt_Twb*J_Twb_Vb + J_Ot_Twt*J_Twt_Wrb*J_Wrb_Vb                   ; // DOt_DVb
-            Mat3T &J_Ot_Ab = DXt_DXb[OIDX][AIDX] =                                                             J_Ot_Twt*J_Twt_Wrb*J_Wrb_Ab                   ; // DOt_DAb
-            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
-                             DXt_DXb[SIDX][RIDX] = J_St_Wrt*J_Wrt_Tfb*J_Tfb_Rb + J_St_Wrt*J_Wrt_Twb*J_Twb_Rb + J_St_Wrt*J_Wrt_Wrb*J_Wrb_Rb                   ; // DSt_DRb
-                             DXt_DXb[SIDX][OIDX] =                               J_St_Wrt*J_Wrt_Twb*J_Twb_Ob + J_St_Wrt*J_Wrt_Wrb*J_Wrb_Ob                   ; // DSt_DOb
-                             DXt_DXb[SIDX][SIDX] =                                                             J_St_Wrt*J_Wrt_Wrb*J_Wrb_Sb                   ; // DSt_DSb
-                             DXt_DXb[SIDX][PIDX] = J_St_Wrt*J_Wrt_Tfb*J_Tfb_Pb                                                                               ; // DSt_DPb
-                             DXt_DXb[SIDX][VIDX] =                               J_St_Wrt*J_Wrt_Twb*J_Twb_Vb + J_St_Wrt*J_Wrt_Wrb*J_Wrb_Vb                   ; // DSt_DVb
-                             DXt_DXb[SIDX][AIDX] =                                                             J_St_Wrt*J_Wrt_Wrb*J_Wrb_Ab                   ; // DSt_DAb
-            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
-                             DXt_DXb[PIDX][RIDX] = J_Pt_Tft*J_Tft_Tfb*J_Tfb_Rb + J_Pt_Tft*J_Tft_Twb*J_Twb_Rb + J_Pt_Tft*J_Tft_Wrb*J_Wrb_Rb                   ; // DRt_DRb
-                             DXt_DXb[PIDX][OIDX] =                               J_Pt_Tft*J_Tft_Twb*J_Twb_Ob + J_Pt_Tft*J_Tft_Wrb*J_Wrb_Ob                   ; // DRt_DOb
-                             DXt_DXb[PIDX][SIDX] =                                                             J_Pt_Tft*J_Tft_Wrb*J_Wrb_Sb                   ; // DRt_DSb
-                             DXt_DXb[PIDX][PIDX] = J_Pt_Tft*J_Tft_Tfb*J_Tfb_Pb                                                                               ; // DRt_DPb
-                             DXt_DXb[PIDX][VIDX] =                               J_Pt_Tft*J_Tft_Twb*J_Twb_Vb + J_Pt_Tft*J_Tft_Wrb*J_Wrb_Vb                   ; // DRt_DVb
-                             DXt_DXb[PIDX][AIDX] =                                                             J_Pt_Tft*J_Tft_Wrb*J_Wrb_Ab                   ; // DRt_DAb
-            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
-            DXt_DXb[VIDX][RIDX] = J_Vt_Twt*J_Twt_Tfb*J_Tfb_Rb + J_Vt_Twt*J_Twt_Twb*J_Twb_Rb + J_Vt_Twt*J_Twt_Wrb*J_Wrb_Rb + J_Vt_Rt*J_Rt_Rb                  ; // DOt_DRb
-            DXt_DXb[VIDX][OIDX] =                               J_Vt_Twt*J_Twt_Twb*J_Twb_Ob + J_Vt_Twt*J_Twt_Wrb*J_Wrb_Ob + J_Vt_Rt*J_Rt_Ob                  ; // DOt_DOb
-            DXt_DXb[VIDX][SIDX] =                                                             J_Vt_Twt*J_Twt_Wrb*J_Wrb_Sb + J_Vt_Rt*J_Rt_Sb                  ; // DOt_DSb
-            DXt_DXb[VIDX][PIDX] = J_Vt_Twt*J_Twt_Tfb*J_Tfb_Pb                                                             + J_Vt_Rt*J_Rt_Pb                  ; // DOt_DPb
-            DXt_DXb[VIDX][VIDX] =                               J_Vt_Twt*J_Twt_Twb*J_Twb_Vb + J_Vt_Twt*J_Twt_Wrb*J_Wrb_Vb + J_Vt_Rt*J_Rt_Vb                  ; // DOt_DVb
-            DXt_DXb[VIDX][AIDX] =                                                             J_Vt_Twt*J_Twt_Wrb*J_Wrb_Ab + J_Vt_Rt*J_Rt_Ab                  ; // DOt_DAb
-            //-----------------------------------------------------------------------------------------------------------------------------------------------------------
-            DXt_DXb[AIDX][RIDX] = J_At_Wrt*J_Wrt_Tfb*J_Tfb_Rb + J_At_Wrt*J_Wrt_Twb*J_Twb_Rb + J_At_Wrt*J_Wrt_Wrb*J_Wrb_Rb + J_At_Rt*J_Rt_Rb + J_At_Ot*J_Ot_Rb; // DOt_DRb
-            DXt_DXb[AIDX][OIDX] =                               J_At_Wrt*J_Wrt_Twb*J_Twb_Ob + J_At_Wrt*J_Wrt_Wrb*J_Wrb_Ob + J_At_Rt*J_Rt_Ob + J_At_Ot*J_Ot_Ob; // DOt_DOb
-            DXt_DXb[AIDX][SIDX] =                                                             J_At_Wrt*J_Wrt_Wrb*J_Wrb_Sb + J_At_Rt*J_Rt_Sb + J_At_Ot*J_Ot_Sb; // DOt_DSb
-            DXt_DXb[AIDX][PIDX] = J_At_Wrt*J_Wrt_Tfb*J_Tfb_Pb                                                             + J_At_Rt*J_Rt_Pb + J_At_Ot*J_Ot_Pb; // DOt_DPb
-            DXt_DXb[AIDX][VIDX] =                               J_At_Wrt*J_Wrt_Twb*J_Twb_Vb + J_At_Wrt*J_Wrt_Wrb*J_Wrb_Vb + J_At_Rt*J_Rt_Vb + J_At_Ot*J_Ot_Vb; // DOt_DVb
-            DXt_DXb[AIDX][AIDX] =                                                             J_At_Wrt*J_Wrt_Wrb*J_Wrb_Ab + J_At_Rt*J_Rt_Ab + J_At_Ot*J_Ot_Ab; // DOt_DAb
-
-
+            // Mat3T &J_Rt_Rb = DXt_DXb[RIDX][RIDX] = J_Rt_Tft*J_Tft_Tfb*J_Tfb_Rb + J_Rt_Tft*J_Tft_Twb*J_Twb_Rb + J_Rt_Tft*J_Tft_Wrb*J_Wrb_Rb                   ; // DRt_DRb
+            // Mat3T &J_Rt_Ob = DXt_DXb[RIDX][OIDX] =                               J_Rt_Tft*J_Tft_Twb*J_Twb_Ob + J_Rt_Tft*J_Tft_Wrb*J_Wrb_Ob                   ; // DRt_DOb
+            // Mat3T &J_Rt_Sb = DXt_DXb[RIDX][SIDX] =                                                             J_Rt_Tft*J_Tft_Wrb*J_Wrb_Sb                   ; // DRt_DSb
+            // Mat3T &J_Rt_Pb = DXt_DXb[RIDX][PIDX] = J_Rt_Tft*J_Tft_Tfb*J_Tfb_Pb                                                                               ; // DRt_DPb
+            // Mat3T &J_Rt_Vb = DXt_DXb[RIDX][VIDX] =                               J_Rt_Tft*J_Tft_Twb*J_Twb_Vb + J_Rt_Tft*J_Tft_Wrb*J_Wrb_Vb                   ; // DRt_DVb
+            // Mat3T &J_Rt_Ab = DXt_DXb[RIDX][AIDX] =                                                             J_Rt_Tft*J_Tft_Wrb*J_Wrb_Ab                   ; // DRt_DAb
+            // //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+            // Mat3T &J_Ot_Rb = DXt_DXb[OIDX][RIDX] = J_Ot_Twt*J_Twt_Tfb*J_Tfb_Rb + J_Ot_Twt*J_Twt_Twb*J_Twb_Rb + J_Ot_Twt*J_Twt_Wrb*J_Wrb_Rb                   ; // DOt_DRb
+            // Mat3T &J_Ot_Ob = DXt_DXb[OIDX][OIDX] =                               J_Ot_Twt*J_Twt_Twb*J_Twb_Ob + J_Ot_Twt*J_Twt_Wrb*J_Wrb_Ob                   ; // DOt_DOb
+            // Mat3T &J_Ot_Sb = DXt_DXb[OIDX][SIDX] =                                                             J_Ot_Twt*J_Twt_Wrb*J_Wrb_Sb                   ; // DOt_DSb
+            // Mat3T &J_Ot_Pb = DXt_DXb[OIDX][PIDX] = J_Ot_Twt*J_Twt_Tfb*J_Tfb_Pb                                                                               ; // DOt_DPb
+            // Mat3T &J_Ot_Vb = DXt_DXb[OIDX][VIDX] =                               J_Ot_Twt*J_Twt_Twb*J_Twb_Vb + J_Ot_Twt*J_Twt_Wrb*J_Wrb_Vb                   ; // DOt_DVb
+            // Mat3T &J_Ot_Ab = DXt_DXb[OIDX][AIDX] =                                                             J_Ot_Twt*J_Twt_Wrb*J_Wrb_Ab                   ; // DOt_DAb
+            // //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+            //                  DXt_DXb[SIDX][RIDX] = J_St_Wrt*J_Wrt_Tfb*J_Tfb_Rb + J_St_Wrt*J_Wrt_Twb*J_Twb_Rb + J_St_Wrt*J_Wrt_Wrb*J_Wrb_Rb                   ; // DSt_DRb
+            //                  DXt_DXb[SIDX][OIDX] =                               J_St_Wrt*J_Wrt_Twb*J_Twb_Ob + J_St_Wrt*J_Wrt_Wrb*J_Wrb_Ob                   ; // DSt_DOb
+            //                  DXt_DXb[SIDX][SIDX] =                                                             J_St_Wrt*J_Wrt_Wrb*J_Wrb_Sb                   ; // DSt_DSb
+            //                  DXt_DXb[SIDX][PIDX] = J_St_Wrt*J_Wrt_Tfb*J_Tfb_Pb                                                                               ; // DSt_DPb
+            //                  DXt_DXb[SIDX][VIDX] =                               J_St_Wrt*J_Wrt_Twb*J_Twb_Vb + J_St_Wrt*J_Wrt_Wrb*J_Wrb_Vb                   ; // DSt_DVb
+            //                  DXt_DXb[SIDX][AIDX] =                                                             J_St_Wrt*J_Wrt_Wrb*J_Wrb_Ab                   ; // DSt_DAb
+            // //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+            //                  DXt_DXb[PIDX][RIDX] = J_Pt_Tft*J_Tft_Tfb*J_Tfb_Rb + J_Pt_Tft*J_Tft_Twb*J_Twb_Rb + J_Pt_Tft*J_Tft_Wrb*J_Wrb_Rb                   ; // DRt_DRb
+            //                  DXt_DXb[PIDX][OIDX] =                               J_Pt_Tft*J_Tft_Twb*J_Twb_Ob + J_Pt_Tft*J_Tft_Wrb*J_Wrb_Ob                   ; // DRt_DOb
+            //                  DXt_DXb[PIDX][SIDX] =                                                             J_Pt_Tft*J_Tft_Wrb*J_Wrb_Sb                   ; // DRt_DSb
+            //                  DXt_DXb[PIDX][PIDX] = J_Pt_Tft*J_Tft_Tfb*J_Tfb_Pb                                                                               ; // DRt_DPb
+            //                  DXt_DXb[PIDX][VIDX] =                               J_Pt_Tft*J_Tft_Twb*J_Twb_Vb + J_Pt_Tft*J_Tft_Wrb*J_Wrb_Vb                   ; // DRt_DVb
+            //                  DXt_DXb[PIDX][AIDX] =                                                             J_Pt_Tft*J_Tft_Wrb*J_Wrb_Ab                   ; // DRt_DAb
+            // //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+            // DXt_DXb[VIDX][RIDX] = J_Vt_Twt*J_Twt_Tfb*J_Tfb_Rb + J_Vt_Twt*J_Twt_Twb*J_Twb_Rb + J_Vt_Twt*J_Twt_Wrb*J_Wrb_Rb + J_Vt_Rt*J_Rt_Rb                  ; // DOt_DRb
+            // DXt_DXb[VIDX][OIDX] =                               J_Vt_Twt*J_Twt_Twb*J_Twb_Ob + J_Vt_Twt*J_Twt_Wrb*J_Wrb_Ob + J_Vt_Rt*J_Rt_Ob                  ; // DOt_DOb
+            // DXt_DXb[VIDX][SIDX] =                                                             J_Vt_Twt*J_Twt_Wrb*J_Wrb_Sb + J_Vt_Rt*J_Rt_Sb                  ; // DOt_DSb
+            // DXt_DXb[VIDX][PIDX] = J_Vt_Twt*J_Twt_Tfb*J_Tfb_Pb                                                             + J_Vt_Rt*J_Rt_Pb                  ; // DOt_DPb
+            // DXt_DXb[VIDX][VIDX] =                               J_Vt_Twt*J_Twt_Twb*J_Twb_Vb + J_Vt_Twt*J_Twt_Wrb*J_Wrb_Vb + J_Vt_Rt*J_Rt_Vb                  ; // DOt_DVb
+            // DXt_DXb[VIDX][AIDX] =                                                             J_Vt_Twt*J_Twt_Wrb*J_Wrb_Ab + J_Vt_Rt*J_Rt_Ab                  ; // DOt_DAb
+            // //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+            // DXt_DXb[AIDX][RIDX] = J_At_Wrt*J_Wrt_Tfb*J_Tfb_Rb + J_At_Wrt*J_Wrt_Twb*J_Twb_Rb + J_At_Wrt*J_Wrt_Wrb*J_Wrb_Rb + J_At_Rt*J_Rt_Rb + J_At_Ot*J_Ot_Rb; // DOt_DRb
+            // DXt_DXb[AIDX][OIDX] =                               J_At_Wrt*J_Wrt_Twb*J_Twb_Ob + J_At_Wrt*J_Wrt_Wrb*J_Wrb_Ob + J_At_Rt*J_Rt_Ob + J_At_Ot*J_Ot_Ob; // DOt_DOb
+            // DXt_DXb[AIDX][SIDX] =                                                             J_At_Wrt*J_Wrt_Wrb*J_Wrb_Sb + J_At_Rt*J_Rt_Sb + J_At_Ot*J_Ot_Sb; // DOt_DSb
+            // DXt_DXb[AIDX][PIDX] = J_At_Wrt*J_Wrt_Tfb*J_Tfb_Pb                                                             + J_At_Rt*J_Rt_Pb + J_At_Ot*J_Ot_Pb; // DOt_DPb
+            // DXt_DXb[AIDX][VIDX] =                               J_At_Wrt*J_Wrt_Twb*J_Twb_Vb + J_At_Wrt*J_Wrt_Wrb*J_Wrb_Vb + J_At_Rt*J_Rt_Vb + J_At_Ot*J_Ot_Vb; // DOt_DVb
+            // DXt_DXb[AIDX][AIDX] =                                                             J_At_Wrt*J_Wrt_Wrb*J_Wrb_Ab + J_At_Rt*J_Rt_Ab + J_At_Ot*J_Ot_Ab; // DOt_DAb
 
 
-            // Jacobian L2-L0, dXia/dXa
 
-            MatTT J_Xiad0_Ra = MatTT::Zero();   MatTT J_Xiad1_Ra = J_Xiad1_Twa*J_Twa_Ra;   MatTT J_Xiad2_Ra = J_Xiad2_Wra*J_Wra_Ra;
-            MatTT J_Xiad0_Oa = MatTT::Zero();   MatTT J_Xiad1_Oa = J_Xiad1_Twa*J_Twa_Oa;   MatTT J_Xiad2_Oa = J_Xiad2_Wra*J_Wra_Oa;
-            MatTT J_Xiad0_Sa = MatTT::Zero();   MatTT J_Xiad1_Sa = MatTT::Zero();          MatTT J_Xiad2_Sa = J_Xiad2_Wra*J_Wra_Sa;
-            MatTT J_Xiad0_Pa = MatTT::Zero();   MatTT J_Xiad1_Pa = MatTT::Zero();          MatTT J_Xiad2_Pa = MatTT::Zero();
-            MatTT J_Xiad0_Va = MatTT::Zero();   MatTT J_Xiad1_Va = J_Xiad1_Twa*J_Twa_Va;   MatTT J_Xiad2_Va = J_Xiad2_Wra*J_Wra_Va;
-            MatTT J_Xiad0_Aa = MatTT::Zero();   MatTT J_Xiad1_Aa = MatTT::Zero();          MatTT J_Xiad2_Aa = J_Xiad2_Wra*J_Wra_Aa;
 
-            // Jdebug["J_Xiad0_Ra"] = J_Xiad0_Ra;   Jdebug["J_Xiad1_Ra"] = J_Xiad1_Ra;   Jdebug["J_Xiad2_Ra"] = J_Xiad2_Ra;
-            // Jdebug["J_Xiad0_Oa"] = J_Xiad0_Oa;   Jdebug["J_Xiad1_Oa"] = J_Xiad1_Oa;   Jdebug["J_Xiad2_Oa"] = J_Xiad2_Oa;
-            // Jdebug["J_Xiad0_Sa"] = J_Xiad0_Sa;   Jdebug["J_Xiad1_Sa"] = J_Xiad1_Sa;   Jdebug["J_Xiad2_Sa"] = J_Xiad2_Sa;
-            // Jdebug["J_Xiad0_Pa"] = J_Xiad0_Pa;   Jdebug["J_Xiad1_Pa"] = J_Xiad1_Pa;   Jdebug["J_Xiad2_Pa"] = J_Xiad2_Pa;
-            // Jdebug["J_Xiad0_Va"] = J_Xiad0_Va;   Jdebug["J_Xiad1_Va"] = J_Xiad1_Va;   Jdebug["J_Xiad2_Va"] = J_Xiad2_Va;
-            // Jdebug["J_Xiad0_Aa"] = J_Xiad0_Aa;   Jdebug["J_Xiad1_Aa"] = J_Xiad1_Aa;   Jdebug["J_Xiad2_Aa"] = J_Xiad2_Aa;
+            // // Jacobian L2-L0, dXia/dXa
 
-            Matrix<T, 18, 18> J_Gammaa_Xa; J_Gammaa_Xa.setZero();
+            // MatTT J_Xiad0_Ra = MatTT::Zero();   MatTT J_Xiad1_Ra = J_Xiad1_Twa*J_Twa_Ra;   MatTT J_Xiad2_Ra = J_Xiad2_Wra*J_Wra_Ra;
+            // MatTT J_Xiad0_Oa = MatTT::Zero();   MatTT J_Xiad1_Oa = J_Xiad1_Twa*J_Twa_Oa;   MatTT J_Xiad2_Oa = J_Xiad2_Wra*J_Wra_Oa;
+            // MatTT J_Xiad0_Sa = MatTT::Zero();   MatTT J_Xiad1_Sa = MatTT::Zero();          MatTT J_Xiad2_Sa = J_Xiad2_Wra*J_Wra_Sa;
+            // MatTT J_Xiad0_Pa = MatTT::Zero();   MatTT J_Xiad1_Pa = MatTT::Zero();          MatTT J_Xiad2_Pa = MatTT::Zero();
+            // MatTT J_Xiad0_Va = MatTT::Zero();   MatTT J_Xiad1_Va = J_Xiad1_Twa*J_Twa_Va;   MatTT J_Xiad2_Va = J_Xiad2_Wra*J_Wra_Va;
+            // MatTT J_Xiad0_Aa = MatTT::Zero();   MatTT J_Xiad1_Aa = MatTT::Zero();          MatTT J_Xiad2_Aa = J_Xiad2_Wra*J_Wra_Aa;
+
+            // // Jdebug["J_Xiad0_Ra"] = J_Xiad0_Ra;   Jdebug["J_Xiad1_Ra"] = J_Xiad1_Ra;   Jdebug["J_Xiad2_Ra"] = J_Xiad2_Ra;
+            // // Jdebug["J_Xiad0_Oa"] = J_Xiad0_Oa;   Jdebug["J_Xiad1_Oa"] = J_Xiad1_Oa;   Jdebug["J_Xiad2_Oa"] = J_Xiad2_Oa;
+            // // Jdebug["J_Xiad0_Sa"] = J_Xiad0_Sa;   Jdebug["J_Xiad1_Sa"] = J_Xiad1_Sa;   Jdebug["J_Xiad2_Sa"] = J_Xiad2_Sa;
+            // // Jdebug["J_Xiad0_Pa"] = J_Xiad0_Pa;   Jdebug["J_Xiad1_Pa"] = J_Xiad1_Pa;   Jdebug["J_Xiad2_Pa"] = J_Xiad2_Pa;
+            // // Jdebug["J_Xiad0_Va"] = J_Xiad0_Va;   Jdebug["J_Xiad1_Va"] = J_Xiad1_Va;   Jdebug["J_Xiad2_Va"] = J_Xiad2_Va;
+            // // Jdebug["J_Xiad0_Aa"] = J_Xiad0_Aa;   Jdebug["J_Xiad1_Aa"] = J_Xiad1_Aa;   Jdebug["J_Xiad2_Aa"] = J_Xiad2_Aa;
+
+            // Matrix<T, 18, 18> J_Gammaa_Xa; J_Gammaa_Xa.setZero();
             
-            J_Gammaa_Xa.block(0, 0,  6, 3) = J_Xiad0_Ra;  J_Gammaa_Xa.block(6, 0,  6, 3) = J_Xiad1_Ra;  J_Gammaa_Xa.block(12, 0,  6, 3) = J_Xiad2_Ra;
-            J_Gammaa_Xa.block(0, 3,  6, 3) = J_Xiad0_Oa;  J_Gammaa_Xa.block(6, 3,  6, 3) = J_Xiad1_Oa;  J_Gammaa_Xa.block(12, 3,  6, 3) = J_Xiad2_Oa;
-            J_Gammaa_Xa.block(0, 6,  6, 3) = J_Xiad0_Sa;  J_Gammaa_Xa.block(6, 6,  6, 3) = J_Xiad1_Sa;  J_Gammaa_Xa.block(12, 6,  6, 3) = J_Xiad2_Sa;
-            J_Gammaa_Xa.block(0, 9,  6, 3) = J_Xiad0_Pa;  J_Gammaa_Xa.block(6, 9,  6, 3) = J_Xiad1_Pa;  J_Gammaa_Xa.block(12, 9,  6, 3) = J_Xiad2_Pa;
-            J_Gammaa_Xa.block(0, 12, 6, 3) = J_Xiad0_Va;  J_Gammaa_Xa.block(6, 12, 6, 3) = J_Xiad1_Va;  J_Gammaa_Xa.block(12, 12, 6, 3) = J_Xiad2_Va;
-            J_Gammaa_Xa.block(0, 15, 6, 3) = J_Xiad0_Aa;  J_Gammaa_Xa.block(6, 15, 6, 3) = J_Xiad1_Aa;  J_Gammaa_Xa.block(12, 15, 6, 3) = J_Xiad2_Aa;
+            // J_Gammaa_Xa.block(0, 0,  6, 3) = J_Xiad0_Ra;  J_Gammaa_Xa.block(6, 0,  6, 3) = J_Xiad1_Ra;  J_Gammaa_Xa.block(12, 0,  6, 3) = J_Xiad2_Ra;
+            // J_Gammaa_Xa.block(0, 3,  6, 3) = J_Xiad0_Oa;  J_Gammaa_Xa.block(6, 3,  6, 3) = J_Xiad1_Oa;  J_Gammaa_Xa.block(12, 3,  6, 3) = J_Xiad2_Oa;
+            // J_Gammaa_Xa.block(0, 6,  6, 3) = J_Xiad0_Sa;  J_Gammaa_Xa.block(6, 6,  6, 3) = J_Xiad1_Sa;  J_Gammaa_Xa.block(12, 6,  6, 3) = J_Xiad2_Sa;
+            // J_Gammaa_Xa.block(0, 9,  6, 3) = J_Xiad0_Pa;  J_Gammaa_Xa.block(6, 9,  6, 3) = J_Xiad1_Pa;  J_Gammaa_Xa.block(12, 9,  6, 3) = J_Xiad2_Pa;
+            // J_Gammaa_Xa.block(0, 12, 6, 3) = J_Xiad0_Va;  J_Gammaa_Xa.block(6, 12, 6, 3) = J_Xiad1_Va;  J_Gammaa_Xa.block(12, 12, 6, 3) = J_Xiad2_Va;
+            // J_Gammaa_Xa.block(0, 15, 6, 3) = J_Xiad0_Aa;  J_Gammaa_Xa.block(6, 15, 6, 3) = J_Xiad1_Aa;  J_Gammaa_Xa.block(12, 15, 6, 3) = J_Xiad2_Aa;
 
-            Jdebug["J_Gammaa_Xa"] = J_Gammaa_Xa;
-
-
+            // Jdebug["J_Gammaa_Xa"] = J_Gammaa_Xa;
 
 
-            // Jacobian L2-L0, dXia/dXa
 
-            MatTT J_Xiad0_Rb = MatTT::Zero();   MatTT J_Xiad1_Rb = MatTT::Zero();   MatTT J_Xiad2_Rb = MatTT::Zero();
-            MatTT J_Xiad0_Ob = MatTT::Zero();   MatTT J_Xiad1_Ob = MatTT::Zero();   MatTT J_Xiad2_Ob = MatTT::Zero();
-            MatTT J_Xiad0_Sb = MatTT::Zero();   MatTT J_Xiad1_Sb = MatTT::Zero();   MatTT J_Xiad2_Sb = MatTT::Zero();
-            MatTT J_Xiad0_Pb = MatTT::Zero();   MatTT J_Xiad1_Pb = MatTT::Zero();   MatTT J_Xiad2_Pb = MatTT::Zero();
-            MatTT J_Xiad0_Vb = MatTT::Zero();   MatTT J_Xiad1_Vb = MatTT::Zero();   MatTT J_Xiad2_Vb = MatTT::Zero();
-            MatTT J_Xiad0_Ab = MatTT::Zero();   MatTT J_Xiad1_Ab = MatTT::Zero();   MatTT J_Xiad2_Ab = MatTT::Zero();
 
-            // Jdebug["J_Xiad0_Rb"] = J_Xiad0_Rb;   Jdebug["J_Xiad1_Rb"] = J_Xiad1_Rb;   Jdebug["J_Xiad2_Rb"] = J_Xiad2_Rb;
-            // Jdebug["J_Xiad0_Ob"] = J_Xiad0_Ob;   Jdebug["J_Xiad1_Ob"] = J_Xiad1_Ob;   Jdebug["J_Xiad2_Ob"] = J_Xiad2_Ob;
-            // Jdebug["J_Xiad0_Sb"] = J_Xiad0_Sb;   Jdebug["J_Xiad1_Sb"] = J_Xiad1_Sb;   Jdebug["J_Xiad2_Sb"] = J_Xiad2_Sb;
-            // Jdebug["J_Xiad0_Pb"] = J_Xiad0_Pb;   Jdebug["J_Xiad1_Pb"] = J_Xiad1_Pb;   Jdebug["J_Xiad2_Pb"] = J_Xiad2_Pb;
-            // Jdebug["J_Xiad0_Vb"] = J_Xiad0_Vb;   Jdebug["J_Xiad1_Vb"] = J_Xiad1_Vb;   Jdebug["J_Xiad2_Vb"] = J_Xiad2_Vb;
-            // Jdebug["J_Xiad0_Ab"] = J_Xiad0_Ab;   Jdebug["J_Xiad1_Ab"] = J_Xiad1_Ab;   Jdebug["J_Xiad2_Ab"] = J_Xiad2_Ab;
+            // // Jacobian L2-L0, dXia/dXa
 
-            Matrix<T, 18, 18> J_Gammaa_Xb; J_Gammaa_Xb.setZero();
+            // MatTT J_Xiad0_Rb = MatTT::Zero();   MatTT J_Xiad1_Rb = MatTT::Zero();   MatTT J_Xiad2_Rb = MatTT::Zero();
+            // MatTT J_Xiad0_Ob = MatTT::Zero();   MatTT J_Xiad1_Ob = MatTT::Zero();   MatTT J_Xiad2_Ob = MatTT::Zero();
+            // MatTT J_Xiad0_Sb = MatTT::Zero();   MatTT J_Xiad1_Sb = MatTT::Zero();   MatTT J_Xiad2_Sb = MatTT::Zero();
+            // MatTT J_Xiad0_Pb = MatTT::Zero();   MatTT J_Xiad1_Pb = MatTT::Zero();   MatTT J_Xiad2_Pb = MatTT::Zero();
+            // MatTT J_Xiad0_Vb = MatTT::Zero();   MatTT J_Xiad1_Vb = MatTT::Zero();   MatTT J_Xiad2_Vb = MatTT::Zero();
+            // MatTT J_Xiad0_Ab = MatTT::Zero();   MatTT J_Xiad1_Ab = MatTT::Zero();   MatTT J_Xiad2_Ab = MatTT::Zero();
+
+            // // Jdebug["J_Xiad0_Rb"] = J_Xiad0_Rb;   Jdebug["J_Xiad1_Rb"] = J_Xiad1_Rb;   Jdebug["J_Xiad2_Rb"] = J_Xiad2_Rb;
+            // // Jdebug["J_Xiad0_Ob"] = J_Xiad0_Ob;   Jdebug["J_Xiad1_Ob"] = J_Xiad1_Ob;   Jdebug["J_Xiad2_Ob"] = J_Xiad2_Ob;
+            // // Jdebug["J_Xiad0_Sb"] = J_Xiad0_Sb;   Jdebug["J_Xiad1_Sb"] = J_Xiad1_Sb;   Jdebug["J_Xiad2_Sb"] = J_Xiad2_Sb;
+            // // Jdebug["J_Xiad0_Pb"] = J_Xiad0_Pb;   Jdebug["J_Xiad1_Pb"] = J_Xiad1_Pb;   Jdebug["J_Xiad2_Pb"] = J_Xiad2_Pb;
+            // // Jdebug["J_Xiad0_Vb"] = J_Xiad0_Vb;   Jdebug["J_Xiad1_Vb"] = J_Xiad1_Vb;   Jdebug["J_Xiad2_Vb"] = J_Xiad2_Vb;
+            // // Jdebug["J_Xiad0_Ab"] = J_Xiad0_Ab;   Jdebug["J_Xiad1_Ab"] = J_Xiad1_Ab;   Jdebug["J_Xiad2_Ab"] = J_Xiad2_Ab;
+
+            // Matrix<T, 18, 18> J_Gammaa_Xb; J_Gammaa_Xb.setZero();
             
-            J_Gammaa_Xb.block(0, 0,  6, 3) = J_Xiad0_Rb;  J_Gammaa_Xb.block(6, 0,  6, 3) = J_Xiad1_Rb;  J_Gammaa_Xb.block(12, 0,  6, 3) = J_Xiad2_Rb;
-            J_Gammaa_Xb.block(0, 3,  6, 3) = J_Xiad0_Ob;  J_Gammaa_Xb.block(6, 3,  6, 3) = J_Xiad1_Ob;  J_Gammaa_Xb.block(12, 3,  6, 3) = J_Xiad2_Ob;
-            J_Gammaa_Xb.block(0, 6,  6, 3) = J_Xiad0_Sb;  J_Gammaa_Xb.block(6, 6,  6, 3) = J_Xiad1_Sb;  J_Gammaa_Xb.block(12, 6,  6, 3) = J_Xiad2_Sb;
-            J_Gammaa_Xb.block(0, 9,  6, 3) = J_Xiad0_Pb;  J_Gammaa_Xb.block(6, 9,  6, 3) = J_Xiad1_Pb;  J_Gammaa_Xb.block(12, 9,  6, 3) = J_Xiad2_Pb;
-            J_Gammaa_Xb.block(0, 12, 6, 3) = J_Xiad0_Vb;  J_Gammaa_Xb.block(6, 12, 6, 3) = J_Xiad1_Vb;  J_Gammaa_Xb.block(12, 12, 6, 3) = J_Xiad2_Vb;
-            J_Gammaa_Xb.block(0, 15, 6, 3) = J_Xiad0_Ab;  J_Gammaa_Xb.block(6, 15, 6, 3) = J_Xiad1_Ab;  J_Gammaa_Xb.block(12, 15, 6, 3) = J_Xiad2_Ab;
+            // J_Gammaa_Xb.block(0, 0,  6, 3) = J_Xiad0_Rb;  J_Gammaa_Xb.block(6, 0,  6, 3) = J_Xiad1_Rb;  J_Gammaa_Xb.block(12, 0,  6, 3) = J_Xiad2_Rb;
+            // J_Gammaa_Xb.block(0, 3,  6, 3) = J_Xiad0_Ob;  J_Gammaa_Xb.block(6, 3,  6, 3) = J_Xiad1_Ob;  J_Gammaa_Xb.block(12, 3,  6, 3) = J_Xiad2_Ob;
+            // J_Gammaa_Xb.block(0, 6,  6, 3) = J_Xiad0_Sb;  J_Gammaa_Xb.block(6, 6,  6, 3) = J_Xiad1_Sb;  J_Gammaa_Xb.block(12, 6,  6, 3) = J_Xiad2_Sb;
+            // J_Gammaa_Xb.block(0, 9,  6, 3) = J_Xiad0_Pb;  J_Gammaa_Xb.block(6, 9,  6, 3) = J_Xiad1_Pb;  J_Gammaa_Xb.block(12, 9,  6, 3) = J_Xiad2_Pb;
+            // J_Gammaa_Xb.block(0, 12, 6, 3) = J_Xiad0_Vb;  J_Gammaa_Xb.block(6, 12, 6, 3) = J_Xiad1_Vb;  J_Gammaa_Xb.block(12, 12, 6, 3) = J_Xiad2_Vb;
+            // J_Gammaa_Xb.block(0, 15, 6, 3) = J_Xiad0_Ab;  J_Gammaa_Xb.block(6, 15, 6, 3) = J_Xiad1_Ab;  J_Gammaa_Xb.block(12, 15, 6, 3) = J_Xiad2_Ab;
 
-            Jdebug["J_Gammaa_Xa"] = J_Gammaa_Xb;
-
-
+            // Jdebug["J_Gammaa_Xa"] = J_Gammaa_Xb;
 
 
-            // Jacobian L2-L0, dXib/dXa
 
-            MatTT J_Xibd0_Ra = J_Xibd0_Tfa*J_Tfa_Ra;   MatTT J_Xibd1_Ra = J_Xibd1_Tfa*J_Tfa_Ra;   MatTT J_Xibd2_Ra = J_Xibd2_Tfa*J_Tfa_Ra;      
-            MatTT J_Xibd0_Oa = MatTT::Zero();          MatTT J_Xibd1_Oa = MatTT::Zero();          MatTT J_Xibd2_Oa = MatTT::Zero();
-            MatTT J_Xibd0_Sa = MatTT::Zero();          MatTT J_Xibd1_Sa = MatTT::Zero();          MatTT J_Xibd2_Sa = MatTT::Zero();
-            MatTT J_Xibd0_Pa = J_Xibd0_Tfa*J_Tfa_Pa;   MatTT J_Xibd1_Pa = J_Xibd1_Tfa*J_Tfa_Pa;   MatTT J_Xibd2_Pa = J_Xibd2_Tfa*J_Tfa_Pa;      
-            MatTT J_Xibd0_Va = MatTT::Zero();          MatTT J_Xibd1_Va = MatTT::Zero();          MatTT J_Xibd2_Va = MatTT::Zero();
-            MatTT J_Xibd0_Aa = MatTT::Zero();          MatTT J_Xibd1_Aa = MatTT::Zero();          MatTT J_Xibd2_Aa = MatTT::Zero();
 
-            // Jdebug["J_Xibd0_Ra"] = J_Xibd0_Ra;   Jdebug["J_Xibd1_Ra"] = J_Xibd1_Ra;   Jdebug["J_Xibd2_Ra"] = J_Xibd2_Ra;
-            // Jdebug["J_Xibd0_Oa"] = J_Xibd0_Oa;   Jdebug["J_Xibd1_Oa"] = J_Xibd1_Oa;   Jdebug["J_Xibd2_Oa"] = J_Xibd2_Oa;
-            // Jdebug["J_Xibd0_Sa"] = J_Xibd0_Sa;   Jdebug["J_Xibd1_Sa"] = J_Xibd1_Sa;   Jdebug["J_Xibd2_Sa"] = J_Xibd2_Sa;
-            // Jdebug["J_Xibd0_Pa"] = J_Xibd0_Pa;   Jdebug["J_Xibd1_Pa"] = J_Xibd1_Pa;   Jdebug["J_Xibd2_Pa"] = J_Xibd2_Pa;
-            // Jdebug["J_Xibd0_Va"] = J_Xibd0_Va;   Jdebug["J_Xibd1_Va"] = J_Xibd1_Va;   Jdebug["J_Xibd2_Va"] = J_Xibd2_Va;
-            // Jdebug["J_Xibd0_Aa"] = J_Xibd0_Aa;   Jdebug["J_Xibd1_Aa"] = J_Xibd1_Aa;   Jdebug["J_Xibd2_Aa"] = J_Xibd2_Aa;
+            // // Jacobian L2-L0, dXib/dXa
 
-            Matrix<T, 18, 18> J_Gammab_Xa; J_Gammab_Xa.setZero();
+            // MatTT J_Xibd0_Ra = J_Xibd0_Tfa*J_Tfa_Ra;   MatTT J_Xibd1_Ra = J_Xibd1_Tfa*J_Tfa_Ra;   MatTT J_Xibd2_Ra = J_Xibd2_Tfa*J_Tfa_Ra;      
+            // MatTT J_Xibd0_Oa = MatTT::Zero();          MatTT J_Xibd1_Oa = MatTT::Zero();          MatTT J_Xibd2_Oa = MatTT::Zero();
+            // MatTT J_Xibd0_Sa = MatTT::Zero();          MatTT J_Xibd1_Sa = MatTT::Zero();          MatTT J_Xibd2_Sa = MatTT::Zero();
+            // MatTT J_Xibd0_Pa = J_Xibd0_Tfa*J_Tfa_Pa;   MatTT J_Xibd1_Pa = J_Xibd1_Tfa*J_Tfa_Pa;   MatTT J_Xibd2_Pa = J_Xibd2_Tfa*J_Tfa_Pa;      
+            // MatTT J_Xibd0_Va = MatTT::Zero();          MatTT J_Xibd1_Va = MatTT::Zero();          MatTT J_Xibd2_Va = MatTT::Zero();
+            // MatTT J_Xibd0_Aa = MatTT::Zero();          MatTT J_Xibd1_Aa = MatTT::Zero();          MatTT J_Xibd2_Aa = MatTT::Zero();
+
+            // // Jdebug["J_Xibd0_Ra"] = J_Xibd0_Ra;   Jdebug["J_Xibd1_Ra"] = J_Xibd1_Ra;   Jdebug["J_Xibd2_Ra"] = J_Xibd2_Ra;
+            // // Jdebug["J_Xibd0_Oa"] = J_Xibd0_Oa;   Jdebug["J_Xibd1_Oa"] = J_Xibd1_Oa;   Jdebug["J_Xibd2_Oa"] = J_Xibd2_Oa;
+            // // Jdebug["J_Xibd0_Sa"] = J_Xibd0_Sa;   Jdebug["J_Xibd1_Sa"] = J_Xibd1_Sa;   Jdebug["J_Xibd2_Sa"] = J_Xibd2_Sa;
+            // // Jdebug["J_Xibd0_Pa"] = J_Xibd0_Pa;   Jdebug["J_Xibd1_Pa"] = J_Xibd1_Pa;   Jdebug["J_Xibd2_Pa"] = J_Xibd2_Pa;
+            // // Jdebug["J_Xibd0_Va"] = J_Xibd0_Va;   Jdebug["J_Xibd1_Va"] = J_Xibd1_Va;   Jdebug["J_Xibd2_Va"] = J_Xibd2_Va;
+            // // Jdebug["J_Xibd0_Aa"] = J_Xibd0_Aa;   Jdebug["J_Xibd1_Aa"] = J_Xibd1_Aa;   Jdebug["J_Xibd2_Aa"] = J_Xibd2_Aa;
+
+            // Matrix<T, 18, 18> J_Gammab_Xa; J_Gammab_Xa.setZero();
             
-            J_Gammab_Xa.block(0, 0,  6, 3) = J_Xibd0_Ra;   J_Gammab_Xa.block(6, 0,  6, 3) = J_Xibd1_Ra;  J_Gammab_Xa.block(12, 0,  6, 3) = J_Xibd2_Ra;
-            J_Gammab_Xa.block(0, 3,  6, 3) = J_Xibd0_Oa;   J_Gammab_Xa.block(6, 3,  6, 3) = J_Xibd1_Oa;  J_Gammab_Xa.block(12, 3,  6, 3) = J_Xibd2_Oa;
-            J_Gammab_Xa.block(0, 6,  6, 3) = J_Xibd0_Sa;   J_Gammab_Xa.block(6, 6,  6, 3) = J_Xibd1_Sa;  J_Gammab_Xa.block(12, 6,  6, 3) = J_Xibd2_Sa;
-            J_Gammab_Xa.block(0, 9,  6, 3) = J_Xibd0_Pa;   J_Gammab_Xa.block(6, 9,  6, 3) = J_Xibd1_Pa;  J_Gammab_Xa.block(12, 9,  6, 3) = J_Xibd2_Pa;
-            J_Gammab_Xa.block(0, 12, 6, 3) = J_Xibd0_Va;   J_Gammab_Xa.block(6, 12, 6, 3) = J_Xibd1_Va;  J_Gammab_Xa.block(12, 12, 6, 3) = J_Xibd2_Va;
-            J_Gammab_Xa.block(0, 15, 6, 3) = J_Xibd0_Aa;   J_Gammab_Xa.block(6, 15, 6, 3) = J_Xibd1_Aa;  J_Gammab_Xa.block(12, 15, 6, 3) = J_Xibd2_Aa;
+            // J_Gammab_Xa.block(0, 0,  6, 3) = J_Xibd0_Ra;   J_Gammab_Xa.block(6, 0,  6, 3) = J_Xibd1_Ra;  J_Gammab_Xa.block(12, 0,  6, 3) = J_Xibd2_Ra;
+            // J_Gammab_Xa.block(0, 3,  6, 3) = J_Xibd0_Oa;   J_Gammab_Xa.block(6, 3,  6, 3) = J_Xibd1_Oa;  J_Gammab_Xa.block(12, 3,  6, 3) = J_Xibd2_Oa;
+            // J_Gammab_Xa.block(0, 6,  6, 3) = J_Xibd0_Sa;   J_Gammab_Xa.block(6, 6,  6, 3) = J_Xibd1_Sa;  J_Gammab_Xa.block(12, 6,  6, 3) = J_Xibd2_Sa;
+            // J_Gammab_Xa.block(0, 9,  6, 3) = J_Xibd0_Pa;   J_Gammab_Xa.block(6, 9,  6, 3) = J_Xibd1_Pa;  J_Gammab_Xa.block(12, 9,  6, 3) = J_Xibd2_Pa;
+            // J_Gammab_Xa.block(0, 12, 6, 3) = J_Xibd0_Va;   J_Gammab_Xa.block(6, 12, 6, 3) = J_Xibd1_Va;  J_Gammab_Xa.block(12, 12, 6, 3) = J_Xibd2_Va;
+            // J_Gammab_Xa.block(0, 15, 6, 3) = J_Xibd0_Aa;   J_Gammab_Xa.block(6, 15, 6, 3) = J_Xibd1_Aa;  J_Gammab_Xa.block(12, 15, 6, 3) = J_Xibd2_Aa;
             
-            Jdebug["J_Gammab_Xa"] = J_Gammab_Xa;
+            // Jdebug["J_Gammab_Xa"] = J_Gammab_Xa;
 
 
 
 
-            // Jacobian L2-L0, dXib/dXa
+            // // Jacobian L2-L0, dXib/dXa
 
-            MatTT J_Xibd0_Rb = J_Xibd0_Tfb*J_Tfb_Rb;
-            MatTT J_Xibd0_Ob = MatTT::Zero();
-            MatTT J_Xibd0_Sb = MatTT::Zero();
-            MatTT J_Xibd0_Pb = J_Xibd0_Tfb*J_Tfb_Pb;
-            MatTT J_Xibd0_Vb = MatTT::Zero();
-            MatTT J_Xibd0_Ab = MatTT::Zero();
+            // MatTT J_Xibd0_Rb = J_Xibd0_Tfb*J_Tfb_Rb;
+            // MatTT J_Xibd0_Ob = MatTT::Zero();
+            // MatTT J_Xibd0_Sb = MatTT::Zero();
+            // MatTT J_Xibd0_Pb = J_Xibd0_Tfb*J_Tfb_Pb;
+            // MatTT J_Xibd0_Vb = MatTT::Zero();
+            // MatTT J_Xibd0_Ab = MatTT::Zero();
 
-            MatTT J_Xibd1_Rb = J_Xibd1_Tfb*J_Tfb_Rb + J_Xibd1_Twb*J_Twb_Rb;
-            MatTT J_Xibd1_Ob =                        J_Xibd1_Twb*J_Twb_Ob;
-            MatTT J_Xibd1_Sb = MatTT::Zero();
-            MatTT J_Xibd1_Pb = J_Xibd1_Tfb*J_Tfb_Pb;
-            MatTT J_Xibd1_Vb =                        J_Xibd1_Twb*J_Twb_Vb;
-            MatTT J_Xibd1_Ab = MatTT::Zero();
+            // MatTT J_Xibd1_Rb = J_Xibd1_Tfb*J_Tfb_Rb + J_Xibd1_Twb*J_Twb_Rb;
+            // MatTT J_Xibd1_Ob =                        J_Xibd1_Twb*J_Twb_Ob;
+            // MatTT J_Xibd1_Sb = MatTT::Zero();
+            // MatTT J_Xibd1_Pb = J_Xibd1_Tfb*J_Tfb_Pb;
+            // MatTT J_Xibd1_Vb =                        J_Xibd1_Twb*J_Twb_Vb;
+            // MatTT J_Xibd1_Ab = MatTT::Zero();
 
-            MatTT J_Xibd2_Rb = J_Xibd2_Tfb*J_Tfb_Rb + J_Xibd2_Twb*J_Twb_Rb + J_Xibd2_Wrb*J_Wrb_Rb;
-            MatTT J_Xibd2_Ob =                        J_Xibd2_Twb*J_Twb_Ob + J_Xibd2_Wrb*J_Wrb_Ob;
-            MatTT J_Xibd2_Sb =                                               J_Xibd2_Wrb*J_Wrb_Sb;
-            MatTT J_Xibd2_Pb = J_Xibd2_Tfb*J_Tfb_Pb;
-            MatTT J_Xibd2_Vb =                        J_Xibd2_Twb*J_Twb_Vb + J_Xibd2_Wrb*J_Wrb_Vb;
-            MatTT J_Xibd2_Ab =                                               J_Xibd2_Wrb*J_Wrb_Ab;
+            // MatTT J_Xibd2_Rb = J_Xibd2_Tfb*J_Tfb_Rb + J_Xibd2_Twb*J_Twb_Rb + J_Xibd2_Wrb*J_Wrb_Rb;
+            // MatTT J_Xibd2_Ob =                        J_Xibd2_Twb*J_Twb_Ob + J_Xibd2_Wrb*J_Wrb_Ob;
+            // MatTT J_Xibd2_Sb =                                               J_Xibd2_Wrb*J_Wrb_Sb;
+            // MatTT J_Xibd2_Pb = J_Xibd2_Tfb*J_Tfb_Pb;
+            // MatTT J_Xibd2_Vb =                        J_Xibd2_Twb*J_Twb_Vb + J_Xibd2_Wrb*J_Wrb_Vb;
+            // MatTT J_Xibd2_Ab =                                               J_Xibd2_Wrb*J_Wrb_Ab;
 
-            // Jdebug["J_Xibd0_Rb"] = J_Xibd0_Rb;   Jdebug["J_Xibd1_Rb"] = J_Xibd1_Rb;   Jdebug["J_Xibd2_Ra"] = J_Xibd2_Rb;
-            // Jdebug["J_Xibd0_Ob"] = J_Xibd0_Ob;   Jdebug["J_Xibd1_Ob"] = J_Xibd1_Ob;   Jdebug["J_Xibd2_Oa"] = J_Xibd2_Ob;
-            // Jdebug["J_Xibd0_Sb"] = J_Xibd0_Sb;   Jdebug["J_Xibd1_Sb"] = J_Xibd1_Sb;   Jdebug["J_Xibd2_Sa"] = J_Xibd2_Sb;
-            // Jdebug["J_Xibd0_Pb"] = J_Xibd0_Pb;   Jdebug["J_Xibd1_Pb"] = J_Xibd1_Pb;   Jdebug["J_Xibd2_Pa"] = J_Xibd2_Pb;
-            // Jdebug["J_Xibd0_Vb"] = J_Xibd0_Vb;   Jdebug["J_Xibd1_Vb"] = J_Xibd1_Vb;   Jdebug["J_Xibd2_Va"] = J_Xibd2_Vb;
-            // Jdebug["J_Xibd0_Ab"] = J_Xibd0_Ab;   Jdebug["J_Xibd1_Ab"] = J_Xibd1_Ab;   Jdebug["J_Xibd2_Aa"] = J_Xibd2_Ab;
+            // // Jdebug["J_Xibd0_Rb"] = J_Xibd0_Rb;   Jdebug["J_Xibd1_Rb"] = J_Xibd1_Rb;   Jdebug["J_Xibd2_Ra"] = J_Xibd2_Rb;
+            // // Jdebug["J_Xibd0_Ob"] = J_Xibd0_Ob;   Jdebug["J_Xibd1_Ob"] = J_Xibd1_Ob;   Jdebug["J_Xibd2_Oa"] = J_Xibd2_Ob;
+            // // Jdebug["J_Xibd0_Sb"] = J_Xibd0_Sb;   Jdebug["J_Xibd1_Sb"] = J_Xibd1_Sb;   Jdebug["J_Xibd2_Sa"] = J_Xibd2_Sb;
+            // // Jdebug["J_Xibd0_Pb"] = J_Xibd0_Pb;   Jdebug["J_Xibd1_Pb"] = J_Xibd1_Pb;   Jdebug["J_Xibd2_Pa"] = J_Xibd2_Pb;
+            // // Jdebug["J_Xibd0_Vb"] = J_Xibd0_Vb;   Jdebug["J_Xibd1_Vb"] = J_Xibd1_Vb;   Jdebug["J_Xibd2_Va"] = J_Xibd2_Vb;
+            // // Jdebug["J_Xibd0_Ab"] = J_Xibd0_Ab;   Jdebug["J_Xibd1_Ab"] = J_Xibd1_Ab;   Jdebug["J_Xibd2_Aa"] = J_Xibd2_Ab;
 
-            Matrix<T, 18, 18> J_Gammab_Xb; J_Gammab_Xb.setZero();
+            // Matrix<T, 18, 18> J_Gammab_Xb; J_Gammab_Xb.setZero();
             
-            J_Gammab_Xb.block(0, 0,  6, 3) = J_Xibd0_Rb;  J_Gammab_Xb.block(6, 0,  6, 3) = J_Xibd1_Rb;  J_Gammab_Xb.block(12, 0,  6, 3) = J_Xibd2_Rb;
-            J_Gammab_Xb.block(0, 3,  6, 3) = J_Xibd0_Ob;  J_Gammab_Xb.block(6, 3,  6, 3) = J_Xibd1_Ob;  J_Gammab_Xb.block(12, 3,  6, 3) = J_Xibd2_Ob;
-            J_Gammab_Xb.block(0, 6,  6, 3) = J_Xibd0_Sb;  J_Gammab_Xb.block(6, 6,  6, 3) = J_Xibd1_Sb;  J_Gammab_Xb.block(12, 6,  6, 3) = J_Xibd2_Sb;
-            J_Gammab_Xb.block(0, 9,  6, 3) = J_Xibd0_Pb;  J_Gammab_Xb.block(6, 9,  6, 3) = J_Xibd1_Pb;  J_Gammab_Xb.block(12, 9,  6, 3) = J_Xibd2_Pb;
-            J_Gammab_Xb.block(0, 12, 6, 3) = J_Xibd0_Vb;  J_Gammab_Xb.block(6, 12, 6, 3) = J_Xibd1_Vb;  J_Gammab_Xb.block(12, 12, 6, 3) = J_Xibd2_Vb;
-            J_Gammab_Xb.block(0, 15, 6, 3) = J_Xibd0_Ab;  J_Gammab_Xb.block(6, 15, 6, 3) = J_Xibd1_Ab;  J_Gammab_Xb.block(12, 15, 6, 3) = J_Xibd2_Ab;
+            // J_Gammab_Xb.block(0, 0,  6, 3) = J_Xibd0_Rb;  J_Gammab_Xb.block(6, 0,  6, 3) = J_Xibd1_Rb;  J_Gammab_Xb.block(12, 0,  6, 3) = J_Xibd2_Rb;
+            // J_Gammab_Xb.block(0, 3,  6, 3) = J_Xibd0_Ob;  J_Gammab_Xb.block(6, 3,  6, 3) = J_Xibd1_Ob;  J_Gammab_Xb.block(12, 3,  6, 3) = J_Xibd2_Ob;
+            // J_Gammab_Xb.block(0, 6,  6, 3) = J_Xibd0_Sb;  J_Gammab_Xb.block(6, 6,  6, 3) = J_Xibd1_Sb;  J_Gammab_Xb.block(12, 6,  6, 3) = J_Xibd2_Sb;
+            // J_Gammab_Xb.block(0, 9,  6, 3) = J_Xibd0_Pb;  J_Gammab_Xb.block(6, 9,  6, 3) = J_Xibd1_Pb;  J_Gammab_Xb.block(12, 9,  6, 3) = J_Xibd2_Pb;
+            // J_Gammab_Xb.block(0, 12, 6, 3) = J_Xibd0_Vb;  J_Gammab_Xb.block(6, 12, 6, 3) = J_Xibd1_Vb;  J_Gammab_Xb.block(12, 12, 6, 3) = J_Xibd2_Vb;
+            // J_Gammab_Xb.block(0, 15, 6, 3) = J_Xibd0_Ab;  J_Gammab_Xb.block(6, 15, 6, 3) = J_Xibd1_Ab;  J_Gammab_Xb.block(12, 15, 6, 3) = J_Xibd2_Ab;
 
-            Jdebug["J_Gammab_Xb"] = J_Gammab_Xb;
-
-
+            // Jdebug["J_Gammab_Xb"] = J_Gammab_Xb;
 
 
-            // L3-L0, dGammat/dXa
 
-            MatTT J_Xitd0_Ra = J_Xitd0_Xiad0*J_Xiad0_Ra + J_Xitd0_Xiad1*J_Xiad1_Ra + J_Xitd0_Xiad2*J_Xiad2_Ra + J_Xitd0_Xibd0*J_Xibd0_Ra + J_Xitd0_Xibd1*J_Xibd1_Ra + J_Xitd0_Xibd2*J_Xibd2_Ra;
-            MatTT J_Xitd0_Oa = J_Xitd0_Xiad0*J_Xiad0_Oa + J_Xitd0_Xiad1*J_Xiad1_Oa + J_Xitd0_Xiad2*J_Xiad2_Oa + J_Xitd0_Xibd0*J_Xibd0_Oa + J_Xitd0_Xibd1*J_Xibd1_Oa + J_Xitd0_Xibd2*J_Xibd2_Oa;
-            MatTT J_Xitd0_Sa = J_Xitd0_Xiad0*J_Xiad0_Sa + J_Xitd0_Xiad1*J_Xiad1_Sa + J_Xitd0_Xiad2*J_Xiad2_Sa + J_Xitd0_Xibd0*J_Xibd0_Sa + J_Xitd0_Xibd1*J_Xibd1_Sa + J_Xitd0_Xibd2*J_Xibd2_Sa;
-            MatTT J_Xitd0_Pa = J_Xitd0_Xiad0*J_Xiad0_Pa + J_Xitd0_Xiad1*J_Xiad1_Pa + J_Xitd0_Xiad2*J_Xiad2_Pa + J_Xitd0_Xibd0*J_Xibd0_Pa + J_Xitd0_Xibd1*J_Xibd1_Pa + J_Xitd0_Xibd2*J_Xibd2_Pa;
-            MatTT J_Xitd0_Va = J_Xitd0_Xiad0*J_Xiad0_Va + J_Xitd0_Xiad1*J_Xiad1_Va + J_Xitd0_Xiad2*J_Xiad2_Va + J_Xitd0_Xibd0*J_Xibd0_Va + J_Xitd0_Xibd1*J_Xibd1_Va + J_Xitd0_Xibd2*J_Xibd2_Va;
-            MatTT J_Xitd0_Aa = J_Xitd0_Xiad0*J_Xiad0_Aa + J_Xitd0_Xiad1*J_Xiad1_Aa + J_Xitd0_Xiad2*J_Xiad2_Aa + J_Xitd0_Xibd0*J_Xibd0_Aa + J_Xitd0_Xibd1*J_Xibd1_Aa + J_Xitd0_Xibd2*J_Xibd2_Aa;
+
+            // // L3-L0, dGammat/dXa
+
+            // MatTT J_Xitd0_Ra = J_Xitd0_Xiad0*J_Xiad0_Ra + J_Xitd0_Xiad1*J_Xiad1_Ra + J_Xitd0_Xiad2*J_Xiad2_Ra + J_Xitd0_Xibd0*J_Xibd0_Ra + J_Xitd0_Xibd1*J_Xibd1_Ra + J_Xitd0_Xibd2*J_Xibd2_Ra;
+            // MatTT J_Xitd0_Oa = J_Xitd0_Xiad0*J_Xiad0_Oa + J_Xitd0_Xiad1*J_Xiad1_Oa + J_Xitd0_Xiad2*J_Xiad2_Oa + J_Xitd0_Xibd0*J_Xibd0_Oa + J_Xitd0_Xibd1*J_Xibd1_Oa + J_Xitd0_Xibd2*J_Xibd2_Oa;
+            // MatTT J_Xitd0_Sa = J_Xitd0_Xiad0*J_Xiad0_Sa + J_Xitd0_Xiad1*J_Xiad1_Sa + J_Xitd0_Xiad2*J_Xiad2_Sa + J_Xitd0_Xibd0*J_Xibd0_Sa + J_Xitd0_Xibd1*J_Xibd1_Sa + J_Xitd0_Xibd2*J_Xibd2_Sa;
+            // MatTT J_Xitd0_Pa = J_Xitd0_Xiad0*J_Xiad0_Pa + J_Xitd0_Xiad1*J_Xiad1_Pa + J_Xitd0_Xiad2*J_Xiad2_Pa + J_Xitd0_Xibd0*J_Xibd0_Pa + J_Xitd0_Xibd1*J_Xibd1_Pa + J_Xitd0_Xibd2*J_Xibd2_Pa;
+            // MatTT J_Xitd0_Va = J_Xitd0_Xiad0*J_Xiad0_Va + J_Xitd0_Xiad1*J_Xiad1_Va + J_Xitd0_Xiad2*J_Xiad2_Va + J_Xitd0_Xibd0*J_Xibd0_Va + J_Xitd0_Xibd1*J_Xibd1_Va + J_Xitd0_Xibd2*J_Xibd2_Va;
+            // MatTT J_Xitd0_Aa = J_Xitd0_Xiad0*J_Xiad0_Aa + J_Xitd0_Xiad1*J_Xiad1_Aa + J_Xitd0_Xiad2*J_Xiad2_Aa + J_Xitd0_Xibd0*J_Xibd0_Aa + J_Xitd0_Xibd1*J_Xibd1_Aa + J_Xitd0_Xibd2*J_Xibd2_Aa;
             
-            MatTT J_Xitd1_Ra = J_Xitd1_Xiad0*J_Xiad0_Ra + J_Xitd1_Xiad1*J_Xiad1_Ra + J_Xitd1_Xiad2*J_Xiad2_Ra + J_Xitd1_Xibd0*J_Xibd0_Ra + J_Xitd1_Xibd1*J_Xibd1_Ra + J_Xitd1_Xibd2*J_Xibd2_Ra;
-            MatTT J_Xitd1_Oa = J_Xitd1_Xiad0*J_Xiad0_Oa + J_Xitd1_Xiad1*J_Xiad1_Oa + J_Xitd1_Xiad2*J_Xiad2_Oa + J_Xitd1_Xibd0*J_Xibd0_Oa + J_Xitd1_Xibd1*J_Xibd1_Oa + J_Xitd1_Xibd2*J_Xibd2_Oa;
-            MatTT J_Xitd1_Sa = J_Xitd1_Xiad0*J_Xiad0_Sa + J_Xitd1_Xiad1*J_Xiad1_Sa + J_Xitd1_Xiad2*J_Xiad2_Sa + J_Xitd1_Xibd0*J_Xibd0_Sa + J_Xitd1_Xibd1*J_Xibd1_Sa + J_Xitd1_Xibd2*J_Xibd2_Sa;
-            MatTT J_Xitd1_Pa = J_Xitd1_Xiad0*J_Xiad0_Pa + J_Xitd1_Xiad1*J_Xiad1_Pa + J_Xitd1_Xiad2*J_Xiad2_Pa + J_Xitd1_Xibd0*J_Xibd0_Pa + J_Xitd1_Xibd1*J_Xibd1_Pa + J_Xitd1_Xibd2*J_Xibd2_Pa;
-            MatTT J_Xitd1_Va = J_Xitd1_Xiad0*J_Xiad0_Va + J_Xitd1_Xiad1*J_Xiad1_Va + J_Xitd1_Xiad2*J_Xiad2_Va + J_Xitd1_Xibd0*J_Xibd0_Va + J_Xitd1_Xibd1*J_Xibd1_Va + J_Xitd1_Xibd2*J_Xibd2_Va;
-            MatTT J_Xitd1_Aa = J_Xitd1_Xiad0*J_Xiad0_Aa + J_Xitd1_Xiad1*J_Xiad1_Aa + J_Xitd1_Xiad2*J_Xiad2_Aa + J_Xitd1_Xibd0*J_Xibd0_Aa + J_Xitd1_Xibd1*J_Xibd1_Aa + J_Xitd1_Xibd2*J_Xibd2_Aa;
+            // MatTT J_Xitd1_Ra = J_Xitd1_Xiad0*J_Xiad0_Ra + J_Xitd1_Xiad1*J_Xiad1_Ra + J_Xitd1_Xiad2*J_Xiad2_Ra + J_Xitd1_Xibd0*J_Xibd0_Ra + J_Xitd1_Xibd1*J_Xibd1_Ra + J_Xitd1_Xibd2*J_Xibd2_Ra;
+            // MatTT J_Xitd1_Oa = J_Xitd1_Xiad0*J_Xiad0_Oa + J_Xitd1_Xiad1*J_Xiad1_Oa + J_Xitd1_Xiad2*J_Xiad2_Oa + J_Xitd1_Xibd0*J_Xibd0_Oa + J_Xitd1_Xibd1*J_Xibd1_Oa + J_Xitd1_Xibd2*J_Xibd2_Oa;
+            // MatTT J_Xitd1_Sa = J_Xitd1_Xiad0*J_Xiad0_Sa + J_Xitd1_Xiad1*J_Xiad1_Sa + J_Xitd1_Xiad2*J_Xiad2_Sa + J_Xitd1_Xibd0*J_Xibd0_Sa + J_Xitd1_Xibd1*J_Xibd1_Sa + J_Xitd1_Xibd2*J_Xibd2_Sa;
+            // MatTT J_Xitd1_Pa = J_Xitd1_Xiad0*J_Xiad0_Pa + J_Xitd1_Xiad1*J_Xiad1_Pa + J_Xitd1_Xiad2*J_Xiad2_Pa + J_Xitd1_Xibd0*J_Xibd0_Pa + J_Xitd1_Xibd1*J_Xibd1_Pa + J_Xitd1_Xibd2*J_Xibd2_Pa;
+            // MatTT J_Xitd1_Va = J_Xitd1_Xiad0*J_Xiad0_Va + J_Xitd1_Xiad1*J_Xiad1_Va + J_Xitd1_Xiad2*J_Xiad2_Va + J_Xitd1_Xibd0*J_Xibd0_Va + J_Xitd1_Xibd1*J_Xibd1_Va + J_Xitd1_Xibd2*J_Xibd2_Va;
+            // MatTT J_Xitd1_Aa = J_Xitd1_Xiad0*J_Xiad0_Aa + J_Xitd1_Xiad1*J_Xiad1_Aa + J_Xitd1_Xiad2*J_Xiad2_Aa + J_Xitd1_Xibd0*J_Xibd0_Aa + J_Xitd1_Xibd1*J_Xibd1_Aa + J_Xitd1_Xibd2*J_Xibd2_Aa;
 
-            MatTT J_Xitd2_Ra = J_Xitd2_Xiad0*J_Xiad0_Ra + J_Xitd2_Xiad1*J_Xiad1_Ra + J_Xitd2_Xiad2*J_Xiad2_Ra + J_Xitd2_Xibd0*J_Xibd0_Ra + J_Xitd2_Xibd1*J_Xibd1_Ra + J_Xitd2_Xibd2*J_Xibd2_Ra;
-            MatTT J_Xitd2_Oa = J_Xitd2_Xiad0*J_Xiad0_Oa + J_Xitd2_Xiad1*J_Xiad1_Oa + J_Xitd2_Xiad2*J_Xiad2_Oa + J_Xitd2_Xibd0*J_Xibd0_Oa + J_Xitd2_Xibd1*J_Xibd1_Oa + J_Xitd2_Xibd2*J_Xibd2_Oa;
-            MatTT J_Xitd2_Sa = J_Xitd2_Xiad0*J_Xiad0_Sa + J_Xitd2_Xiad1*J_Xiad1_Sa + J_Xitd2_Xiad2*J_Xiad2_Sa + J_Xitd2_Xibd0*J_Xibd0_Sa + J_Xitd2_Xibd1*J_Xibd1_Sa + J_Xitd2_Xibd2*J_Xibd2_Sa;
-            MatTT J_Xitd2_Pa = J_Xitd2_Xiad0*J_Xiad0_Pa + J_Xitd2_Xiad1*J_Xiad1_Pa + J_Xitd2_Xiad2*J_Xiad2_Pa + J_Xitd2_Xibd0*J_Xibd0_Pa + J_Xitd2_Xibd1*J_Xibd1_Pa + J_Xitd2_Xibd2*J_Xibd2_Pa;
-            MatTT J_Xitd2_Va = J_Xitd2_Xiad0*J_Xiad0_Va + J_Xitd2_Xiad1*J_Xiad1_Va + J_Xitd2_Xiad2*J_Xiad2_Va + J_Xitd2_Xibd0*J_Xibd0_Va + J_Xitd2_Xibd1*J_Xibd1_Va + J_Xitd2_Xibd2*J_Xibd2_Va;
-            MatTT J_Xitd2_Aa = J_Xitd2_Xiad0*J_Xiad0_Aa + J_Xitd2_Xiad1*J_Xiad1_Aa + J_Xitd2_Xiad2*J_Xiad2_Aa + J_Xitd2_Xibd0*J_Xibd0_Aa + J_Xitd2_Xibd1*J_Xibd1_Aa + J_Xitd2_Xibd2*J_Xibd2_Aa;
+            // MatTT J_Xitd2_Ra = J_Xitd2_Xiad0*J_Xiad0_Ra + J_Xitd2_Xiad1*J_Xiad1_Ra + J_Xitd2_Xiad2*J_Xiad2_Ra + J_Xitd2_Xibd0*J_Xibd0_Ra + J_Xitd2_Xibd1*J_Xibd1_Ra + J_Xitd2_Xibd2*J_Xibd2_Ra;
+            // MatTT J_Xitd2_Oa = J_Xitd2_Xiad0*J_Xiad0_Oa + J_Xitd2_Xiad1*J_Xiad1_Oa + J_Xitd2_Xiad2*J_Xiad2_Oa + J_Xitd2_Xibd0*J_Xibd0_Oa + J_Xitd2_Xibd1*J_Xibd1_Oa + J_Xitd2_Xibd2*J_Xibd2_Oa;
+            // MatTT J_Xitd2_Sa = J_Xitd2_Xiad0*J_Xiad0_Sa + J_Xitd2_Xiad1*J_Xiad1_Sa + J_Xitd2_Xiad2*J_Xiad2_Sa + J_Xitd2_Xibd0*J_Xibd0_Sa + J_Xitd2_Xibd1*J_Xibd1_Sa + J_Xitd2_Xibd2*J_Xibd2_Sa;
+            // MatTT J_Xitd2_Pa = J_Xitd2_Xiad0*J_Xiad0_Pa + J_Xitd2_Xiad1*J_Xiad1_Pa + J_Xitd2_Xiad2*J_Xiad2_Pa + J_Xitd2_Xibd0*J_Xibd0_Pa + J_Xitd2_Xibd1*J_Xibd1_Pa + J_Xitd2_Xibd2*J_Xibd2_Pa;
+            // MatTT J_Xitd2_Va = J_Xitd2_Xiad0*J_Xiad0_Va + J_Xitd2_Xiad1*J_Xiad1_Va + J_Xitd2_Xiad2*J_Xiad2_Va + J_Xitd2_Xibd0*J_Xibd0_Va + J_Xitd2_Xibd1*J_Xibd1_Va + J_Xitd2_Xibd2*J_Xibd2_Va;
+            // MatTT J_Xitd2_Aa = J_Xitd2_Xiad0*J_Xiad0_Aa + J_Xitd2_Xiad1*J_Xiad1_Aa + J_Xitd2_Xiad2*J_Xiad2_Aa + J_Xitd2_Xibd0*J_Xibd0_Aa + J_Xitd2_Xibd1*J_Xibd1_Aa + J_Xitd2_Xibd2*J_Xibd2_Aa;
 
-            Matrix<T, 18, 18> J_Gammat_Xa; J_Gammat_Xa.setZero();
+            // Matrix<T, 18, 18> J_Gammat_Xa; J_Gammat_Xa.setZero();
             
-            J_Gammat_Xa.block(0, 0,  6, 3) = J_Xitd0_Ra;  J_Gammat_Xa.block(6, 0,  6, 3) = J_Xitd1_Ra;  J_Gammat_Xa.block(12, 0,  6, 3) = J_Xitd2_Ra;
-            J_Gammat_Xa.block(0, 3,  6, 3) = J_Xitd0_Oa;  J_Gammat_Xa.block(6, 3,  6, 3) = J_Xitd1_Oa;  J_Gammat_Xa.block(12, 3,  6, 3) = J_Xitd2_Oa;
-            J_Gammat_Xa.block(0, 6,  6, 3) = J_Xitd0_Sa;  J_Gammat_Xa.block(6, 6,  6, 3) = J_Xitd1_Sa;  J_Gammat_Xa.block(12, 6,  6, 3) = J_Xitd2_Sa;
-            J_Gammat_Xa.block(0, 9,  6, 3) = J_Xitd0_Pa;  J_Gammat_Xa.block(6, 9,  6, 3) = J_Xitd1_Pa;  J_Gammat_Xa.block(12, 9,  6, 3) = J_Xitd2_Pa;
-            J_Gammat_Xa.block(0, 12, 6, 3) = J_Xitd0_Va;  J_Gammat_Xa.block(6, 12, 6, 3) = J_Xitd1_Va;  J_Gammat_Xa.block(12, 12, 6, 3) = J_Xitd2_Va;
-            J_Gammat_Xa.block(0, 15, 6, 3) = J_Xitd0_Aa;  J_Gammat_Xa.block(6, 15, 6, 3) = J_Xitd1_Aa;  J_Gammat_Xa.block(12, 15, 6, 3) = J_Xitd2_Aa;
+            // J_Gammat_Xa.block(0, 0,  6, 3) = J_Xitd0_Ra;  J_Gammat_Xa.block(6, 0,  6, 3) = J_Xitd1_Ra;  J_Gammat_Xa.block(12, 0,  6, 3) = J_Xitd2_Ra;
+            // J_Gammat_Xa.block(0, 3,  6, 3) = J_Xitd0_Oa;  J_Gammat_Xa.block(6, 3,  6, 3) = J_Xitd1_Oa;  J_Gammat_Xa.block(12, 3,  6, 3) = J_Xitd2_Oa;
+            // J_Gammat_Xa.block(0, 6,  6, 3) = J_Xitd0_Sa;  J_Gammat_Xa.block(6, 6,  6, 3) = J_Xitd1_Sa;  J_Gammat_Xa.block(12, 6,  6, 3) = J_Xitd2_Sa;
+            // J_Gammat_Xa.block(0, 9,  6, 3) = J_Xitd0_Pa;  J_Gammat_Xa.block(6, 9,  6, 3) = J_Xitd1_Pa;  J_Gammat_Xa.block(12, 9,  6, 3) = J_Xitd2_Pa;
+            // J_Gammat_Xa.block(0, 12, 6, 3) = J_Xitd0_Va;  J_Gammat_Xa.block(6, 12, 6, 3) = J_Xitd1_Va;  J_Gammat_Xa.block(12, 12, 6, 3) = J_Xitd2_Va;
+            // J_Gammat_Xa.block(0, 15, 6, 3) = J_Xitd0_Aa;  J_Gammat_Xa.block(6, 15, 6, 3) = J_Xitd1_Aa;  J_Gammat_Xa.block(12, 15, 6, 3) = J_Xitd2_Aa;
 
-            Jdebug["J_Gammat_Xa"] = J_Gammat_Xa;
-
-
+            // Jdebug["J_Gammat_Xa"] = J_Gammat_Xa;
 
 
-            // L3-L0, dGammat/dXb
 
-            MatTT J_Xitd0_Rb = J_Xitd0_Xiad0*J_Xiad0_Rb + J_Xitd0_Xiad1*J_Xiad1_Rb + J_Xitd0_Xiad2*J_Xiad2_Rb + J_Xitd0_Xibd0*J_Xibd0_Rb + J_Xitd0_Xibd1*J_Xibd1_Rb + J_Xitd0_Xibd2*J_Xibd2_Rb;
-            MatTT J_Xitd0_Ob = J_Xitd0_Xiad0*J_Xiad0_Ob + J_Xitd0_Xiad1*J_Xiad1_Ob + J_Xitd0_Xiad2*J_Xiad2_Ob + J_Xitd0_Xibd0*J_Xibd0_Ob + J_Xitd0_Xibd1*J_Xibd1_Ob + J_Xitd0_Xibd2*J_Xibd2_Ob;
-            MatTT J_Xitd0_Sb = J_Xitd0_Xiad0*J_Xiad0_Sb + J_Xitd0_Xiad1*J_Xiad1_Sb + J_Xitd0_Xiad2*J_Xiad2_Sb + J_Xitd0_Xibd0*J_Xibd0_Sb + J_Xitd0_Xibd1*J_Xibd1_Sb + J_Xitd0_Xibd2*J_Xibd2_Sb;
-            MatTT J_Xitd0_Pb = J_Xitd0_Xiad0*J_Xiad0_Pb + J_Xitd0_Xiad1*J_Xiad1_Pb + J_Xitd0_Xiad2*J_Xiad2_Pb + J_Xitd0_Xibd0*J_Xibd0_Pb + J_Xitd0_Xibd1*J_Xibd1_Pb + J_Xitd0_Xibd2*J_Xibd2_Pb;
-            MatTT J_Xitd0_Vb = J_Xitd0_Xiad0*J_Xiad0_Vb + J_Xitd0_Xiad1*J_Xiad1_Vb + J_Xitd0_Xiad2*J_Xiad2_Vb + J_Xitd0_Xibd0*J_Xibd0_Vb + J_Xitd0_Xibd1*J_Xibd1_Vb + J_Xitd0_Xibd2*J_Xibd2_Vb;
-            MatTT J_Xitd0_Ab = J_Xitd0_Xiad0*J_Xiad0_Ab + J_Xitd0_Xiad1*J_Xiad1_Ab + J_Xitd0_Xiad2*J_Xiad2_Ab + J_Xitd0_Xibd0*J_Xibd0_Ab + J_Xitd0_Xibd1*J_Xibd1_Ab + J_Xitd0_Xibd2*J_Xibd2_Ab;
+
+            // // L3-L0, dGammat/dXb
+
+            // MatTT J_Xitd0_Rb = J_Xitd0_Xiad0*J_Xiad0_Rb + J_Xitd0_Xiad1*J_Xiad1_Rb + J_Xitd0_Xiad2*J_Xiad2_Rb + J_Xitd0_Xibd0*J_Xibd0_Rb + J_Xitd0_Xibd1*J_Xibd1_Rb + J_Xitd0_Xibd2*J_Xibd2_Rb;
+            // MatTT J_Xitd0_Ob = J_Xitd0_Xiad0*J_Xiad0_Ob + J_Xitd0_Xiad1*J_Xiad1_Ob + J_Xitd0_Xiad2*J_Xiad2_Ob + J_Xitd0_Xibd0*J_Xibd0_Ob + J_Xitd0_Xibd1*J_Xibd1_Ob + J_Xitd0_Xibd2*J_Xibd2_Ob;
+            // MatTT J_Xitd0_Sb = J_Xitd0_Xiad0*J_Xiad0_Sb + J_Xitd0_Xiad1*J_Xiad1_Sb + J_Xitd0_Xiad2*J_Xiad2_Sb + J_Xitd0_Xibd0*J_Xibd0_Sb + J_Xitd0_Xibd1*J_Xibd1_Sb + J_Xitd0_Xibd2*J_Xibd2_Sb;
+            // MatTT J_Xitd0_Pb = J_Xitd0_Xiad0*J_Xiad0_Pb + J_Xitd0_Xiad1*J_Xiad1_Pb + J_Xitd0_Xiad2*J_Xiad2_Pb + J_Xitd0_Xibd0*J_Xibd0_Pb + J_Xitd0_Xibd1*J_Xibd1_Pb + J_Xitd0_Xibd2*J_Xibd2_Pb;
+            // MatTT J_Xitd0_Vb = J_Xitd0_Xiad0*J_Xiad0_Vb + J_Xitd0_Xiad1*J_Xiad1_Vb + J_Xitd0_Xiad2*J_Xiad2_Vb + J_Xitd0_Xibd0*J_Xibd0_Vb + J_Xitd0_Xibd1*J_Xibd1_Vb + J_Xitd0_Xibd2*J_Xibd2_Vb;
+            // MatTT J_Xitd0_Ab = J_Xitd0_Xiad0*J_Xiad0_Ab + J_Xitd0_Xiad1*J_Xiad1_Ab + J_Xitd0_Xiad2*J_Xiad2_Ab + J_Xitd0_Xibd0*J_Xibd0_Ab + J_Xitd0_Xibd1*J_Xibd1_Ab + J_Xitd0_Xibd2*J_Xibd2_Ab;
             
-            MatTT J_Xitd1_Rb = J_Xitd1_Xiad0*J_Xiad0_Rb + J_Xitd1_Xiad1*J_Xiad1_Rb + J_Xitd1_Xiad2*J_Xiad2_Rb + J_Xitd1_Xibd0*J_Xibd0_Rb + J_Xitd1_Xibd1*J_Xibd1_Rb + J_Xitd1_Xibd2*J_Xibd2_Rb;
-            MatTT J_Xitd1_Ob = J_Xitd1_Xiad0*J_Xiad0_Ob + J_Xitd1_Xiad1*J_Xiad1_Ob + J_Xitd1_Xiad2*J_Xiad2_Ob + J_Xitd1_Xibd0*J_Xibd0_Ob + J_Xitd1_Xibd1*J_Xibd1_Ob + J_Xitd1_Xibd2*J_Xibd2_Ob;
-            MatTT J_Xitd1_Sb = J_Xitd1_Xiad0*J_Xiad0_Sb + J_Xitd1_Xiad1*J_Xiad1_Sb + J_Xitd1_Xiad2*J_Xiad2_Sb + J_Xitd1_Xibd0*J_Xibd0_Sb + J_Xitd1_Xibd1*J_Xibd1_Sb + J_Xitd1_Xibd2*J_Xibd2_Sb;
-            MatTT J_Xitd1_Pb = J_Xitd1_Xiad0*J_Xiad0_Pb + J_Xitd1_Xiad1*J_Xiad1_Pb + J_Xitd1_Xiad2*J_Xiad2_Pb + J_Xitd1_Xibd0*J_Xibd0_Pb + J_Xitd1_Xibd1*J_Xibd1_Pb + J_Xitd1_Xibd2*J_Xibd2_Pb;
-            MatTT J_Xitd1_Vb = J_Xitd1_Xiad0*J_Xiad0_Vb + J_Xitd1_Xiad1*J_Xiad1_Vb + J_Xitd1_Xiad2*J_Xiad2_Vb + J_Xitd1_Xibd0*J_Xibd0_Vb + J_Xitd1_Xibd1*J_Xibd1_Vb + J_Xitd1_Xibd2*J_Xibd2_Vb;
-            MatTT J_Xitd1_Ab = J_Xitd1_Xiad0*J_Xiad0_Ab + J_Xitd1_Xiad1*J_Xiad1_Ab + J_Xitd1_Xiad2*J_Xiad2_Ab + J_Xitd1_Xibd0*J_Xibd0_Ab + J_Xitd1_Xibd1*J_Xibd1_Ab + J_Xitd1_Xibd2*J_Xibd2_Ab;
+            // MatTT J_Xitd1_Rb = J_Xitd1_Xiad0*J_Xiad0_Rb + J_Xitd1_Xiad1*J_Xiad1_Rb + J_Xitd1_Xiad2*J_Xiad2_Rb + J_Xitd1_Xibd0*J_Xibd0_Rb + J_Xitd1_Xibd1*J_Xibd1_Rb + J_Xitd1_Xibd2*J_Xibd2_Rb;
+            // MatTT J_Xitd1_Ob = J_Xitd1_Xiad0*J_Xiad0_Ob + J_Xitd1_Xiad1*J_Xiad1_Ob + J_Xitd1_Xiad2*J_Xiad2_Ob + J_Xitd1_Xibd0*J_Xibd0_Ob + J_Xitd1_Xibd1*J_Xibd1_Ob + J_Xitd1_Xibd2*J_Xibd2_Ob;
+            // MatTT J_Xitd1_Sb = J_Xitd1_Xiad0*J_Xiad0_Sb + J_Xitd1_Xiad1*J_Xiad1_Sb + J_Xitd1_Xiad2*J_Xiad2_Sb + J_Xitd1_Xibd0*J_Xibd0_Sb + J_Xitd1_Xibd1*J_Xibd1_Sb + J_Xitd1_Xibd2*J_Xibd2_Sb;
+            // MatTT J_Xitd1_Pb = J_Xitd1_Xiad0*J_Xiad0_Pb + J_Xitd1_Xiad1*J_Xiad1_Pb + J_Xitd1_Xiad2*J_Xiad2_Pb + J_Xitd1_Xibd0*J_Xibd0_Pb + J_Xitd1_Xibd1*J_Xibd1_Pb + J_Xitd1_Xibd2*J_Xibd2_Pb;
+            // MatTT J_Xitd1_Vb = J_Xitd1_Xiad0*J_Xiad0_Vb + J_Xitd1_Xiad1*J_Xiad1_Vb + J_Xitd1_Xiad2*J_Xiad2_Vb + J_Xitd1_Xibd0*J_Xibd0_Vb + J_Xitd1_Xibd1*J_Xibd1_Vb + J_Xitd1_Xibd2*J_Xibd2_Vb;
+            // MatTT J_Xitd1_Ab = J_Xitd1_Xiad0*J_Xiad0_Ab + J_Xitd1_Xiad1*J_Xiad1_Ab + J_Xitd1_Xiad2*J_Xiad2_Ab + J_Xitd1_Xibd0*J_Xibd0_Ab + J_Xitd1_Xibd1*J_Xibd1_Ab + J_Xitd1_Xibd2*J_Xibd2_Ab;
 
-            MatTT J_Xitd2_Rb = J_Xitd2_Xiad0*J_Xiad0_Rb + J_Xitd2_Xiad1*J_Xiad1_Rb + J_Xitd2_Xiad2*J_Xiad2_Rb + J_Xitd2_Xibd0*J_Xibd0_Rb + J_Xitd2_Xibd1*J_Xibd1_Rb + J_Xitd2_Xibd2*J_Xibd2_Rb;
-            MatTT J_Xitd2_Ob = J_Xitd2_Xiad0*J_Xiad0_Ob + J_Xitd2_Xiad1*J_Xiad1_Ob + J_Xitd2_Xiad2*J_Xiad2_Ob + J_Xitd2_Xibd0*J_Xibd0_Ob + J_Xitd2_Xibd1*J_Xibd1_Ob + J_Xitd2_Xibd2*J_Xibd2_Ob;
-            MatTT J_Xitd2_Sb = J_Xitd2_Xiad0*J_Xiad0_Sb + J_Xitd2_Xiad1*J_Xiad1_Sb + J_Xitd2_Xiad2*J_Xiad2_Sb + J_Xitd2_Xibd0*J_Xibd0_Sb + J_Xitd2_Xibd1*J_Xibd1_Sb + J_Xitd2_Xibd2*J_Xibd2_Sb;
-            MatTT J_Xitd2_Pb = J_Xitd2_Xiad0*J_Xiad0_Pb + J_Xitd2_Xiad1*J_Xiad1_Pb + J_Xitd2_Xiad2*J_Xiad2_Pb + J_Xitd2_Xibd0*J_Xibd0_Pb + J_Xitd2_Xibd1*J_Xibd1_Pb + J_Xitd2_Xibd2*J_Xibd2_Pb;
-            MatTT J_Xitd2_Vb = J_Xitd2_Xiad0*J_Xiad0_Vb + J_Xitd2_Xiad1*J_Xiad1_Vb + J_Xitd2_Xiad2*J_Xiad2_Vb + J_Xitd2_Xibd0*J_Xibd0_Vb + J_Xitd2_Xibd1*J_Xibd1_Vb + J_Xitd2_Xibd2*J_Xibd2_Vb;
-            MatTT J_Xitd2_Ab = J_Xitd2_Xiad0*J_Xiad0_Ab + J_Xitd2_Xiad1*J_Xiad1_Ab + J_Xitd2_Xiad2*J_Xiad2_Ab + J_Xitd2_Xibd0*J_Xibd0_Ab + J_Xitd2_Xibd1*J_Xibd1_Ab + J_Xitd2_Xibd2*J_Xibd2_Ab;
+            // MatTT J_Xitd2_Rb = J_Xitd2_Xiad0*J_Xiad0_Rb + J_Xitd2_Xiad1*J_Xiad1_Rb + J_Xitd2_Xiad2*J_Xiad2_Rb + J_Xitd2_Xibd0*J_Xibd0_Rb + J_Xitd2_Xibd1*J_Xibd1_Rb + J_Xitd2_Xibd2*J_Xibd2_Rb;
+            // MatTT J_Xitd2_Ob = J_Xitd2_Xiad0*J_Xiad0_Ob + J_Xitd2_Xiad1*J_Xiad1_Ob + J_Xitd2_Xiad2*J_Xiad2_Ob + J_Xitd2_Xibd0*J_Xibd0_Ob + J_Xitd2_Xibd1*J_Xibd1_Ob + J_Xitd2_Xibd2*J_Xibd2_Ob;
+            // MatTT J_Xitd2_Sb = J_Xitd2_Xiad0*J_Xiad0_Sb + J_Xitd2_Xiad1*J_Xiad1_Sb + J_Xitd2_Xiad2*J_Xiad2_Sb + J_Xitd2_Xibd0*J_Xibd0_Sb + J_Xitd2_Xibd1*J_Xibd1_Sb + J_Xitd2_Xibd2*J_Xibd2_Sb;
+            // MatTT J_Xitd2_Pb = J_Xitd2_Xiad0*J_Xiad0_Pb + J_Xitd2_Xiad1*J_Xiad1_Pb + J_Xitd2_Xiad2*J_Xiad2_Pb + J_Xitd2_Xibd0*J_Xibd0_Pb + J_Xitd2_Xibd1*J_Xibd1_Pb + J_Xitd2_Xibd2*J_Xibd2_Pb;
+            // MatTT J_Xitd2_Vb = J_Xitd2_Xiad0*J_Xiad0_Vb + J_Xitd2_Xiad1*J_Xiad1_Vb + J_Xitd2_Xiad2*J_Xiad2_Vb + J_Xitd2_Xibd0*J_Xibd0_Vb + J_Xitd2_Xibd1*J_Xibd1_Vb + J_Xitd2_Xibd2*J_Xibd2_Vb;
+            // MatTT J_Xitd2_Ab = J_Xitd2_Xiad0*J_Xiad0_Ab + J_Xitd2_Xiad1*J_Xiad1_Ab + J_Xitd2_Xiad2*J_Xiad2_Ab + J_Xitd2_Xibd0*J_Xibd0_Ab + J_Xitd2_Xibd1*J_Xibd1_Ab + J_Xitd2_Xibd2*J_Xibd2_Ab;
 
-            Matrix<T, 18, 18> J_Gammat_Xb; J_Gammat_Xb.setZero();
+            // Matrix<T, 18, 18> J_Gammat_Xb; J_Gammat_Xb.setZero();
             
-            J_Gammat_Xb.block(0, 0,  6, 3) = J_Xitd0_Rb;  J_Gammat_Xb.block(6, 0,  6, 3) = J_Xitd1_Rb;  J_Gammat_Xb.block(12, 0,  6, 3) = J_Xitd2_Rb;
-            J_Gammat_Xb.block(0, 3,  6, 3) = J_Xitd0_Ob;  J_Gammat_Xb.block(6, 3,  6, 3) = J_Xitd1_Ob;  J_Gammat_Xb.block(12, 3,  6, 3) = J_Xitd2_Ob;
-            J_Gammat_Xb.block(0, 6,  6, 3) = J_Xitd0_Sb;  J_Gammat_Xb.block(6, 6,  6, 3) = J_Xitd1_Sb;  J_Gammat_Xb.block(12, 6,  6, 3) = J_Xitd2_Sb;
-            J_Gammat_Xb.block(0, 9,  6, 3) = J_Xitd0_Pb;  J_Gammat_Xb.block(6, 9,  6, 3) = J_Xitd1_Pb;  J_Gammat_Xb.block(12, 9,  6, 3) = J_Xitd2_Pb;
-            J_Gammat_Xb.block(0, 12, 6, 3) = J_Xitd0_Vb;  J_Gammat_Xb.block(6, 12, 6, 3) = J_Xitd1_Vb;  J_Gammat_Xb.block(12, 12, 6, 3) = J_Xitd2_Vb;
-            J_Gammat_Xb.block(0, 15, 6, 3) = J_Xitd0_Ab;  J_Gammat_Xb.block(6, 15, 6, 3) = J_Xitd1_Ab;  J_Gammat_Xb.block(12, 15, 6, 3) = J_Xitd2_Ab;
+            // J_Gammat_Xb.block(0, 0,  6, 3) = J_Xitd0_Rb;  J_Gammat_Xb.block(6, 0,  6, 3) = J_Xitd1_Rb;  J_Gammat_Xb.block(12, 0,  6, 3) = J_Xitd2_Rb;
+            // J_Gammat_Xb.block(0, 3,  6, 3) = J_Xitd0_Ob;  J_Gammat_Xb.block(6, 3,  6, 3) = J_Xitd1_Ob;  J_Gammat_Xb.block(12, 3,  6, 3) = J_Xitd2_Ob;
+            // J_Gammat_Xb.block(0, 6,  6, 3) = J_Xitd0_Sb;  J_Gammat_Xb.block(6, 6,  6, 3) = J_Xitd1_Sb;  J_Gammat_Xb.block(12, 6,  6, 3) = J_Xitd2_Sb;
+            // J_Gammat_Xb.block(0, 9,  6, 3) = J_Xitd0_Pb;  J_Gammat_Xb.block(6, 9,  6, 3) = J_Xitd1_Pb;  J_Gammat_Xb.block(12, 9,  6, 3) = J_Xitd2_Pb;
+            // J_Gammat_Xb.block(0, 12, 6, 3) = J_Xitd0_Vb;  J_Gammat_Xb.block(6, 12, 6, 3) = J_Xitd1_Vb;  J_Gammat_Xb.block(12, 12, 6, 3) = J_Xitd2_Vb;
+            // J_Gammat_Xb.block(0, 15, 6, 3) = J_Xitd0_Ab;  J_Gammat_Xb.block(6, 15, 6, 3) = J_Xitd1_Ab;  J_Gammat_Xb.block(12, 15, 6, 3) = J_Xitd2_Ab;
 
-            Jdebug["J_Gammat_Xb"] = J_Gammat_Xb;
-
-
+            // Jdebug["J_Gammat_Xb"] = J_Gammat_Xb;
 
 
-            // L4-L0, dTt/dXa
 
-            MatTT J_Tft_Ra = SE3AdjInv(Exp_Xit)*J_Tfa_Ra + J_Tft_Xitd0*J_Xitd0_Ra;
-            MatTT J_Tft_Oa = J_Tft_Xitd0*J_Xitd0_Oa;
-            MatTT J_Tft_Sa = J_Tft_Xitd0*J_Xitd0_Sa;
-            MatTT J_Tft_Pa = SE3AdjInv(Exp_Xit)*J_Tfa_Pa + J_Tft_Xitd0*J_Xitd0_Pa;
-            MatTT J_Tft_Va = J_Tft_Xitd0*J_Xitd0_Va;
-            MatTT J_Tft_Aa = J_Tft_Xitd0*J_Xitd0_Aa;
 
-            Matrix<T, 6, 18> J_Tft_Xa; J_Tft_Xa.setZero();
+            // // L4-L0, dTt/dXa
+
+            // MatTT J_Tft_Ra = SE3AdjInv(Exp_Xit)*J_Tfa_Ra + J_Tft_Xitd0*J_Xitd0_Ra;
+            // MatTT J_Tft_Oa = J_Tft_Xitd0*J_Xitd0_Oa;
+            // MatTT J_Tft_Sa = J_Tft_Xitd0*J_Xitd0_Sa;
+            // MatTT J_Tft_Pa = SE3AdjInv(Exp_Xit)*J_Tfa_Pa + J_Tft_Xitd0*J_Xitd0_Pa;
+            // MatTT J_Tft_Va = J_Tft_Xitd0*J_Xitd0_Va;
+            // MatTT J_Tft_Aa = J_Tft_Xitd0*J_Xitd0_Aa;
+
+            // Matrix<T, 6, 18> J_Tft_Xa; J_Tft_Xa.setZero();
             
-            J_Tft_Xa.block(0, 0,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Ra;
-            J_Tft_Xa.block(0, 3,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Oa;
-            J_Tft_Xa.block(0, 6,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Sa;
-            J_Tft_Xa.block(0, 9,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Pa;
-            J_Tft_Xa.block(0, 12, 3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Va;
-            J_Tft_Xa.block(0, 15, 3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Aa;
+            // J_Tft_Xa.block(0, 0,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Ra;
+            // J_Tft_Xa.block(0, 3,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Oa;
+            // J_Tft_Xa.block(0, 6,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Sa;
+            // J_Tft_Xa.block(0, 9,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Pa;
+            // J_Tft_Xa.block(0, 12, 3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Va;
+            // J_Tft_Xa.block(0, 15, 3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Aa;
 
-            J_Tft_Xa.block(3, 0,  3, 3) = J_Pt_Tft*J_Tft_Ra;
-            J_Tft_Xa.block(3, 3,  3, 3) = J_Pt_Tft*J_Tft_Oa;
-            J_Tft_Xa.block(3, 6,  3, 3) = J_Pt_Tft*J_Tft_Sa;
-            J_Tft_Xa.block(3, 9,  3, 3) = J_Pt_Tft*J_Tft_Pa;
-            J_Tft_Xa.block(3, 12, 3, 3) = J_Pt_Tft*J_Tft_Va;
-            J_Tft_Xa.block(3, 15, 3, 3) = J_Pt_Tft*J_Tft_Aa;
+            // J_Tft_Xa.block(3, 0,  3, 3) = J_Pt_Tft*J_Tft_Ra;
+            // J_Tft_Xa.block(3, 3,  3, 3) = J_Pt_Tft*J_Tft_Oa;
+            // J_Tft_Xa.block(3, 6,  3, 3) = J_Pt_Tft*J_Tft_Sa;
+            // J_Tft_Xa.block(3, 9,  3, 3) = J_Pt_Tft*J_Tft_Pa;
+            // J_Tft_Xa.block(3, 12, 3, 3) = J_Pt_Tft*J_Tft_Va;
+            // J_Tft_Xa.block(3, 15, 3, 3) = J_Pt_Tft*J_Tft_Aa;
 
-            Jdebug["J_Tft_Xa"] = J_Tft_Xa;
+            // Jdebug["J_Tft_Xa"] = J_Tft_Xa;
             
 
 
 
-            // L4-L0, dTt/dXb
+            // // L4-L0, dTt/dXb
 
-            MatTT J_Tft_Rb = J_Tft_Xitd0*J_Xitd0_Rb;
-            MatTT J_Tft_Ob = J_Tft_Xitd0*J_Xitd0_Ob;
-            MatTT J_Tft_Sb = J_Tft_Xitd0*J_Xitd0_Sb;
-            MatTT J_Tft_Pb = J_Tft_Xitd0*J_Xitd0_Pb;
-            MatTT J_Tft_Vb = J_Tft_Xitd0*J_Xitd0_Vb;
-            MatTT J_Tft_Ab = J_Tft_Xitd0*J_Xitd0_Ab;
+            // MatTT J_Tft_Rb = J_Tft_Xitd0*J_Xitd0_Rb;
+            // MatTT J_Tft_Ob = J_Tft_Xitd0*J_Xitd0_Ob;
+            // MatTT J_Tft_Sb = J_Tft_Xitd0*J_Xitd0_Sb;
+            // MatTT J_Tft_Pb = J_Tft_Xitd0*J_Xitd0_Pb;
+            // MatTT J_Tft_Vb = J_Tft_Xitd0*J_Xitd0_Vb;
+            // MatTT J_Tft_Ab = J_Tft_Xitd0*J_Xitd0_Ab;
 
-            Matrix<T, 6, 18> J_Tft_Xb; J_Tft_Xb.setZero();
+            // Matrix<T, 6, 18> J_Tft_Xb; J_Tft_Xb.setZero();
             
-            J_Tft_Xb.block(0, 0,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Rb;
-            J_Tft_Xb.block(0, 3,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Ob;
-            J_Tft_Xb.block(0, 6,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Sb;
-            J_Tft_Xb.block(0, 9,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Pb;
-            J_Tft_Xb.block(0, 12, 3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Vb;
-            J_Tft_Xb.block(0, 15, 3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Ab;
+            // J_Tft_Xb.block(0, 0,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Rb;
+            // J_Tft_Xb.block(0, 3,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Ob;
+            // J_Tft_Xb.block(0, 6,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Sb;
+            // J_Tft_Xb.block(0, 9,  3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Pb;
+            // J_Tft_Xb.block(0, 12, 3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Vb;
+            // J_Tft_Xb.block(0, 15, 3, 3) = JrInv(Rt.log())*J_Rt_Tft*J_Tft_Ab;
 
-            J_Tft_Xb.block(3, 0,  3, 3) = J_Pt_Tft*J_Tft_Rb;
-            J_Tft_Xb.block(3, 3,  3, 3) = J_Pt_Tft*J_Tft_Ob;
-            J_Tft_Xb.block(3, 6,  3, 3) = J_Pt_Tft*J_Tft_Sb;
-            J_Tft_Xb.block(3, 9,  3, 3) = J_Pt_Tft*J_Tft_Pb;
-            J_Tft_Xb.block(3, 12, 3, 3) = J_Pt_Tft*J_Tft_Vb;
-            J_Tft_Xb.block(3, 15, 3, 3) = J_Pt_Tft*J_Tft_Ab;
+            // J_Tft_Xb.block(3, 0,  3, 3) = J_Pt_Tft*J_Tft_Rb;
+            // J_Tft_Xb.block(3, 3,  3, 3) = J_Pt_Tft*J_Tft_Ob;
+            // J_Tft_Xb.block(3, 6,  3, 3) = J_Pt_Tft*J_Tft_Sb;
+            // J_Tft_Xb.block(3, 9,  3, 3) = J_Pt_Tft*J_Tft_Pb;
+            // J_Tft_Xb.block(3, 12, 3, 3) = J_Pt_Tft*J_Tft_Vb;
+            // J_Tft_Xb.block(3, 15, 3, 3) = J_Pt_Tft*J_Tft_Ab;
 
-            Jdebug["J_Tft_Xb"] = J_Tft_Xb;
+            // Jdebug["J_Tft_Xb"] = J_Tft_Xb;
 
 
 
-            // L4-L0, dTwt/dXa
+            // // L4-L0, dTwt/dXa
 
-            MatTT J_Twt_Ra = J_Twt_Xitd0*J_Xitd0_Ra + J_Twt_Xitd1*J_Xitd1_Ra;
-            MatTT J_Twt_Oa = J_Twt_Xitd0*J_Xitd0_Oa + J_Twt_Xitd1*J_Xitd1_Oa;
-            MatTT J_Twt_Sa = J_Twt_Xitd0*J_Xitd0_Sa + J_Twt_Xitd1*J_Xitd1_Sa;
-            MatTT J_Twt_Pa = J_Twt_Xitd0*J_Xitd0_Pa + J_Twt_Xitd1*J_Xitd1_Pa;
-            MatTT J_Twt_Va = J_Twt_Xitd0*J_Xitd0_Va + J_Twt_Xitd1*J_Xitd1_Va;
-            MatTT J_Twt_Aa = J_Twt_Xitd0*J_Xitd0_Aa + J_Twt_Xitd1*J_Xitd1_Aa;
+            // MatTT J_Twt_Ra = J_Twt_Xitd0*J_Xitd0_Ra + J_Twt_Xitd1*J_Xitd1_Ra;
+            // MatTT J_Twt_Oa = J_Twt_Xitd0*J_Xitd0_Oa + J_Twt_Xitd1*J_Xitd1_Oa;
+            // MatTT J_Twt_Sa = J_Twt_Xitd0*J_Xitd0_Sa + J_Twt_Xitd1*J_Xitd1_Sa;
+            // MatTT J_Twt_Pa = J_Twt_Xitd0*J_Xitd0_Pa + J_Twt_Xitd1*J_Xitd1_Pa;
+            // MatTT J_Twt_Va = J_Twt_Xitd0*J_Xitd0_Va + J_Twt_Xitd1*J_Xitd1_Va;
+            // MatTT J_Twt_Aa = J_Twt_Xitd0*J_Xitd0_Aa + J_Twt_Xitd1*J_Xitd1_Aa;
 
-            Matrix<T, 6, 18> J_Twt_Xa; J_Twt_Xa.setZero();
+            // Matrix<T, 6, 18> J_Twt_Xa; J_Twt_Xa.setZero();
             
-            J_Twt_Xa.block(0, 0,  6, 3) = J_Twt_Ra;
-            J_Twt_Xa.block(0, 3,  6, 3) = J_Twt_Oa;
-            J_Twt_Xa.block(0, 6,  6, 3) = J_Twt_Sa;
-            J_Twt_Xa.block(0, 9,  6, 3) = J_Twt_Pa;
-            J_Twt_Xa.block(0, 12, 6, 3) = J_Twt_Va;
-            J_Twt_Xa.block(0, 15, 6, 3) = J_Twt_Aa;
+            // J_Twt_Xa.block(0, 0,  6, 3) = J_Twt_Ra;
+            // J_Twt_Xa.block(0, 3,  6, 3) = J_Twt_Oa;
+            // J_Twt_Xa.block(0, 6,  6, 3) = J_Twt_Sa;
+            // J_Twt_Xa.block(0, 9,  6, 3) = J_Twt_Pa;
+            // J_Twt_Xa.block(0, 12, 6, 3) = J_Twt_Va;
+            // J_Twt_Xa.block(0, 15, 6, 3) = J_Twt_Aa;
 
-            Jdebug["J_Twt_Xa"] = J_Twt_Xa;
-
-
-
-            // L4-L0, dTwt/dXb
-
-            MatTT J_Twt_Rb = J_Twt_Xitd0*J_Xitd0_Rb + J_Twt_Xitd1*J_Xitd1_Rb;
-            MatTT J_Twt_Ob = J_Twt_Xitd0*J_Xitd0_Ob + J_Twt_Xitd1*J_Xitd1_Ob;
-            MatTT J_Twt_Sb = J_Twt_Xitd0*J_Xitd0_Sb + J_Twt_Xitd1*J_Xitd1_Sb;
-            MatTT J_Twt_Pb = J_Twt_Xitd0*J_Xitd0_Pb + J_Twt_Xitd1*J_Xitd1_Pb;
-            MatTT J_Twt_Vb = J_Twt_Xitd0*J_Xitd0_Vb + J_Twt_Xitd1*J_Xitd1_Vb;
-            MatTT J_Twt_Ab = J_Twt_Xitd0*J_Xitd0_Ab + J_Twt_Xitd1*J_Xitd1_Ab;
-
-            Matrix<T, 6, 18> J_Twt_Xb; J_Twt_Xb.setZero();
-
-            J_Twt_Xb.block(0, 0,  6, 3) = J_Twt_Rb;
-            J_Twt_Xb.block(0, 3,  6, 3) = J_Twt_Ob;
-            J_Twt_Xb.block(0, 6,  6, 3) = J_Twt_Sb;
-            J_Twt_Xb.block(0, 9,  6, 3) = J_Twt_Pb;
-            J_Twt_Xb.block(0, 12, 6, 3) = J_Twt_Vb;
-            J_Twt_Xb.block(0, 15, 6, 3) = J_Twt_Ab;
-
-            Jdebug["J_Twt_Xb"] = J_Twt_Xb;
+            // Jdebug["J_Twt_Xa"] = J_Twt_Xa;
 
 
 
-            // L4-L0, dWrt/dXa
+            // // L4-L0, dTwt/dXb
 
-            MatTT J_Wrt_Ra = J_Wrt_Xitd0*J_Xitd0_Ra + J_Wrt_Xitd1*J_Xitd1_Ra + J_Wrt_Xitd2*J_Xitd2_Ra;
-            MatTT J_Wrt_Oa = J_Wrt_Xitd0*J_Xitd0_Oa + J_Wrt_Xitd1*J_Xitd1_Oa + J_Wrt_Xitd2*J_Xitd2_Oa;
-            MatTT J_Wrt_Sa = J_Wrt_Xitd0*J_Xitd0_Sa + J_Wrt_Xitd1*J_Xitd1_Sa + J_Wrt_Xitd2*J_Xitd2_Sa;
-            MatTT J_Wrt_Pa = J_Wrt_Xitd0*J_Xitd0_Pa + J_Wrt_Xitd1*J_Xitd1_Pa + J_Wrt_Xitd2*J_Xitd2_Pa;
-            MatTT J_Wrt_Va = J_Wrt_Xitd0*J_Xitd0_Va + J_Wrt_Xitd1*J_Xitd1_Va + J_Wrt_Xitd2*J_Xitd2_Va;
-            MatTT J_Wrt_Aa = J_Wrt_Xitd0*J_Xitd0_Aa + J_Wrt_Xitd1*J_Xitd1_Aa + J_Wrt_Xitd2*J_Xitd2_Aa;
+            // MatTT J_Twt_Rb = J_Twt_Xitd0*J_Xitd0_Rb + J_Twt_Xitd1*J_Xitd1_Rb;
+            // MatTT J_Twt_Ob = J_Twt_Xitd0*J_Xitd0_Ob + J_Twt_Xitd1*J_Xitd1_Ob;
+            // MatTT J_Twt_Sb = J_Twt_Xitd0*J_Xitd0_Sb + J_Twt_Xitd1*J_Xitd1_Sb;
+            // MatTT J_Twt_Pb = J_Twt_Xitd0*J_Xitd0_Pb + J_Twt_Xitd1*J_Xitd1_Pb;
+            // MatTT J_Twt_Vb = J_Twt_Xitd0*J_Xitd0_Vb + J_Twt_Xitd1*J_Xitd1_Vb;
+            // MatTT J_Twt_Ab = J_Twt_Xitd0*J_Xitd0_Ab + J_Twt_Xitd1*J_Xitd1_Ab;
 
-            Matrix<T, 6, 18> J_Wrt_Xa; J_Wrt_Xa.setZero();
+            // Matrix<T, 6, 18> J_Twt_Xb; J_Twt_Xb.setZero();
 
-            J_Wrt_Xa.block(0, 0,  6, 3) = J_Wrt_Ra;
-            J_Wrt_Xa.block(0, 3,  6, 3) = J_Wrt_Oa;
-            J_Wrt_Xa.block(0, 6,  6, 3) = J_Wrt_Sa;
-            J_Wrt_Xa.block(0, 9,  6, 3) = J_Wrt_Pa;
-            J_Wrt_Xa.block(0, 12, 6, 3) = J_Wrt_Va;
-            J_Wrt_Xa.block(0, 15, 6, 3) = J_Wrt_Aa;
+            // J_Twt_Xb.block(0, 0,  6, 3) = J_Twt_Rb;
+            // J_Twt_Xb.block(0, 3,  6, 3) = J_Twt_Ob;
+            // J_Twt_Xb.block(0, 6,  6, 3) = J_Twt_Sb;
+            // J_Twt_Xb.block(0, 9,  6, 3) = J_Twt_Pb;
+            // J_Twt_Xb.block(0, 12, 6, 3) = J_Twt_Vb;
+            // J_Twt_Xb.block(0, 15, 6, 3) = J_Twt_Ab;
 
-            Jdebug["J_Wrt_Xa"] = J_Wrt_Xa;
+            // Jdebug["J_Twt_Xb"] = J_Twt_Xb;
 
 
 
-            // L4-L0, dWrt/dXa
+            // // L4-L0, dWrt/dXa
 
-            MatTT J_Wrt_Rb = J_Wrt_Xitd0*J_Xitd0_Rb + J_Wrt_Xitd1*J_Xitd1_Rb + J_Wrt_Xitd2*J_Xitd2_Rb;
-            MatTT J_Wrt_Ob = J_Wrt_Xitd0*J_Xitd0_Ob + J_Wrt_Xitd1*J_Xitd1_Ob + J_Wrt_Xitd2*J_Xitd2_Ob;
-            MatTT J_Wrt_Sb = J_Wrt_Xitd0*J_Xitd0_Sb + J_Wrt_Xitd1*J_Xitd1_Sb + J_Wrt_Xitd2*J_Xitd2_Sb;
-            MatTT J_Wrt_Pb = J_Wrt_Xitd0*J_Xitd0_Pb + J_Wrt_Xitd1*J_Xitd1_Pb + J_Wrt_Xitd2*J_Xitd2_Pb;
-            MatTT J_Wrt_Vb = J_Wrt_Xitd0*J_Xitd0_Vb + J_Wrt_Xitd1*J_Xitd1_Vb + J_Wrt_Xitd2*J_Xitd2_Vb;
-            MatTT J_Wrt_Ab = J_Wrt_Xitd0*J_Xitd0_Ab + J_Wrt_Xitd1*J_Xitd1_Ab + J_Wrt_Xitd2*J_Xitd2_Ab;
+            // MatTT J_Wrt_Ra = J_Wrt_Xitd0*J_Xitd0_Ra + J_Wrt_Xitd1*J_Xitd1_Ra + J_Wrt_Xitd2*J_Xitd2_Ra;
+            // MatTT J_Wrt_Oa = J_Wrt_Xitd0*J_Xitd0_Oa + J_Wrt_Xitd1*J_Xitd1_Oa + J_Wrt_Xitd2*J_Xitd2_Oa;
+            // MatTT J_Wrt_Sa = J_Wrt_Xitd0*J_Xitd0_Sa + J_Wrt_Xitd1*J_Xitd1_Sa + J_Wrt_Xitd2*J_Xitd2_Sa;
+            // MatTT J_Wrt_Pa = J_Wrt_Xitd0*J_Xitd0_Pa + J_Wrt_Xitd1*J_Xitd1_Pa + J_Wrt_Xitd2*J_Xitd2_Pa;
+            // MatTT J_Wrt_Va = J_Wrt_Xitd0*J_Xitd0_Va + J_Wrt_Xitd1*J_Xitd1_Va + J_Wrt_Xitd2*J_Xitd2_Va;
+            // MatTT J_Wrt_Aa = J_Wrt_Xitd0*J_Xitd0_Aa + J_Wrt_Xitd1*J_Xitd1_Aa + J_Wrt_Xitd2*J_Xitd2_Aa;
 
-            Matrix<T, 6, 18> J_Wrt_Xb; J_Wrt_Xb.setZero();
+            // Matrix<T, 6, 18> J_Wrt_Xa; J_Wrt_Xa.setZero();
 
-            J_Wrt_Xb.block(0, 0,  6, 3) = J_Wrt_Rb;
-            J_Wrt_Xb.block(0, 3,  6, 3) = J_Wrt_Ob;
-            J_Wrt_Xb.block(0, 6,  6, 3) = J_Wrt_Sb;
-            J_Wrt_Xb.block(0, 9,  6, 3) = J_Wrt_Pb;
-            J_Wrt_Xb.block(0, 12, 6, 3) = J_Wrt_Vb;
-            J_Wrt_Xb.block(0, 15, 6, 3) = J_Wrt_Ab;
+            // J_Wrt_Xa.block(0, 0,  6, 3) = J_Wrt_Ra;
+            // J_Wrt_Xa.block(0, 3,  6, 3) = J_Wrt_Oa;
+            // J_Wrt_Xa.block(0, 6,  6, 3) = J_Wrt_Sa;
+            // J_Wrt_Xa.block(0, 9,  6, 3) = J_Wrt_Pa;
+            // J_Wrt_Xa.block(0, 12, 6, 3) = J_Wrt_Va;
+            // J_Wrt_Xa.block(0, 15, 6, 3) = J_Wrt_Aa;
 
-            Jdebug["J_Wrt_Xb"] = J_Wrt_Xb;
+            // Jdebug["J_Wrt_Xa"] = J_Wrt_Xa;
+
+
+
+            // // L4-L0, dWrt/dXb
+
+            // MatTT J_Wrt_Rb = J_Wrt_Xitd0*J_Xitd0_Rb + J_Wrt_Xitd1*J_Xitd1_Rb + J_Wrt_Xitd2*J_Xitd2_Rb;
+            // MatTT J_Wrt_Ob = J_Wrt_Xitd0*J_Xitd0_Ob + J_Wrt_Xitd1*J_Xitd1_Ob + J_Wrt_Xitd2*J_Xitd2_Ob;
+            // MatTT J_Wrt_Sb = J_Wrt_Xitd0*J_Xitd0_Sb + J_Wrt_Xitd1*J_Xitd1_Sb + J_Wrt_Xitd2*J_Xitd2_Sb;
+            // MatTT J_Wrt_Pb = J_Wrt_Xitd0*J_Xitd0_Pb + J_Wrt_Xitd1*J_Xitd1_Pb + J_Wrt_Xitd2*J_Xitd2_Pb;
+            // MatTT J_Wrt_Vb = J_Wrt_Xitd0*J_Xitd0_Vb + J_Wrt_Xitd1*J_Xitd1_Vb + J_Wrt_Xitd2*J_Xitd2_Vb;
+            // MatTT J_Wrt_Ab = J_Wrt_Xitd0*J_Xitd0_Ab + J_Wrt_Xitd1*J_Xitd1_Ab + J_Wrt_Xitd2*J_Xitd2_Ab;
+
+            // Matrix<T, 6, 18> J_Wrt_Xb; J_Wrt_Xb.setZero();
+
+            // J_Wrt_Xb.block(0, 0,  6, 3) = J_Wrt_Rb;
+            // J_Wrt_Xb.block(0, 3,  6, 3) = J_Wrt_Ob;
+            // J_Wrt_Xb.block(0, 6,  6, 3) = J_Wrt_Sb;
+            // J_Wrt_Xb.block(0, 9,  6, 3) = J_Wrt_Pb;
+            // J_Wrt_Xb.block(0, 12, 6, 3) = J_Wrt_Vb;
+            // J_Wrt_Xb.block(0, 15, 6, 3) = J_Wrt_Ab;
+
+            // Jdebug["J_Wrt_Xb"] = J_Wrt_Xb;
         }
     }
 

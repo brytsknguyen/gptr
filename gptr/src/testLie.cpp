@@ -32,8 +32,12 @@ namespace Sophus
             {
                 Eigen::Map<SE3d const> const T(T_raw);
                 Eigen::Map<Vector6d const> const delta(delta_raw);
+                Vector3d dThe = delta.head<3>();
+                Vector3d dRho = delta.tail<3>();
+                Vector6d delta_; delta_ << dThe, dRho;
+                
                 Eigen::Map<SE3d> T_plus_delta(T_plus_delta_raw);
-                T_plus_delta = T * SE3d::exp(delta);
+                T_plus_delta = T * SE3d::exp(delta_);
                 return true;
             }
 
@@ -45,14 +49,16 @@ namespace Sophus
                                          double *jacobian_raw) const
             {
                 Eigen::Map<SE3d const> T(T_raw);
-                Eigen::Map<Eigen::Matrix<double, 7, 6, Eigen::RowMajor>> jacobian(
-                    jacobian_raw);
-                jacobian = T.Dx_this_mul_exp_x_at_0();
+                Eigen::Map<Eigen::Matrix<double, 7, 6, Eigen::RowMajor>> jacobian(jacobian_raw);
+                jacobian.setZero();
+
+                Matrix<double, 7, 6> J = T.Dx_this_mul_exp_x_at_0();
+                jacobian.block<4, 3>(0, 0) = J.block<4, 3>(0, 3);
+                jacobian.block<3, 3>(4, 3) = J.block<3, 3>(4, 0);
                 return true;
             }
 
             virtual int GlobalSize() const { return SE3d::num_parameters; }
-
             virtual int LocalSize() const { return SE3d::DoF; }
         };
     } // namespace test
@@ -104,7 +110,7 @@ public:
 
         // Residual
         Eigen::Map<Matrix<T, RESITRZ_SIZE, 1>> residual(residuals);
-        residual << Tft.so3().log(), Tft.translation(), Twt, Wrt;
+        residual << Xt.R.log(), Xt.O, Xt.S, Xt.P, Xt.V, Xt.A;
 
         // cout << residual.cast<double>() << endl;
 
@@ -145,10 +151,9 @@ private:
 
 map<string, MatrixXd> Jdebug;
 
-class IntrinsicJcbTestAnalyticFactor: public ceres::CostFunction
+class IntrinsicJcbTestAnalyticFactor : public ceres::CostFunction
 {
 public:
-
     // Destructor
     ~IntrinsicJcbTestAnalyticFactor() {};
 
@@ -221,22 +226,22 @@ public:
 
         // Residual
         Eigen::Map<Matrix<double, RESITRZ_SIZE, 1>> residual(residuals);
-        residual << Tft.so3().log(), Tft.translation(), Twt, Wrt;
+        residual << Xt.R.log(), Xt.O, Xt.S, Xt.P, Xt.V, Xt.A;
 
         // cout << residual << endl;
 
         /* #endregion Calculate the pose at sampling time -----------------------------------------------------------*/
-    
+
         if (!jacobians)
             return true;
 
         Mat3 Eye = Mat3::Identity(3, 3);
-        Matrix<double, RESITRZ_SIZE, 3> Dr_DRt; Dr_DRt.setZero(); //Dr_DRt.block<3, 3>(0, 0) = gpm->JrInv(Tft.so3.log());
-        Matrix<double, RESITRZ_SIZE, 3> Dr_DOt; Dr_DOt.setZero(); //Dr_DOt.block<3, 3>(Oidx*3, 0) = Eye;
-        Matrix<double, RESITRZ_SIZE, 3> Dr_DSt; Dr_DSt.setZero(); //Dr_DSt.block<3, 3>(Sidx*3, 0) = Eye;
-        Matrix<double, RESITRZ_SIZE, 3> Dr_DPt; Dr_DPt.setZero(); //Dr_DPt.block<3, 3>(Pidx*3, 0) = Eye;
-        Matrix<double, RESITRZ_SIZE, 3> Dr_DVt; Dr_DVt.setZero(); //Dr_DVt.block<3, 3>(Vidx*3, 0) = Eye;
-        Matrix<double, RESITRZ_SIZE, 3> Dr_DAt; Dr_DAt.setZero(); //Dr_DAt.block<3, 3>(Aidx*3, 0) = Eye;
+        Matrix<double, RESITRZ_SIZE, 3> Dr_DRt; Dr_DRt.setZero(); Dr_DRt.block<3, 3>(Ridx*3, 0) = gpm->JrInv(Xt.R.log());
+        Matrix<double, RESITRZ_SIZE, 3> Dr_DOt; Dr_DOt.setZero(); Dr_DOt.block<3, 3>(Oidx*3, 0) = Eye;
+        Matrix<double, RESITRZ_SIZE, 3> Dr_DSt; Dr_DSt.setZero(); Dr_DSt.block<3, 3>(Sidx*3, 0) = Eye;
+        Matrix<double, RESITRZ_SIZE, 3> Dr_DPt; Dr_DPt.setZero(); Dr_DPt.block<3, 3>(Pidx*3, 0) = Eye;
+        Matrix<double, RESITRZ_SIZE, 3> Dr_DVt; Dr_DVt.setZero(); Dr_DVt.block<3, 3>(Vidx*3, 0) = Eye;
+        Matrix<double, RESITRZ_SIZE, 3> Dr_DAt; Dr_DAt.setZero(); Dr_DAt.block<3, 3>(Aidx*3, 0) = Eye;
         
         for(size_t idx = Ridx; idx <= Aidx; idx++)
         {
@@ -246,55 +251,53 @@ public:
             if (idx == Ridx)
             {
                 Eigen::Map<Eigen::Matrix<double, RESITRZ_SIZE, 4, Eigen::RowMajor>> Dr_DXa(jacobians[idx]);
-                Eigen::Map<Eigen::Matrix<double, RESITRZ_SIZE, 4, Eigen::RowMajor>> Dr_DXb(jacobians[idx+RbIdx]);
+                Eigen::Map<Eigen::Matrix<double, RESITRZ_SIZE, 4, Eigen::RowMajor>> Dr_DXb(jacobians[idx + RbIdx]);
 
                 Dr_DXa.setZero();
-                // Dr_DXa.block<RESITRZ_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx]
-                //                                     + Dr_DOt*DXt_DXa[Oidx][idx]
-                //                                     + Dr_DSt*DXt_DXa[Sidx][idx]
-                //                                     + Dr_DPt*DXt_DXa[Pidx][idx]
-                //                                     + Dr_DVt*DXt_DXa[Vidx][idx]
-                //                                     + Dr_DAt*DXt_DXa[Aidx][idx];
+                Dr_DXa.block<RESITRZ_SIZE, 3>(0, 0) = Dr_DRt * DXt_DXa[Ridx][idx]
+                                                    + Dr_DOt * DXt_DXa[Oidx][idx]
+                                                    + Dr_DSt * DXt_DXa[Sidx][idx]
+                                                    + Dr_DPt * DXt_DXa[Pidx][idx]
+                                                    + Dr_DVt * DXt_DXa[Vidx][idx]
+                                                    + Dr_DAt * DXt_DXa[Aidx][idx];
 
                 Dr_DXb.setZero();
-                // Dr_DXb.block<RESITRZ_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx]
-                //                                     + Dr_DOt*DXt_DXb[Oidx][idx]
-                //                                     + Dr_DSt*DXt_DXb[Sidx][idx]
-                //                                     + Dr_DPt*DXt_DXb[Pidx][idx]
-                //                                     + Dr_DVt*DXt_DXb[Vidx][idx]
-                //                                     + Dr_DAt*DXt_DXb[Aidx][idx];
-
+                Dr_DXb.block<RESITRZ_SIZE, 3>(0, 0) = Dr_DRt * DXt_DXb[Ridx][idx]
+                                                    + Dr_DOt * DXt_DXb[Oidx][idx]
+                                                    + Dr_DSt * DXt_DXb[Sidx][idx]
+                                                    + Dr_DPt * DXt_DXb[Pidx][idx]
+                                                    + Dr_DVt * DXt_DXb[Vidx][idx]
+                                                    + Dr_DAt * DXt_DXb[Aidx][idx];
             }
             else
             {
                 Eigen::Map<Eigen::Matrix<double, RESITRZ_SIZE, 3, Eigen::RowMajor>> Dr_DXa(jacobians[idx]);
-                Eigen::Map<Eigen::Matrix<double, RESITRZ_SIZE, 3, Eigen::RowMajor>> Dr_DXb(jacobians[idx+RbIdx]);
+                Eigen::Map<Eigen::Matrix<double, RESITRZ_SIZE, 3, Eigen::RowMajor>> Dr_DXb(jacobians[idx + RbIdx]);
 
                 Dr_DXa.setZero();
-                // Dr_DXa.block<RESITRZ_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx]
-                //                                     + Dr_DOt*DXt_DXa[Oidx][idx]
-                //                                     + Dr_DSt*DXt_DXa[Sidx][idx]
-                //                                     + Dr_DPt*DXt_DXa[Pidx][idx]
-                //                                     + Dr_DVt*DXt_DXa[Vidx][idx]
-                //                                     + Dr_DAt*DXt_DXa[Aidx][idx];
+                Dr_DXa.block<RESITRZ_SIZE, 3>(0, 0) = Dr_DRt * DXt_DXa[Ridx][idx]
+                                                    + Dr_DOt * DXt_DXa[Oidx][idx]
+                                                    + Dr_DSt * DXt_DXa[Sidx][idx]
+                                                    + Dr_DPt * DXt_DXa[Pidx][idx]
+                                                    + Dr_DVt * DXt_DXa[Vidx][idx]
+                                                    + Dr_DAt * DXt_DXa[Aidx][idx];
 
                 Dr_DXb.setZero();
-                // Dr_DXb.block<RESITRZ_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx]
-                //                                     + Dr_DOt*DXt_DXb[Oidx][idx]
-                //                                     + Dr_DSt*DXt_DXb[Sidx][idx]
-                //                                     + Dr_DPt*DXt_DXb[Pidx][idx]
-                //                                     + Dr_DVt*DXt_DXb[Vidx][idx]
-                //                                     + Dr_DAt*DXt_DXb[Aidx][idx];
+                Dr_DXb.block<RESITRZ_SIZE, 3>(0, 0) = Dr_DRt * DXt_DXb[Ridx][idx]
+                                                    + Dr_DOt * DXt_DXb[Oidx][idx]
+                                                    + Dr_DSt * DXt_DXb[Sidx][idx]
+                                                    + Dr_DPt * DXt_DXb[Pidx][idx]
+                                                    + Dr_DVt * DXt_DXb[Vidx][idx]
+                                                    + Dr_DAt * DXt_DXb[Aidx][idx];
             }
         }
-        
+
         return true;
     }
 
 private:
-
     // Gaussian process params
-    
+
     const int Ridx = 0;
     const int Oidx = 1;
     const int Sidx = 2;
@@ -326,11 +329,12 @@ struct FactorMeta
     vector<double *> so3_parameter_blocks;
     vector<double *> rv3_parameter_blocks;
     vector<double *> se3_parameter_blocks;
+    vector<double *> rv6_parameter_blocks;
     vector<ceres::ResidualBlockId> residual_blocks;
 
     int parameter_blocks()
     {
-        return (so3_parameter_blocks.size() + rv3_parameter_blocks.size() + se3_parameter_blocks.size());
+        return (so3_parameter_blocks.size() + rv3_parameter_blocks.size() + se3_parameter_blocks.size() + rv6_parameter_blocks.size());
     }
 };
 
@@ -356,19 +360,19 @@ void EvaluateFactorRJ(ceres::Problem &problem, FactorMeta &factorMeta,
                       MatrixXd &Jacobian, double &eval_time)
 {
     ceres::LocalParameterization *localparameterization;
-    for(auto parameter : factorMeta.so3_parameter_blocks)
+    for (auto parameter : factorMeta.so3_parameter_blocks)
     {
         if (local_pamaterization_type == 0)
         {
             localparameterization = new AutoDiffSO3Parameterization<SO3d>();
             problem.SetParameterization(parameter, localparameterization);
         }
-        else if(local_pamaterization_type == 1)
-        {   
+        else if (local_pamaterization_type == 1)
+        {
             localparameterization = new GPSO3dLocalParameterization();
             problem.SetParameterization(parameter, localparameterization);
         }
-        else if(local_pamaterization_type == 2)
+        else if (local_pamaterization_type == 2)
         {
             localparameterization = new Sophus::test::LocalParameterizationSE3();
             problem.SetParameterization(parameter, localparameterization);
@@ -393,10 +397,9 @@ void EvaluateFactorRJ(ceres::Problem &problem, FactorMeta &factorMeta,
 
 void RemoveResidualBlock(ceres::Problem &problem, FactorMeta &factorMeta)
 {
-    for(auto res_block : factorMeta.residual_blocks)
+    for (auto res_block : factorMeta.residual_blocks)
         problem.RemoveResidualBlock(res_block);
 }
-
 
 void CreateCeresProblem(ceres::Problem &problem, ceres::Solver::Options &options, ceres::Solver::Summary &summary,
                         GaussianProcessPtr &swTraj, double fixed_start, double fixed_end)
@@ -538,7 +541,7 @@ void AddAnalyticIntrzJcbFactor(GaussianProcessPtr &traj, ceres::Problem &problem
 
         break;
     }
-    
+
     factorMeta.so3_parameter_blocks = so3_param;
     factorMeta.rv3_parameter_blocks = rv3_param;
     factorMeta.residual_blocks = res_ids_gp;
@@ -547,28 +550,44 @@ void AddAnalyticIntrzJcbFactor(GaussianProcessPtr &traj, ceres::Problem &problem
 struct TestSE3CostFunctor
 {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    TestSE3CostFunctor(){};
+    TestSE3CostFunctor() {};
 
     template <class T>
-    bool operator()(T const *const paramsTf, T *sResiduals) const
+    bool operator()(const T *const paramTft, // SE3 (7D: qx, qy, qz, qw, tx, ty, tz)
+                    const T *const paramTwt, // Vec6 (6D)
+                    const T *const paramWrt, T *sResiduals) const
     {
-        Eigen::Map<Sophus::SE3<T> const> const Tf(paramsTf);
-        Eigen::Map<Eigen::Matrix<T, 6, 1>> residuals(sResiduals);
+        Eigen::Map<Sophus::SE3<T>  const> const Tft(paramTft);
+        Eigen::Map<Matrix<T, 6, 1> const> const Twt(paramTwt);
+        Eigen::Map<Matrix<T, 6, 1> const> const Wrt(paramWrt);
 
-        residuals.block(0, 0, 3, 1) = Tf.translation();
-        residuals.block(3, 0, 3, 1) = Tf.so3().log();
+        GPState<T> Xt(0, Tft, Twt, Wrt);
+
+        Eigen::Map<Eigen::Matrix<T, 18, 1>> residuals(sResiduals);
+
+        residuals.block(0,  0, 3, 1) = Xt.R.log();
+        residuals.block(3,  0, 3, 1) = Xt.O;
+        residuals.block(6,  0, 3, 1) = Xt.S;
+        residuals.block(9,  0, 3, 1) = Xt.P;
+        residuals.block(12, 0, 3, 1) = Xt.V;
+        residuals.block(15, 0, 3, 1) = Xt.A;
+
         return true;
     }
 };
 
-void testUnifiedJacobains()
+void testUnifiedJacobians()
 {
-    Matrix<double, 3, 1> The(5.7, 4.3, 9.1); //The = Vec3(0, 1, 0);
-    Matrix<double, 3, 1> Rho(1.9, 0.2, 1.1);
-    Matrix<double, 6, 1> Xi; Xi << Rho, The;
+    Matrix<double, 3, 1> The_(5.7, 4.3, 9.1); // The = Vec3(0, 1, 0);
+    Matrix<double, 3, 1> Rho_(1.9, 0.2, 1.1);
+    Matrix<double, 6, 1> Xi_; Xi_ << Rho_, The_;
 
     // Create an SE3 variable
-    SE3d mySE3 = SE3d::exp(Xi);
+    SE3d Tft = SE3d::exp(Xi_);
+    Matrix<double, 6, 1> Twt;
+    Twt << 8.491293058687772, 9.339932477575505, 6.787351548577734, 7.577401305783335, 7.431324681249162, 3.922270195341682;
+    Matrix<double, 6, 1> Wrt;
+    Wrt << 6.554778901775567, 1.711866878115618, 7.060460880196088, 0.318328463774207, 2.769229849608900, 0.461713906311539;
 
     // Build the problem.
     ceres::Problem problem;
@@ -577,15 +596,19 @@ void testUnifiedJacobains()
     FactorMeta factorMeta;
 
     // Add the param block
-    problem.AddParameterBlock(mySE3.data(), Sophus::SE3d::num_parameters,
-                              new Sophus::test::LocalParameterizationSE3);
-                              factorMeta.se3_parameter_blocks.push_back(mySE3.data());
+    problem.AddParameterBlock(Tft.data(), Sophus::SE3d::num_parameters, new Sophus::test::LocalParameterizationSE3);
+    problem.AddParameterBlock(Twt.data(), 6, NULL);
+    problem.AddParameterBlock(Wrt.data(), 6, NULL);
+
+    factorMeta.se3_parameter_blocks.push_back(Tft.data());
+    factorMeta.rv6_parameter_blocks.push_back(Twt.data());
+    factorMeta.rv6_parameter_blocks.push_back(Wrt.data());
 
     // Add the residual block
     ceres::CostFunction *cost_function =
-        new ceres::AutoDiffCostFunction<TestSE3CostFunctor, 6, SE3d::num_parameters>
-                (new TestSE3CostFunctor());  
-    auto res_block = problem.AddResidualBlock(cost_function, NULL, mySE3.data());
+        new ceres::AutoDiffCostFunction<TestSE3CostFunctor, 18, SE3d::num_parameters, 6, 6>(new TestSE3CostFunctor());
+
+    auto res_block = problem.AddResidualBlock(cost_function, NULL, Tft.data(), Twt.data(), Wrt.data());
     factorMeta.residual_blocks.push_back(res_block);
 
     double cost;
@@ -594,39 +617,80 @@ void testUnifiedJacobains()
     MatrixXd Jacobian;
     EvaluateFactorRJ(problem, factorMeta, 2, cost, residual, Jacobian, time);
 
-    Vec3   The_ = residual.tail<3>();
-    double Un = The.norm(); 
-    Vec3   Ub = The/Un;
+    Vec3 The = residual.block<3, 1>(0,  0);
+    SO3d Rt = SO3d::exp(The);
+    Vec3 Ot = residual.block<3, 1>(3,  0);
+    Vec3 St = residual.block<3, 1>(6,  0);
+    Vec3 Pt = residual.block<3, 1>(9,  0);
+    Vec3 Vt = residual.block<3, 1>(12, 0);
+    Vec3 At = residual.block<3, 1>(15, 0);
+    
+    double Un = The.norm();
+    Vec3 Ub = The / Un;
+    Un = Util::wrapTo180(Un / M_PI * 180) / 180 * M_PI;
+    Ub = Ub * Un;
 
-    Un = Util::wrapTo180(Un/M_PI*180)/180*M_PI;
-    Ub = Ub*Un;
+    using MatT = Matrix<double, 6, 3>;
+    using MatL = Matrix<double, 3, 6>;
 
-    cout << "Ub:" << Ub.transpose() << endl;
-    cout << "Xi:" << Xi.transpose() << endl;
-    cout << "P: " << (GPMixer::Jr(-The)*Rho).transpose() << endl;
-    cout << "res:"           << residual.transpose() << endl;
-    cout << "J_r_Tf:\n"      << Jacobian << endl;
-    cout << "JrInv(The):\n"  << GPMixer::JrInv(The_) << endl;
-    cout << "Rt:\n"          << SO3d::exp(The).matrix() << endl;
-    cout << "Exp(The_):\n"   << SO3d::exp(The_).matrix() << endl;
+    MatL U; U.setZero(); U.block<3, 3>(0, 0) = Mat3::Identity();
+    MatL D; D.setZero(); D.block<3, 3>(0, 3) = Mat3::Identity();
 
-//     // Set solver options (precision / method)
-//     ceres::Solver::Options options;
-//     options.gradient_tolerance = 0.01 * Sophus::Constants<double>::epsilon();
-//     options.function_tolerance = 0.01 * Sophus::Constants<double>::epsilon();
-//     options.linear_solver_type = ceres::DENSE_QR;
+    Mat3 Rtm = Rt.matrix();
+    Mat3 RtInvm = Rt.inverse().matrix();
 
-//     // Solve
-//     ceres::Solver::Summary summary;
-//     ceres::Solve(options, &problem, &summary);
-//     std::cout << summary.BriefReport() << std::endl;
+    Mat3 Othat = SO3d::hat(Ot);
+    Vec3 Nuy = RtInvm*Vt;
+    Vec3 Bta = RtInvm*At - Othat*Nuy;
+    Mat3 Nuyhat = SO3d::hat(Nuy);
+    
+    Mat3 J_The_Tft = GPMixer::JrInv(The);
+   
+    MatL J_Rt_Tft  =  U;
+    MatL J_Pt_Tft  =  Rtm*D;
+    
+    MatL J_Ot_Twt  =  U;
+    Mat3 J_Vt_Rt   = -Rtm*Nuyhat;
+    MatL J_Vt_Tft  =  J_Vt_Rt*J_Rt_Tft;
+    MatL J_Vt_Twt  =  Rtm*D;
+
+    MatL J_St_Wrt  =  U;
+    Mat3 J_At_Rt   = -Rtm*(SO3d::hat(Bta) + SO3d::hat(Othat*Nuy));
+    MatL J_At_Tft  =  J_At_Rt*J_Rt_Tft;
+    Mat3 J_At_Ot   = -Rtm*Nuyhat;
+    MatL J_At_Twt  =  J_At_Ot*J_Ot_Twt + Rtm*Othat*D;
+    MatL J_At_Wrt  =  Rtm*D;
+
+    cout << "res:"      << residual.transpose() << endl;
+    cout << "J_r_Xt:\n" << Jacobian << endl;
+
+    cout << "J_The_Tft:\n" << J_The_Tft << endl;
+    cout << "J_Pt_Tft :\n" << J_Pt_Tft << endl;
+    cout << "J_Ot_Twt :\n" << J_Ot_Twt << endl;
+    cout << "J_Vt_Tft :\n" << J_Vt_Tft << endl;
+    cout << "J_Vt_Twt :\n" << J_Vt_Twt << endl;
+    cout << "J_At_Tft :\n" << J_At_Tft << endl;
+    cout << "J_At_Twt :\n" << J_At_Twt << endl;
+    cout << "J_At_Wrt :\n" << J_At_Wrt << endl;
+    
+
+    // // Set solver options (precision / method)
+    // ceres::Solver::Options options;
+    // options.gradient_tolerance = 0.01 * Sophus::Constants<double>::epsilon();
+    // options.function_tolerance = 0.01 * Sophus::Constants<double>::epsilon();
+    // options.linear_solver_type = ceres::DENSE_QR;
+
+    // // Solve
+    // ceres::Solver::Summary summary;
+    // ceres::Solve(options, &problem, &summary);
+    // std::cout << summary.BriefReport() << std::endl;
 }
 
 int main(int argc, char **argv)
 {
     Vec3 X(4.3, 5.7, 91.0);
     Vec3 Xd(11, 2, 19);
-    
+
     SO3d R = SO3d::exp(X);
 
     Mat3 Jr = GPMixer::Jr(X);
@@ -638,11 +702,11 @@ int main(int argc, char **argv)
 
     compare("Error Jr      : ", Jr, Jr_);
     compare("Error JrInv   : ", JrInv, JrInv_);
-    compare("Error Jr*JrInv: ", Jr*JrInv, Mat3::Identity(3, 3));
+    compare("Error Jr*JrInv: ", Jr * JrInv, Mat3::Identity(3, 3));
 
-    Vec3 O = GPMixer::Jr(X)*Xd;
-    Matrix3d HX_XXd_direct =  GPMixer::DJrUV_DU(X, Xd);
-    Matrix3d HX_XXd_circle = -GPMixer::Jr(X)*GPMixer::DJrInvUV_DU(X, O);
+    Vec3 O = GPMixer::Jr(X) * Xd;
+    Matrix3d HX_XXd_direct = GPMixer::DJrUV_DU(X, Xd);
+    Matrix3d HX_XXd_circle = -GPMixer::Jr(X) * GPMixer::DJrInvUV_DU(X, O);
 
     compare("HX_XXd error  : ", HX_XXd_direct, HX_XXd_circle);
 
@@ -657,12 +721,12 @@ int main(int argc, char **argv)
     Vector3d Rhod(3.3, 60.05, 6.9);
     Vector3d Rhodd(2.0, 0.3, 4.2);
 
-    Vector3d Omg = GPMixer::Jr(The)*Thed;
+    Vector3d Omg = GPMixer::Jr(The) * Thed;
 
     TicToc tt_qtime;
     myQ.ComputeQSC(The, Rho, Thed, Rhod);
     tt_qtime.Toc();
-    
+
     TicToc tt_qptime;
     myQp.ComputeQSC(The, Rho, Thed, Rhod, Omg);
     tt_qptime.Toc();
@@ -671,9 +735,9 @@ int main(int argc, char **argv)
     printf("tt_qptime : %f s\n", tt_qptime.GetLastStop());
 
     // Confirm that Q = -Exp(-The)*H1(-The, Rho)
-    compare("Q  error: ", myQ.Q, Mat3(-SO3d::exp(-The).matrix()*GPMixer::DJrUV_DU(Vector3d(-The), Rho)));
+    compare("Q  error: ", myQ.Q, Mat3(-SO3d::exp(-The).matrix() * GPMixer::DJrUV_DU(Vector3d(-The), Rho)));
     // Confirm that Qp = -JrInv*Q*JrInv
-    compare("Q' error: ", myQp.Q, -(GPMixer::JrInv(The)*myQ.Q*GPMixer::JrInv(The)));
+    compare("Q' error: ", myQp.Q, -(GPMixer::JrInv(The) * myQ.Q * GPMixer::JrInv(The)));
 
     Matrix3d Q_, S1_, C11_, C12_, C13_, S2_, C21_, C22_, C23_;
 
@@ -778,7 +842,7 @@ int main(int argc, char **argv)
     compare("S2   numerical error: ", myQ.S2 , S2_ );
     compare("C11  numerical error: ", myQ.C11, C11_);
     compare("C12  numerical error: ", myQ.C12, C12_);
-    compare("C13  numerical error: ", myQ.C13, C13_);    
+    compare("C13  numerical error: ", myQ.C13, C13_);
 
     Matrix3d Qp_, Sp1_, Cp11_, Cp12_, Cp13_, Sp2_, Cp21_, Cp22_, Cp23_;
 
@@ -884,7 +948,6 @@ int main(int argc, char **argv)
     compare("Cp11 numerical error: ", myQp.C11, Cp11_);
     compare("Cp12 numerical error: ", myQp.C12, Cp12_);
     compare("Cp13 numerical error: ", myQp.C13, Cp13_);
-    
 
     // Create the H and H' matrices of SE3
     Matrix<double, 6, 6> SE3H; SE3H.setZero();
@@ -893,7 +956,7 @@ int main(int argc, char **argv)
     SE3H.block<3, 3>(3, 3) = myQ.S2;
 
     Matrix<double, 6, 6> SE3H_;
-    
+
     /* #region  */
     SE3H_<<
     0.11876213355420794925976224476472,
@@ -948,7 +1011,7 @@ int main(int argc, char **argv)
     Matrix<double, 6, 1> Wrn = GPMixer::Jr(Xi)*Xidd + SE3H*Xid;
 
     Matrix<double, 6, 1> Tau_, Wrn_;
-    
+
     /* #region  */
     Tau_<<
     0.70803449619167235784544800480944,
@@ -971,23 +1034,25 @@ int main(int argc, char **argv)
 
     Vector3d Nuy = Tau.block<3, 1>(3, 0);
 
-    Matrix<double, 6, 6> SE3Hp; SE3Hp.setZero();
+    Matrix<double, 6, 6> SE3Hp;
+    SE3Hp.setZero();
     SE3Hp.block<3, 3>(0, 0) = GPMixer::DJrInvUV_DU(The, Omg);
     SE3Hp.block<3, 3>(3, 0) = myQp.S1 + GPMixer::DJrInvUV_DU(The, Nuy);
     SE3Hp.block<3, 3>(3, 3) = myQp.S2;
 
     Matrix<double, 6, 6> JrXi = GPMixer::Jr(Xi);
     Matrix<double, 6, 6> JrInvXi = GPMixer::JrInv(Xi);
-    compare("SE3Jr error: ", JrXi*JrInvXi, Matrix<double, 6, 6>::Identity(6, 6));
+    compare("SE3Jr error: ", JrXi * JrInvXi, Matrix<double, 6, 6>::Identity(6, 6));
 
-    Matrix<double, 6, 1> Xid1_reverse = JrInvXi*Tau;
-    Matrix<double, 6, 1> Xid2_reverse = JrInvXi*Wrn + SE3Hp*Xid1;
+    Matrix<double, 6, 1> Xid1_reverse = JrInvXi * Tau;
+    Matrix<double, 6, 1> Xid2_reverse = JrInvXi * Wrn + SE3Hp * Xid1;
 
     compare("Xd1_reverse error: ", Xid1_reverse, Xid1);
     compare("Xd2_reverse error: ", Xid2_reverse, Xid2);
 
     Mat3 S1, S2;
-    S1.setZero(); S2.setZero();
+    S1.setZero();
+    S2.setZero();
 
     SE3Q<double> myQ_;
     TicToc tt_s;
@@ -998,8 +1063,9 @@ int main(int argc, char **argv)
     compare("S2 numerical error: ", myQ.S2, myQ_.S2);
 
     Mat3 Sp1, Sp2;
-    Sp1.setZero(); Sp2.setZero();
-    
+    Sp1.setZero();
+    Sp2.setZero();
+
     SE3Qp<double> myQp_;
     TicToc tt_sp;
     myQp_.ComputeS(The, Rho, Omg);
@@ -1012,12 +1078,15 @@ int main(int argc, char **argv)
     {
         int count = 1;
 
-        Matrix<double, 6, 1> Xi; Xi << The, Rho;
-        Matrix<double, 6, 1> Xiuo; Xiuo << Rho, The;
+        Matrix<double, 6, 1> Xi;
+        Xi << The, Rho;
+        Matrix<double, 6, 1> Xiuo;
+        Xiuo << Rho, The;
 
-        double tt_sophusJr_avr = 0; count = 1;
+        double tt_sophusJr_avr = 0;
+        count = 1;
         Matrix<double, 6, 6> JrXiuo;
-        while(count <= 20)
+        while (count <= 20)
         {
             TicToc tt_sophusJr;
             JrXiuo = SE3d::leftJacobian(-Xiuo);
@@ -1027,9 +1096,10 @@ int main(int argc, char **argv)
         }
         tt_sophusJr_avr /= 20;
 
-        double tt_myJr_avr = 0; count = 1;
+        double tt_myJr_avr = 0;
+        count = 1;
         Matrix<double, 6, 6> JrXi;
-        while(count <= 20)
+        while (count <= 20)
         {
             TicToc tt_myJr;
             JrXi = GPMixer::Jr(Xi);
@@ -1040,7 +1110,7 @@ int main(int argc, char **argv)
         tt_myJr_avr /= 20;
 
         cout << "Sophus right Jacobian time: " << tt_sophusJr_avr << endl;
-        cout << "TMN right Jacobian time   : "    << tt_myJr_avr << endl;
+        cout << "TMN right Jacobian time   : " << tt_myJr_avr << endl;
 
         compare("JrXiuo 11 block error: ", JrXiuo.block(0, 0, 3, 3), JrXi.block(0, 0, 3, 3));
         compare("JrXiuo 12 block error: ", JrXiuo.block(0, 3, 3, 3), JrXi.block(3, 0, 3, 3));
@@ -1048,7 +1118,8 @@ int main(int argc, char **argv)
         compare("JrXiuo 22 block error: ", JrXiuo.block(3, 3, 3, 3), JrXi.block(3, 3, 3, 3));
     }
 
-    testUnifiedJacobains();
+    testUnifiedJacobians();
+    // exit(0);
 
     double Dt = 0.1102;
     Mat3 SigGa = Vec3(9.4, 4.7, 3.1).asDiagonal();
@@ -1071,7 +1142,7 @@ int main(int argc, char **argv)
         Vec3(7.0605, 8.2346, 4.3874),
         Vec3(0.3183, 6.9483, 3.8156));
 
-    double ts = 0.57*Dt;
+    double ts = 0.57 * Dt;
     GPState Xt(Xa.t + ts);
     vector<vector<Matrix3d>> DXt_DXa;
     vector<vector<Matrix3d>> DXt_DXb;
@@ -1090,7 +1161,7 @@ int main(int argc, char **argv)
     printf("tt_split : %f ms\n", tt_split.GetLastStop());
 
     // POSE_GROUP pr = POSE_GROUP::SO3xR3;
-    POSE_GROUP pr = POSE_GROUP::SE3;    
+    POSE_GROUP pr = POSE_GROUP::SE3;
     GaussianProcessPtr traj(new GaussianProcess(Dt, SigGa, SigNu, false, POSE_GROUP::SE3));
     traj->setStartTime(Xa.t);
     traj->genRandomTrajectory(2);
@@ -1104,17 +1175,17 @@ int main(int argc, char **argv)
     // Create the ceres problem
     CreateCeresProblem(problem, options, summary, traj, -0.1, -0.1);
 
-
     auto EvaluateFactorClass = [](ceres::Problem &problem, FactorMeta &factors, int local_pamaterization_type, VectorXd &res, MatrixXd &Jcb, double &cost, double &total_time, double &eval_time) -> void
     {
         TicToc tt_autodiff;
-        
+
         eval_time = 0;
 
-        res.setZero(); Jcb.setZero();
-        
+        res.setZero();
+        Jcb.setZero();
+
         int count = 1;
-        while(count-- > 0)
+        while (count-- > 0)
         {
             double eval_time_ = 0;
             EvaluateFactorRJ(problem, factors, local_pamaterization_type, cost, res, Jcb, eval_time_);
@@ -1170,68 +1241,46 @@ int main(int argc, char **argv)
         printf(KGRN "CIDX: %d. Intrinsic Jacobian Factor. Residual max error: %.4f. Jacobian max error: %.4f. Time: %.3f, %.3f. Ratio: %.0f\%\n\n" RESET,
                0, maxDiff(residual_autodiff, residual_analytic), maxDiff(Jacobian_autodiff, Jacobian_analytic),
                time_autodiff, time_analytic,
-               time_autodiff_eval/time_analytic_eval*100);
+               time_autodiff_eval / time_analytic_eval * 100);
 
         cout << "residual_autodiff: " << residual_autodiff.transpose() << endl;
         cout << "residual_analytic: " << residual_analytic.transpose() << endl;
         cout << "residual_diff    : " << (residual_autodiff - residual_analytic).transpose() << endl;
 
-        // cout << "Jacobian Xa_autodiff:\n" << Jacobian_autodiff.block(0, 0, 18, 18) << endl;
-        // cout << "J_Gammat_Xa:\n" << Jdebug["J_Gammat_Xa"] << endl; 
-        // cout << "J_Gammat_Xa diff:\n" << Jacobian_autodiff.block(0, 0, 18, 18) - Jdebug["J_Gammat_Xa"] << endl;
+        // cout << KBLU "Jacobian Tft Xa analytic:\n" RESET << Jdebug["J_Tft_Xa"] << endl;
+        // cout << KBLU "Jacobian Tft Xa_autodiff:\n" RESET << Jacobian_autodiff.block(0, 0, 6, 18) << endl;
+        // cout << KYEL "Jacobian Tft Xa diff:\n"     RESET << thresholdMatrix(Jacobian_autodiff.block(0, 0, 6, 18) - Jdebug["J_Tft_Xa"], 1e-9) << endl;
+        // cout << KBLU "Jacobian Twt Xa analytic:\n" RESET << Jdebug["J_Twt_Xa"] << endl;
+        // cout << KBLU "Jacobian Twt Xa_autodiff:\n" RESET << Jacobian_autodiff.block(6, 0, 6, 18) << endl;
+        // cout << KYEL "Jacobian Twt Xa diff:\n"     RESET << thresholdMatrix(Jacobian_autodiff.block(6, 0, 6, 18) - Jdebug["J_Twt_Xa"], 1e-9) << endl;
+        // cout << KBLU "Jacobian Wrt Xa analytic:\n" RESET << Jdebug["J_Wrt_Xa"] << endl;
+        // cout << KBLU "Jacobian Wrt Xa_autodiff:\n" RESET << Jacobian_autodiff.block(12, 0, 6, 18) << endl;
+        // cout << KYEL "Jacobian Wrt Xa diff:\n"     RESET << thresholdMatrix(Jacobian_autodiff.block(12, 0, 6, 18) - Jdebug["J_Wrt_Xa"], 1e-9) << endl;
 
         // cout << endl;
 
-        // cout << "Jacobian Xb_autodiff:\n" <<  Jacobian_autodiff.block(0, 18, 18, 18) << endl;
-        // cout << "J_Gammat_Xb:\n" << Jdebug["J_Gammat_Xb"] << endl; 
-        // cout << "J_Gammat_Xb diff :\n" << Jacobian_autodiff.block(0, 18, 18, 18) - Jdebug["J_Gammat_Xb"] << endl;
+        // cout << KBLU "Jacobian Tft Xb analytic:\n" RESET << Jdebug["J_Tft_Xb"] << endl;
+        // cout << KBLU "Jacobian Tft Xb_autodiff:\n" RESET << Jacobian_autodiff.block(0, 18, 6, 18) << endl;
+        // cout << KYEL "Jacobian Tft Xb diff:\n"     RESET << thresholdMatrix(Jacobian_autodiff.block(0, 18, 6, 18) - Jdebug["J_Tft_Xb"], 1e-9) << endl;
+        // cout << KBLU "Jacobian Twt Xb analytic:\n" RESET << Jdebug["J_Twt_Xb"] << endl;
+        // cout << KBLU "Jacobian Twt Xb_autodiff:\n" RESET << Jacobian_autodiff.block(6, 18, 6, 18) << endl;
+        // cout << KYEL "Jacobian Twt Xb diff:\n"     RESET << thresholdMatrix(Jacobian_autodiff.block(6, 18, 6, 18) - Jdebug["J_Twt_Xb"], 1e-9) << endl;
+        // cout << KBLU "Jacobian Wrt Xb analytic:\n" RESET << Jdebug["J_Wrt_Xb"] << endl;
+        // cout << KBLU "Jacobian Wrt Xb_autodiff:\n" RESET << Jacobian_autodiff.block(12, 18, 6, 18) << endl;
+        // cout << KYEL "Jacobian Wrt Xb diff:\n"     RESET << thresholdMatrix(Jacobian_autodiff.block(12, 18, 6, 18) - Jdebug["J_Wrt_Xb"], 1e-9) << endl;
 
-        // cout << "Jacobian Xa_autodiff:\n" << Jacobian_autodiff.block(0, 0, RESITRZ_SIZE, 18) << endl;
-        // cout << "J_Gammat_Xa:\n"          << Jdebug["J_TTW_Xa"] << endl; 
-        // cout << "J_Gammat_Xa diff:\n"     << Jacobian_autodiff.block(0, 0, RESITRZ_SIZE, 18) - Jdebug["J_TTW_Xa"] << endl;
-
-        // cout << "Jacobian Xa_autodiff:\n" << Jacobian_autodiff.block(0, 0, RESITRZ_SIZE, 18) << endl;
-        // cout << "Jacobian Xa analytic:\n" << Jacobian_analytic.block(0, 0, RESITRZ_SIZE, 18) << endl;
-        // cout << "Jacobian Xa diff:\n"     << Jacobian_autodiff.block(0, 0, RESITRZ_SIZE, 18) - Jacobian_analytic.block(0, 0, RESITRZ_SIZE, 18) << endl;
-
-        // cout << endl;
-
-        // cout << "Jacobian Xb_autodiff:\n" << Jacobian_autodiff.block(0, 18, RESITRZ_SIZE, 18) << endl;
-        // cout << "Jacobian Xb analytic:\n" << Jacobian_analytic.block(0, 18, RESITRZ_SIZE, 18) << endl;
-        // cout << "Jacobian Xb diff:\n"     << Jacobian_autodiff.block(0, 18, RESITRZ_SIZE, 18) - Jacobian_analytic.block(0, 18, RESITRZ_SIZE, 18) << endl;
-
-        // cout << "Jacobian Xa_autodiff:\n" << Jacobian_autodiff.block(0, 0, RESITRZ_SIZE, 18) << endl;
-        // cout << "Jacobian Xa analytic:\n" << Jdebug["J_Twt_Xa"] << endl;
-        // cout << "Jacobian Xa diff:\n"     << Jacobian_autodiff.block(0, 0, RESITRZ_SIZE, 18) - Jdebug["J_Twt_Xa"].block(0, 0, RESITRZ_SIZE, 18) << endl;
-
-        // cout << eaccess
-
-        // cout << "Jacobian Xb_autodiff:\n" << Jacobian_autodiff.block(0, 18, RESITRZ_SIZE, 18) << endl;
-        // cout << "Jacobian Xb analytic:\n" << Jdebug["J_Twt_Xb"] << endl;
-        // cout << "Jacobian Xb diff:\n"     << Jacobian_autodiff.block(0, 18, RESITRZ_SIZE, 18) - Jdebug["J_Twt_Xb"].block(0, 0, RESITRZ_SIZE, 18) << endl;
-
-
-        cout << KBLU "Jacobian Tft Xa analytic:\n" RESET << Jdebug["J_Tft_Xa"] << endl;
-        cout << KBLU "Jacobian Tft Xa_autodiff:\n" RESET << Jacobian_autodiff.block(0, 0, 6, 18) << endl;
-        cout << KYEL "Jacobian Tft Xa diff:\n"     RESET << thresholdMatrix(Jacobian_autodiff.block(0, 0, 6, 18) - Jdebug["J_Tft_Xa"], 1e-9) << endl;
-        cout << KBLU "Jacobian Twt Xa analytic:\n" RESET << Jdebug["J_Twt_Xa"] << endl;
-        cout << KBLU "Jacobian Twt Xa_autodiff:\n" RESET << Jacobian_autodiff.block(6, 0, 6, 18) << endl;
-        cout << KYEL "Jacobian Twt Xa diff:\n"     RESET << thresholdMatrix(Jacobian_autodiff.block(6, 0, 6, 18) - Jdebug["J_Twt_Xa"], 1e-9) << endl;
-        cout << KBLU "Jacobian Wrt Xa analytic:\n" RESET << Jdebug["J_Wrt_Xa"] << endl;
-        cout << KBLU "Jacobian Wrt Xa_autodiff:\n" RESET << Jacobian_autodiff.block(12, 0, 6, 18) << endl;
-        cout << KYEL "Jacobian Wrt Xa diff:\n"     RESET << thresholdMatrix(Jacobian_autodiff.block(12, 0, 6, 18) - Jdebug["J_Wrt_Xa"], 1e-9) << endl;
+        cout << KBLU "Jacobian Xa analytic:\n" RESET << Jacobian_analytic.block(0, 0, 18, 18) << endl;
+        cout << KBLU "Jacobian Xa_autodiff:\n" RESET << Jacobian_autodiff.block(0, 0, 18, 18) << endl;
+        cout << KYEL "Jacobian Xa diff:\n" RESET << thresholdMatrix(Jacobian_autodiff.block(0, 0, 18, 18) - Jacobian_analytic.block(0, 0, 18, 18), 1e-9) << endl;
+        // cout << KYEL "J_At_Ra diff:\n" RESET << Jdebug["J_At_Ra"] << endl;
+        // cout << KYEL "J_At_Tft*J_Tft_Ra diff:\n" RESET << Jdebug["J_At_Tft*J_Tft_Ra"] << endl;
+        // cout << KYEL "J_At_Twt*J_Twt_Ra diff:\n" RESET << Jdebug["J_At_Twt*J_Twt_Ra"] << endl;
+        // cout << KYEL "J_At_Wrt*J_Wrt_Ra diff:\n" RESET << Jdebug["J_At_Wrt*J_Wrt_Ra"] << endl;
 
         cout << endl;
 
-        cout << KBLU "Jacobian Tft Xb analytic:\n" RESET << Jdebug["J_Tft_Xb"] << endl;
-        cout << KBLU "Jacobian Tft Xb_autodiff:\n" RESET << Jacobian_autodiff.block(0, 18, 6, 18) << endl;
-        cout << KYEL "Jacobian Tft Xb diff:\n"     RESET << thresholdMatrix(Jacobian_autodiff.block(0, 18, 6, 18) - Jdebug["J_Tft_Xb"], 1e-9) << endl;
-        cout << KBLU "Jacobian Twt Xb analytic:\n" RESET << Jdebug["J_Twt_Xb"] << endl;
-        cout << KBLU "Jacobian Twt Xb_autodiff:\n" RESET << Jacobian_autodiff.block(6, 18, 6, 18) << endl;
-        cout << KYEL "Jacobian Twt Xb diff:\n"     RESET << thresholdMatrix(Jacobian_autodiff.block(6, 18, 6, 18) - Jdebug["J_Twt_Xb"], 1e-9) << endl;
-        cout << KBLU "Jacobian Wrt Xb analytic:\n" RESET << Jdebug["J_Wrt_Xb"] << endl;
-        cout << KBLU "Jacobian Wrt Xb_autodiff:\n" RESET << Jacobian_autodiff.block(12, 18, 6, 18) << endl;
-        cout << KYEL "Jacobian Wrt Xb diff:\n"     RESET << thresholdMatrix(Jacobian_autodiff.block(12, 18, 6, 18) - Jdebug["J_Wrt_Xb"], 1e-9) << endl;
+        cout << KBLU "Jacobian Xb analytic:\n" RESET << Jacobian_analytic.block(0, 18, 18, 18) << endl;
+        cout << KBLU "Jacobian Xb_autodiff:\n" RESET << Jacobian_autodiff.block(0, 18, 18, 18) << endl;
+        cout << KYEL "Jacobian Xb diff:\n" RESET << thresholdMatrix(Jacobian_autodiff.block(0, 18, 18, 18) - Jacobian_analytic.block(0, 18, 18, 18), 1e-9) << endl;
     }
-
 }
