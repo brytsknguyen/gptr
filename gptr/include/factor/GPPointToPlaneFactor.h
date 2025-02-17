@@ -87,9 +87,6 @@ public:
 
         for(size_t idx = Ridx; idx <= Aidx; idx++)
         {
-            // if (!jacobians[idx])
-                // continue;
-
             size_t idxa = idx, idxb = idx+RbIdx;
 
             if (idx == Ridx)
