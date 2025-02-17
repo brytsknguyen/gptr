@@ -73,17 +73,19 @@ public:
 
         gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
 
-        // Residual
-        Eigen::Map<Matrix<double, 1, 1>> residual(residuals);
-        residual[0] = w*(n.dot(Xt.R*f + Xt.P) + m);
+        constexpr int RES_SIZE = 1;
 
+        // Residual
+        Eigen::Map<Matrix<double, RES_SIZE, 1>> residual(residuals);
+        residual << w*(n.dot(Xt.R*f + Xt.P) + m);
+ 
         /* #endregion Calculate the pose at sampling time -----------------------------------------------------------*/
     
         if (!jacobians)
             return true;
 
-        Matrix<double, 1, 3> Dr_DRt = w*(-n.transpose()*Xt.R.matrix()*SO3d::hat(f));
-        Matrix<double, 1, 3> Dr_DPt = w*( n.transpose());
+        Matrix<double, RES_SIZE, 3> Dr_DRt = w*(-n.transpose()*Xt.R.matrix()*SO3d::hat(f));
+        Matrix<double, RES_SIZE, 3> Dr_DPt = w*( n.transpose());
 
         for(size_t idx = Ridx; idx <= Aidx; idx++)
         {
@@ -91,19 +93,19 @@ public:
 
             if (idx == Ridx)
             {
-                Eigen::Map<Eigen::Matrix<double, 1, 4, Eigen::RowMajor>> Dr_DXa(jacobians[idxa]);
-                Eigen::Map<Eigen::Matrix<double, 1, 4, Eigen::RowMajor>> Dr_DXb(jacobians[idxb]);
+                Eigen::Map<Eigen::Matrix<double, RES_SIZE, 4, Eigen::RowMajor>> Dr_DXa(jacobians[idxa]);
+                Eigen::Map<Eigen::Matrix<double, RES_SIZE, 4, Eigen::RowMajor>> Dr_DXb(jacobians[idxb]);
 
-                if(jacobians[idxa]) { Dr_DXa.setZero(); Dr_DXa.block<1, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx] + Dr_DPt*DXt_DXa[Pidx][idx]; }
-                if(jacobians[idxb]) { Dr_DXb.setZero(); Dr_DXb.block<1, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx] + Dr_DPt*DXt_DXb[Pidx][idx]; }
+                if(jacobians[idxa]) { Dr_DXa.setZero(); Dr_DXa.block<RES_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx] + Dr_DPt*DXt_DXa[Pidx][idx]; }
+                if(jacobians[idxb]) { Dr_DXb.setZero(); Dr_DXb.block<RES_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx] + Dr_DPt*DXt_DXb[Pidx][idx]; }
             }
             else
             {
-                Eigen::Map<Eigen::Matrix<double, 1, 3, Eigen::RowMajor>> Dr_DXa(jacobians[idxa]);
-                Eigen::Map<Eigen::Matrix<double, 1, 3, Eigen::RowMajor>> Dr_DXb(jacobians[idxb]);
+                Eigen::Map<Eigen::Matrix<double, RES_SIZE, 3, Eigen::RowMajor>> Dr_DXa(jacobians[idxa]);
+                Eigen::Map<Eigen::Matrix<double, RES_SIZE, 3, Eigen::RowMajor>> Dr_DXb(jacobians[idxb]);
 
-                if(jacobians[idxa]) { Dr_DXa.setZero(); Dr_DXa.block<1, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx] + Dr_DPt*DXt_DXa[Pidx][idx]; }
-                if(jacobians[idxb]) { Dr_DXb.setZero(); Dr_DXb.block<1, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx] + Dr_DPt*DXt_DXb[Pidx][idx]; }
+                if(jacobians[idxa]) { Dr_DXa.setZero(); Dr_DXa.block<RES_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx] + Dr_DPt*DXt_DXa[Pidx][idx]; }
+                if(jacobians[idxb]) { Dr_DXb.setZero(); Dr_DXb.block<RES_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx] + Dr_DPt*DXt_DXb[Pidx][idx]; }
             }
         }
 
