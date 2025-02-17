@@ -906,6 +906,11 @@ public:
 
         /* #region Calculating the derivatives of f -----------------------------------------------------------------*/
         
+        // int fidx = 0;
+        // fdrv.block(fidx*36, 0, 36, 27) = f01To12(The, Rho, Thed, Rhod, Omg); fidx +=1;
+        // fdrv.block(fidx*36, 0, 36, 27) = f13To24(The, Rho, Thed, Rhod, Omg); fidx +=1;
+        // fdrv.block(fidx*36, 0, 36, 27) = f25To36(The, Rho, Thed, Rhod, Omg); fidx +=1;
+
         int fidx = 0;
         fdrv.block(fidx*3, 0, 3, 27) = f01(The, Rho, Thed, Rhod, Omg); fidx +=1;
         fdrv.block(fidx*3, 0, 3, 27) = f02(The, Rho, Thed, Rhod, Omg); fidx +=1;
@@ -939,7 +944,7 @@ public:
         fdrv.block(fidx*3, 0, 3, 27) = f28(The, Rho, Thed, Rhod, Omg); fidx +=1;
         fdrv.block(fidx*3, 0, 3, 27) = f29(The, Rho, Thed, Rhod, Omg); fidx +=1;
         fdrv.block(fidx*3, 0, 3, 27) = f30(The, Rho, Thed, Rhod, Omg); fidx +=1;
-        
+
         fdrv.block(fidx*3, 0, 3, 27) = f31(The, Rho, Thed, Rhod, Omg); fidx +=1;
         fdrv.block(fidx*3, 0, 3, 27) = f32(The, Rho, Thed, Rhod, Omg); fidx +=1;
         fdrv.block(fidx*3, 0, 3, 27) = f33(The, Rho, Thed, Rhod, Omg); fidx +=1;
@@ -2356,6 +2361,7 @@ public:
         }
     }
 
+
     Matrix<T, 3, 27> f01(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, const Vec3T &Rhod, const Vec3T &Omg)
     {                                                  
         T tx = The(0), ty = The(1), tz = The(2);       
@@ -2366,6 +2372,7 @@ public:
         T rdx = Rhod(0), rdy = Rhod(1), rdz = Rhod(2); 
                                                        
         Matrix<T, 3, 27> fdrv; fdrv.setZero();         
+    
             
         fdrv(0, 1) = -rz; fdrv(0, 2) = ry; fdrv(0, 16) = oz; fdrv(0, 17) = -oy; fdrv(0, 25) = -rdz; fdrv(0, 26) = rdy; fdrv(1, 0) = rz; fdrv(1, 2) = -rx; fdrv(1, 15) = -oz; fdrv(1, 17) = ox; fdrv(1, 24) = rdz; fdrv(1, 26) = -rdx; fdrv(2, 0) = -ry; fdrv(2, 1) = rx;
         fdrv(2, 15) = oy; fdrv(2, 16) = -ox; fdrv(2, 24) = -rdy; fdrv(2, 25) = rdx;
