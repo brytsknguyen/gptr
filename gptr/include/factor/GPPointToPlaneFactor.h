@@ -87,26 +87,26 @@ public:
 
         for(size_t idx = Ridx; idx <= Aidx; idx++)
         {
-            if (!jacobians[idx])
-                continue;
+            // if (!jacobians[idx])
+                // continue;
+
+            size_t idxa = idx, idxb = idx+RbIdx;
 
             if (idx == Ridx)
             {
-                Eigen::Map<Eigen::Matrix<double, 1, 4, Eigen::RowMajor>> Dr_DXa(jacobians[idx]);
-                Eigen::Map<Eigen::Matrix<double, 1, 4, Eigen::RowMajor>> Dr_DXb(jacobians[idx+RbIdx]);
+                Eigen::Map<Eigen::Matrix<double, 1, 4, Eigen::RowMajor>> Dr_DXa(jacobians[idxa]);
+                Eigen::Map<Eigen::Matrix<double, 1, 4, Eigen::RowMajor>> Dr_DXb(jacobians[idxb]);
 
-                Dr_DXa.setZero(); Dr_DXb.setZero();
-                Dr_DXa.block<1, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx] + Dr_DPt*DXt_DXa[Pidx][idx];
-                Dr_DXb.block<1, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx] + Dr_DPt*DXt_DXb[Pidx][idx];
+                if(jacobians[idxa]) { Dr_DXa.setZero(); Dr_DXa.block<1, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx] + Dr_DPt*DXt_DXa[Pidx][idx]; }
+                if(jacobians[idxb]) { Dr_DXb.setZero(); Dr_DXb.block<1, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx] + Dr_DPt*DXt_DXb[Pidx][idx]; }
             }
             else
             {
-                Eigen::Map<Eigen::Matrix<double, 1, 3, Eigen::RowMajor>> Dr_DXa(jacobians[idx]);
-                Eigen::Map<Eigen::Matrix<double, 1, 3, Eigen::RowMajor>> Dr_DXb(jacobians[idx+RbIdx]);
+                Eigen::Map<Eigen::Matrix<double, 1, 3, Eigen::RowMajor>> Dr_DXa(jacobians[idxa]);
+                Eigen::Map<Eigen::Matrix<double, 1, 3, Eigen::RowMajor>> Dr_DXb(jacobians[idxb]);
 
-                Dr_DXa.setZero(); Dr_DXb.setZero();
-                Dr_DXa.block<1, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx] + Dr_DPt*DXt_DXa[Pidx][idx];
-                Dr_DXb.block<1, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx] + Dr_DPt*DXt_DXb[Pidx][idx];
+                if(jacobians[idxa]) { Dr_DXa.setZero(); Dr_DXa.block<1, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx] + Dr_DPt*DXt_DXa[Pidx][idx]; }
+                if(jacobians[idxb]) { Dr_DXb.setZero(); Dr_DXb.block<1, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx] + Dr_DPt*DXt_DXb[Pidx][idx]; }
             }
         }
 

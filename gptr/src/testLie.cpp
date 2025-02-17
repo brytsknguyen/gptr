@@ -728,8 +728,8 @@ int main(int argc, char **argv)
     myQp.ComputeQSC(The, Rho, Thed, Rhod, Omg);
     tt_qptime.Toc();
 
-    printf("tt_qtime  : %f s\n", tt_qtime.GetLastStop());
-    printf("tt_qptime : %f s\n", tt_qptime.GetLastStop());
+    printf("tt_qtime  : %f ms\n", tt_qtime.GetLastStop());
+    printf("tt_qptime : %f ms\n", tt_qptime.GetLastStop());
 
     // Confirm that Q = -Exp(-The)*H1(-The, Rho)
     compare("Q  error: ", myQ.Q, Mat3(-SO3d::exp(-The).matrix() * GPMixer::DJrUV_DU(Vector3d(-The), Rho)));

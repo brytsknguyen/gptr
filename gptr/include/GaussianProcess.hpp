@@ -1048,13 +1048,14 @@ public:
                                vector<vector<Eigen::Matrix<T, 3, 3>>> &DXt_DXb,
                                Eigen::Matrix<T, Eigen::Dynamic, 1> &gammaa,
                                Eigen::Matrix<T, Eigen::Dynamic, 1> &gammab,
-                               Eigen::Matrix<T, Eigen::Dynamic, 1> &gammat
+                               Eigen::Matrix<T, Eigen::Dynamic, 1> &gammat,
+                               bool find_jacobian = true
                               ) const
     {
         if (pose_representation == POSE_GROUP::SO3xR3)
-            ComputeXtAndJacobiansSO3xR3(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+            ComputeXtAndJacobiansSO3xR3(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat, find_jacobian);
         else if (pose_representation == POSE_GROUP::SE3)
-            ComputeXtAndJacobiansSE3(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+            ComputeXtAndJacobiansSE3(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat, find_jacobian);
     }
 
     template <class T = double>
@@ -1065,11 +1066,10 @@ public:
                                      vector<vector<Eigen::Matrix<T, 3, 3>>> &DXt_DXb,
                                      Eigen::Matrix<T, Eigen::Dynamic, 1> &gammaa_,
                                      Eigen::Matrix<T, Eigen::Dynamic, 1> &gammab_,
-                                     Eigen::Matrix<T, Eigen::Dynamic, 1> &gammat_
+                                     Eigen::Matrix<T, Eigen::Dynamic, 1> &gammat_,
+                                     bool find_jacobian = true
                                     ) const
     {
-        bool find_jacobian = true;
-
         // Local index for the states in the state vector
         const int RIDX = 0;
         const int OIDX = 1;
@@ -1084,20 +1084,21 @@ public:
         using Vec9T = Eigen::Matrix<T, 9, 1>;
         using Mat3T = Eigen::Matrix<T, 3, 3>;
 
+        double dtau = (Xt.t - Xa.t)/(Xb.t - Xa.t)*dt;
+
         // Map the variables of the state
-        double tau = Xt.t;
-        SO3T   &Rt = Xt.R;
-        Vec3T  &Ot = Xt.O;
-        Vec3T  &St = Xt.S;
-        Vec3T  &Pt = Xt.P;
-        Vec3T  &Vt = Xt.V;
-        Vec3T  &At = Xt.A;
+        SO3T   &Rt =  Xt.R;
+        Vec3T  &Ot =  Xt.O;
+        Vec3T  &St =  Xt.S;
+        Vec3T  &Pt =  Xt.P;
+        Vec3T  &Vt =  Xt.V;
+        Vec3T  &At =  Xt.A;
         
         /* #region Processing the RO3 states ------------------------------------------------------------------------*/
 
         // Prepare the the mixer matrixes
-        Matrix<T, 9, 9> LAM_ROSt = LMD(tau, SigGa).cast<T>();
-        Matrix<T, 9, 9> PSI_ROSt = PSI(tau, SigGa).cast<T>();
+        Matrix<T, 9, 9> LAM_ROSt = LMD(dtau, SigGa).cast<T>();
+        Matrix<T, 9, 9> PSI_ROSt = PSI(dtau, SigGa).cast<T>();
 
         // Find the relative rotation
         SO3T Rab = Xa.R.inverse()*Xb.R;
@@ -1246,8 +1247,8 @@ public:
         /* #region Processing the R3 states -------------------------------------------------------------------------*/
         
         // Performing interpolation on R3
-        Matrix<T, 9, 9> LAM_PVAt = LMD(tau, SigNu).cast<T>();
-        Matrix<T, 9, 9> PSI_PVAt = PSI(tau, SigNu).cast<T>();
+        Matrix<T, 9, 9> LAM_PVAt = LMD(dtau, SigNu).cast<T>();
+        Matrix<T, 9, 9> PSI_PVAt = PSI(dtau, SigNu).cast<T>();
 
         // Calculate the knot euclid states and put them in vector form
         Vec9T pvaa; pvaa << Xa.P, Xa.V, Xa.A;
@@ -1322,13 +1323,12 @@ public:
                                         GPState<T> &Xt,
                                   vector<vector<Eigen::Matrix<T, 3, 3>>> &DXt_DXa,
                                   vector<vector<Eigen::Matrix<T, 3, 3>>> &DXt_DXb,
-                                  Eigen::Matrix<T, Eigen::Dynamic, 1> &Gammaa_,
-                                  Eigen::Matrix<T, Eigen::Dynamic, 1> &Gammab_,
-                                  Eigen::Matrix<T, Eigen::Dynamic, 1> &Gammat_
+                                  Eigen::Matrix<T, Eigen::Dynamic, 1> &gammaa_,
+                                  Eigen::Matrix<T, Eigen::Dynamic, 1> &gammab_,
+                                  Eigen::Matrix<T, Eigen::Dynamic, 1> &gammat_,
+                                  bool find_jacobian = true
                                  ) const
     {
-        bool find_jacobian = true;
-
         // Local index for the states in the state vector
         const int RIDX = 0;
         const int OIDX = 1;
@@ -1346,10 +1346,11 @@ public:
         using MatLT  = Eigen::Matrix<T, 3, 6>;   // L is for long T is for tall
         using MatTT  = Eigen::Matrix<T, 6, 3>;   // L is for long T is for tall
 
+        double dtau = (Xt.t - Xa.t)/(Xb.t - Xa.t)*dt;
+
         // Prepare the the mixer matrixes
-        double tau = Xt.t;
-        Matrix<T, 18, 18> LAM_TTWt = LMD(tau, SigGN).cast<T>();
-        Matrix<T, 18, 18> PSI_TTWt = PSI(tau, SigGN).cast<T>();
+        Matrix<T, 18, 18> LAM_TTWt = LMD(dtau, SigGN).cast<T>();
+        Matrix<T, 18, 18> PSI_TTWt = PSI(dtau, SigGN).cast<T>();
 
         // Find the global 6DOF states
         
@@ -1381,15 +1382,15 @@ public:
         Get_JrInvHpLp<T>(Xib, Twb, Wrb, Xibd1, Xibd2, JrInv_Xib, Hp1_XibTwb, Hp1_XibWrb, Lp11_XibTwbXibd1, Lp12_XibTwbXibd1);
 
         // Stack the local variables in vector form
-        Matrix<T, 18, 1> Gammaa; Gammaa << Xiad0, Xiad1, Xiad2;
-        Matrix<T, 18, 1> Gammab; Gammab << Xibd0, Xibd1, Xibd2;
+        Matrix<T, 18, 1> gammaa; gammaa << Xiad0, Xiad1, Xiad2;
+        Matrix<T, 18, 1> gammab; gammab << Xibd0, Xibd1, Xibd2;
         // Mix the knots to get the interpolated states
-        Matrix<T, 18, 1> Gammat = LAM_TTWt*Gammaa + PSI_TTWt*Gammab;
+        Matrix<T, 18, 1> gammat = LAM_TTWt*gammaa + PSI_TTWt*gammab;
 
         // Extract the interpolated local states
-        Vec6T Xitd0 = Gammat.block(0,  0, 6, 1);
-        Vec6T Xitd1 = Gammat.block(6,  0, 6, 1);
-        Vec6T Xitd2 = Gammat.block(12, 0, 6, 1);
+        Vec6T Xitd0 = gammat.block(0,  0, 6, 1);
+        Vec6T Xitd1 = gammat.block(6,  0, 6, 1);
+        Vec6T Xitd2 = gammat.block(12, 0, 6, 1);
 
         // Do all jacobians needed for L4-L3 interface 
         Mat6T Jr_Xit;
@@ -1410,9 +1411,9 @@ public:
         // Get the interpolated states as variable
         Xt = GPState<T>(Xt.t, Tft, Twt, Wrt);
 
-        Gammaa_ = Gammaa;
-        Gammab_ = Gammab;
-        Gammat_ = Gammat;
+        gammaa_ = gammaa;
+        gammab_ = gammab;
+        gammat_ = gammat;
 
         if (find_jacobian)
         {
@@ -1769,43 +1770,13 @@ public:
             return Xb;
         }
 
-        SO3d Rab = Xa.R.inverse()*Xb.R;
+        GPState Xt(t); vector<vector<Matrix3d>> DXt_DXa, DXt_DXb;
+        Eigen::Matrix<double, Eigen::Dynamic, 1> gammaa = MatrixXd(9, 1);
+        Eigen::Matrix<double, Eigen::Dynamic, 1> gammab = MatrixXd(9, 1);
+        Eigen::Matrix<double, Eigen::Dynamic, 1> gammat = MatrixXd(9, 1);
+        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat, false);
 
-        // Relative angle between two knots
-        Vec3 Thea     = Vec3::Zero();
-        Vec3 Thedota  = Xa.O;
-        Vec3 Theddota = Xa.S;
-
-        Vec3 Theb     = Rab.log();
-        Vec3 Thedotb  = gpm->JrInv(Theb)*Xb.O;
-        Vec3 Theddotb = gpm->JrInv(Theb)*Xb.S + gpm->DJrInvUV_DU(Theb, Xb.O)*Thedotb;
-
-        Eigen::Matrix<double, 9, 1> gammaa; gammaa << Thea, Thedota, Theddota;
-        Eigen::Matrix<double, 9, 1> gammab; gammab << Theb, Thedotb, Theddotb;
-
-        Eigen::Matrix<double, 9, 1> pvaa; pvaa << Xa.P, Xa.V, Xa.A;
-        Eigen::Matrix<double, 9, 1> pvab; pvab << Xb.P, Xb.V, Xb.A;
-
-        Eigen::Matrix<double, 9, 1> gammat; // Containing on-manifold states (rotation and angular velocity)
-        Eigen::Matrix<double, 9, 1> pvat;   // Position, velocity, acceleration
-
-        gammat = gpm->LMD_ROS(s*dt) * gammaa + gpm->PSI_ROS(s*dt) * gammab;
-        pvat   = gpm->LMD_PVA(s*dt) * pvaa   + gpm->PSI_PVA(s*dt) * pvab;
-
-        // Retrive the interpolated SO3 in relative form
-        Vec3 Thet     = gammat.block(0, 0, 3, 1);
-        Vec3 Thedott  = gammat.block(3, 0, 3, 1);
-        Vec3 Theddott = gammat.block(6, 0, 3, 1);
-
-        // Assign the interpolated state
-        SO3d Rt = Xa.R*SO3d::exp(Thet);
-        Vec3 Ot = gpm->Jr(Thet)*Thedott;
-        Vec3 St = gpm->Jr(Thet)*Theddott + gpm->DJrUV_DU(Thet, Thedott)*Thedott;
-        Vec3 Pt = pvat.block<3, 1>(0, 0);
-        Vec3 Vt = pvat.block<3, 1>(3, 0);
-        Vec3 At = pvat.block<3, 1>(6, 0);
-
-        return GPState<double>(t, Rt, Ot, St, Pt, Vt, At);
+        return Xt;
     }
 
     GPState<double> getKnot(int kidx) const
@@ -2294,52 +2265,6 @@ typedef std::shared_ptr<GaussianProcess> GaussianProcessPtr;
 
 template <class Groupd>
 class GPSO3LocalParameterization : public ceres::LocalParameterization
-{
-public:
-    // virtual ~GPSO3LocalParameterization() {}
-
-    using Tangentd = typename Groupd::Tangent;
-
-    /// @brief plus operation for Ceres
-    ///
-    ///  T * exp(x)
-    ///
-    virtual bool Plus(double const *T_raw, double const *delta_raw,
-                      double *T_plus_delta_raw) const
-    {
-        Eigen::Map<Groupd const> const T(T_raw);
-        Eigen::Map<Tangentd const> const delta(delta_raw);
-        Eigen::Map<Groupd> T_plus_delta(T_plus_delta_raw);
-        T_plus_delta = T * Groupd::exp(delta);
-        return true;
-    }
-
-    virtual bool ComputeJacobian(double const *T_raw,
-                                 double *jacobian_raw) const
-    {
-        Eigen::Map<Groupd const> T(T_raw);
-        Eigen::Map<Eigen::Matrix<double, Groupd::num_parameters, Groupd::DoF, Eigen::RowMajor>>
-        
-        jacobian(jacobian_raw);
-        jacobian.setZero();
-
-        jacobian(0, 0) = 1;
-        jacobian(1, 1) = 1;
-        jacobian(2, 2) = 1;
-        return true;
-    }
-
-    ///@brief Global size
-    virtual int GlobalSize() const { return Groupd::num_parameters; }
-
-    ///@brief Local size
-    virtual int LocalSize() const { return Groupd::DoF; }
-};
-typedef GPSO3LocalParameterization<SO3d> GPSO3dLocalParameterization;
-
-
-template <class Groupd>
-class GPSE3LocalParameterization : public ceres::LocalParameterization
 {
 public:
     // virtual ~GPSO3LocalParameterization() {}

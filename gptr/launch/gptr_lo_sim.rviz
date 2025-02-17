@@ -11,7 +11,7 @@ Panels:
         - /Lidar11/Odometry1/Shape1
         - /Marker1
       Splitter Ratio: 0.22324159741401672
-    Tree Height: 540
+    Tree Height: 363
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -447,7 +447,7 @@ Visualization Manager:
       Enabled: true
       Name: ExtrinsicMarker
       Namespaces:
-        lines: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -460,7 +460,7 @@ Visualization Manager:
       Enabled: true
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -552,4 +552,4 @@ Window Geometry:
     collapsed: true
   Width: 1440
   X: 3840
-  Y: 710
+  Y: 1686
