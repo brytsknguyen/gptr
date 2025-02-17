@@ -24,6 +24,7 @@
 * along with splio.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <Eigen/Sparse>
 #include <ceres/ceres.h>
 #include "GaussianProcess.hpp"
 #include "../utility.h"
@@ -111,10 +112,13 @@ public:
 
         gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
 
+        constexpr int RES_SIZE = 12;
+
+        Mat3 Rtp = Xt.R.matrix().transpose();
+
         // Residual
-        Eigen::Map<Matrix<double, 12, 1>> residual(residuals);      
-        
-        residual.block<3, 1>(0, 0) = wAcce*(Xt.R.matrix().transpose() * (Xt.A + g) - acc + biasA);
+        Eigen::Map<Matrix<double, RES_SIZE, 1>> residual(residuals);      
+        residual.block<3, 1>(0, 0) = wAcce*(Rtp * (Xt.A + g) - acc + biasA);
         residual.block<3, 1>(3, 0) = wGyro*(Xt.O - gyro + biasW);
         residual.block<3, 1>(6, 0) = wBiasGyro*(biasW - gyro_bias);
         residual.block<3, 1>(9, 0) = wBiasAcce*(biasA - acc_bias);
@@ -122,154 +126,83 @@ public:
         if (!jacobians)
             return true;
 
-        Matrix3d Dr_DRt  = SO3d::hat(Xt.R.matrix().transpose() * (Xt.A + g));
-        Matrix3d Dr_DAt  = Xt.R.matrix().transpose();
-        Matrix3d Dr_DOt  = Matrix3d::Identity();    
+        using sparseMat = SparseMatrix<double>;
+        // Lambda function for assigning a dense block to a sparse matrix at (startRow, startCol)
+        auto SetSparseMatBlock = [](sparseMat& sMat, int startRow, int startCol, const Eigen::MatrixXd& block)
+        {
+            for (int i = 0; i < block.rows(); ++i)
+                for (int j = 0; j < block.cols(); ++j)
+                sMat.insert(startRow + i, startCol + j) = block(i, j);
+            sMat.makeCompressed();
+        };
+
+        Mat3 wAI  = Vector3d(wAcce, wAcce, wAcce).asDiagonal();
+        Mat3 wGI  = Vector3d(wGyro, wGyro, wGyro).asDiagonal();
+        Mat3 wBAI = Vector3d(wBiasAcce, wBiasAcce, wBiasAcce).asDiagonal();
+        Mat3 wBGI = Vector3d(wBiasGyro, wBiasGyro, wBiasGyro).asDiagonal();
+
+        // Define a fixed-size sparse matrix
+        SparseMatrix<double> Dr_DRt(RES_SIZE, 3);// = Dr_DRt_.sparseView(); Dr_DRt.makeCompressed();
+        SparseMatrix<double> Dr_DAt(RES_SIZE, 3);// = Dr_DAt_.sparseView(); Dr_DAt.makeCompressed();
+        SparseMatrix<double> Dr_DOt(RES_SIZE, 3);// = Dr_DOt_.sparseView(); Dr_DOt.makeCompressed();
+
+        SetSparseMatBlock(Dr_DRt, 0, 0, wAcce*(SO3d::hat(Rtp * (Xt.A + g))));
+        SetSparseMatBlock(Dr_DAt, 0, 0, wAcce*(Rtp));
+        SetSparseMatBlock(Dr_DOt, 3, 0, wGI);
 
         size_t idx;
 
-        // Jacobian on Ra
-        idx = RaIdx;
-        if (jacobians[idx])
+        for(size_t idx = Ridx; idx <= Aidx; idx++)
         {
-            Eigen::Map<Eigen::Matrix<double, 12, 4, Eigen::RowMajor>> Dr_DRa(jacobians[idx]);
-            Dr_DRa.setZero();
-            Dr_DRa.block<3, 3>(0, 0) = wAcce*Dr_DRt*DXt_DXa[Ridx][Ridx];
-            Dr_DRa.block<3, 3>(3, 0) = wGyro*Dr_DOt*DXt_DXa[Oidx][Ridx];
-        }
+            size_t idxa = idx, idxb = idx+RbIdx;
 
-        // Jacobian on Oa
-        idx = OaIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 12, 3, Eigen::RowMajor>> Dr_DOa(jacobians[idx]);
-            Dr_DOa.setZero();
-            Dr_DOa.block<3, 3>(0, 0) = wAcce*Dr_DRt*DXt_DXa[Ridx][Oidx];
-            Dr_DOa.block<3, 3>(3, 0) = wGyro*Dr_DOt*DXt_DXa[Oidx][Oidx];
-        }
+            if (idx == Ridx)
+            {
+                Eigen::Map<Eigen::Matrix<double, RES_SIZE, 4, Eigen::RowMajor>> Dr_DXa(jacobians[idxa]);
+                Eigen::Map<Eigen::Matrix<double, RES_SIZE, 4, Eigen::RowMajor>> Dr_DXb(jacobians[idxb]);
 
-        // Jacobian on Sa
-        idx = SaIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 12, 3, Eigen::RowMajor>> Dr_DSa(jacobians[idx]);
-            Dr_DSa.setZero();
-            Dr_DSa.block<3, 3>(0, 0) = wAcce*Dr_DRt*DXt_DXa[Ridx][Sidx];
-            Dr_DSa.block<3, 3>(3, 0) = wGyro*Dr_DOt*DXt_DXa[Oidx][Sidx];
-        }
+                if(jacobians[idxa]) { Dr_DXa.setZero(); Dr_DXa.block<RES_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx] + Dr_DOt*DXt_DXa[Oidx][idx] + Dr_DAt*DXt_DXa[Aidx][idx]; }
+                if(jacobians[idxb]) { Dr_DXb.setZero(); Dr_DXb.block<RES_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx] + Dr_DOt*DXt_DXb[Oidx][idx] + Dr_DAt*DXt_DXb[Aidx][idx]; }
+            }
+            else
+            {
+                Eigen::Map<Eigen::Matrix<double, RES_SIZE, 3, Eigen::RowMajor>> Dr_DXa(jacobians[idxa]);
+                Eigen::Map<Eigen::Matrix<double, RES_SIZE, 3, Eigen::RowMajor>> Dr_DXb(jacobians[idxb]);
 
-        // Jacobian on Pa
-        idx = PaIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 12, 3, Eigen::RowMajor>> Dr_DPa(jacobians[idx]);
-            Dr_DPa.setZero();
-            Dr_DPa.block<3, 3>(0, 0) = wAcce*Dr_DAt*DXt_DXa[Aidx][Pidx];
-        }
-
-        // Jacobian on Va
-        idx = VaIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 12, 3, Eigen::RowMajor>> Dr_DVa(jacobians[idx]);
-            Dr_DVa.setZero();
-            Dr_DVa.block<3, 3>(0, 0) = wAcce*Dr_DAt*DXt_DXa[Aidx][Vidx];
-        }
-
-        // Jacobian on Aa
-        idx = AaIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 12, 3, Eigen::RowMajor>> Dr_DAa(jacobians[idx]);
-            Dr_DAa.setZero();
-            Dr_DAa.block<3, 3>(0, 0) = wAcce*Dr_DAt*DXt_DXa[Aidx][Aidx];
-        }
-
-        // Jacobian on Rb
-        idx = RbIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 12, 4, Eigen::RowMajor>> Dr_DRb(jacobians[idx]);
-            Dr_DRb.setZero();
-            Dr_DRb.block<3, 3>(0, 0) = wAcce*Dr_DRt*DXt_DXb[Ridx][Ridx];
-            Dr_DRb.block<3, 3>(3, 0) = wGyro*Dr_DOt*DXt_DXb[Oidx][Ridx];
-        }
-
-        // Jacobian on Ob
-        idx = ObIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 12, 3, Eigen::RowMajor>> Dr_DOb(jacobians[idx]);
-            Dr_DOb.setZero();
-            Dr_DOb.block<3, 3>(0, 0) = wAcce*Dr_DRt*DXt_DXb[Ridx][Oidx];
-            Dr_DOb.block<3, 3>(3, 0) = wGyro*Dr_DOt*DXt_DXb[Oidx][Oidx];
-        }
-
-        // Jacobian on Sb
-        idx = SbIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 12, 3, Eigen::RowMajor>> Dr_DSb(jacobians[idx]);
-            Dr_DSb.setZero();
-            Dr_DSb.block<3, 3>(0, 0) = wAcce*Dr_DRt*DXt_DXb[Ridx][Sidx];
-            Dr_DSb.block<3, 3>(3, 0) = wGyro*Dr_DOt*DXt_DXb[Oidx][Sidx];
-        }
-
-        // Jacobian on Pb
-        idx = PbIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 12, 3, Eigen::RowMajor>> Dr_DPb(jacobians[idx]);
-            Dr_DPb.setZero();
-            Dr_DPb.block<3, 3>(0, 0) = wAcce*Dr_DAt*DXt_DXb[Aidx][Pidx];
-        }
-
-        // Jacobian on Vb
-        idx = VbIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 12, 3, Eigen::RowMajor>> Dr_DVb(jacobians[idx]);
-            Dr_DVb.setZero();
-            Dr_DVb.block<3, 3>(0, 0) = wAcce*Dr_DAt*DXt_DXb[Aidx][Vidx];
-        }
-
-        // Jacobian on Ab
-        idx = AbIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 12, 3, Eigen::RowMajor>> Dr_DAb(jacobians[idx]);
-            Dr_DAb.setZero();
-            Dr_DAb.block<3, 3>(0, 0) = wAcce*Dr_DAt*DXt_DXb[Aidx][Aidx];
+                if(jacobians[idxa]) { Dr_DXa.setZero(); Dr_DXa.block<RES_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx] + Dr_DOt*DXt_DXa[Oidx][idx] + Dr_DAt*DXt_DXa[Aidx][idx]; }
+                if(jacobians[idxb]) { Dr_DXb.setZero(); Dr_DXb.block<RES_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx] + Dr_DOt*DXt_DXb[Oidx][idx] + Dr_DAt*DXt_DXb[Aidx][idx]; }
+            }
         }
 
         // Jacobian on Bg
         idx = 12;
         if (jacobians[idx])
         {
-            Eigen::Map<Eigen::Matrix<double, 12, 3, Eigen::RowMajor>> Dr_DBg(jacobians[idx]);
+            Eigen::Map<Eigen::Matrix<double, RES_SIZE, 3, Eigen::RowMajor>> Dr_DBg(jacobians[idx]);
             Dr_DBg.setZero();
-            Dr_DBg.block<3, 3>(3, 0) = wGyro*Matrix3d::Identity();
-            Dr_DBg.block<3, 3>(6, 0) = wBiasGyro*Matrix3d::Identity();
+            Dr_DBg.block<3, 3>(3, 0) = wGI;
+            Dr_DBg.block<3, 3>(6, 0) = wBGI;
         }        
 
         // Jacobian on Ba
         idx = 13;
         if (jacobians[idx])
         {
-            Eigen::Map<Eigen::Matrix<double, 12, 3, Eigen::RowMajor>> Dr_DBa(jacobians[idx]);
+            Eigen::Map<Eigen::Matrix<double, RES_SIZE, 3, Eigen::RowMajor>> Dr_DBa(jacobians[idx]);
             Dr_DBa.setZero();
-            Dr_DBa.block<3, 3>(0, 0) = wAcce*Matrix3d::Identity();
-            Dr_DBa.block<3, 3>(9, 0) = wBiasAcce*Matrix3d::Identity();
+            Dr_DBa.block<3, 3>(0, 0) = wAI;
+            Dr_DBa.block<3, 3>(9, 0) = wBAI;
         }        
 
         // Jacobian on g
         idx = 14;
         if (jacobians[idx])
         {
-            Eigen::Map<Eigen::Matrix<double, 12, 3, Eigen::RowMajor>> Dr_Dg(jacobians[idx]);
+            Eigen::Map<Eigen::Matrix<double, RES_SIZE, 3, Eigen::RowMajor>> Dr_Dg(jacobians[idx]);
             Dr_Dg.setZero();
-            Dr_Dg.block<3, 3>(0, 0) = wAcce*Xt.R.matrix().transpose();
+            Dr_Dg.block<3, 3>(0, 0) = wAcce*Rtp;
         }          
+        
         return true;
     }
 
