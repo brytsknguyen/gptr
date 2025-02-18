@@ -561,8 +561,47 @@ int main(int argc, char **argv)
 
     // Check the factor jacobian
     {
+        cout << "Testing Jacobians of SO3xR3" << endl;
+
         double Dt = 0.04357;
         GaussianProcessPtr traj(new GaussianProcess(Dt, Vector3d(10, 10, 10).asDiagonal(), Vector3d(10, 10, 10).asDiagonal(), false, POSE_GROUP::SO3xR3));
+        traj->setStartTime(0.5743);
+        traj->genRandomTrajectory(6);
+
+        ceres::Problem problem;
+        ceres::Solver::Options options;
+        ceres::Solver::Summary summary;
+
+        // Create the ceres problem
+        CreateCeresProblem(problem, options, summary, traj, -0.1, -0.1);
+
+        // Create a random number engine
+        std::random_device rd;  // Will be used to obtain a seed for the random number engine
+        std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
+        // Define a distribution (e.g., uniform distribution in the range [1, 100])
+        std::uniform_int_distribution<> dis(1, 100);
+
+        // Create the fake imu factors
+        int Nknot = traj->getNumKnots();
+        vector<IMUData> imu_data;
+        for(int idx = 0; idx < Nknot - 1; idx++)
+        {
+            double t = traj->getKnotTime(idx) + 0.5 * traj->getDt();
+            Eigen::Vector3d acc = Eigen::Vector3d::Random();
+            Eigen::Vector3d gyro = Eigen::Vector3d::Random();
+            IMUData imu(t, acc, gyro);
+            imu_data.push_back(imu);
+        }
+        // Test the jacobian
+        TestAnalyticJacobian(problem, traj, imu_data, 0);
+    }
+
+    // Check the factor jacobian
+    {
+        cout << "Testing Jacobians of SE3" << endl;
+
+        double Dt = 0.04357;
+        GaussianProcessPtr traj(new GaussianProcess(Dt, Vector3d(10, 10, 10).asDiagonal(), Vector3d(10, 10, 10).asDiagonal(), false, POSE_GROUP::SE3));
         traj->setStartTime(0.5743);
         traj->genRandomTrajectory(6);
 

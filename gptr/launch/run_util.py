@@ -27,6 +27,7 @@ def generate_launch_description():
             {"gpDt"             : 0.04357},
             {"gpQr"             : 1.00},
             {"gpQc"             : 1.00},
+            {"pose_type"        : "SE3"},
 
             # UWB anchor position
             {"anchor_pose_path" : anchor_path},
