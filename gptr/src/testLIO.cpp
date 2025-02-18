@@ -12,8 +12,8 @@
 
 #include "AutoDiffSO3Parameterization.hpp"
 
-double mpSigGa = 1.0;
-double mpSigNu = 1.0;
+double mpCovROSJerk = 1.0;
+double mpCovPVAJerk = 1.0;
 int lidar_ds_rate = 1;
 
 struct FactorMeta
@@ -367,12 +367,12 @@ void AddAutodiffGPXtsFactor(GaussianProcessPtr &traj, ceres::Problem &problem,
     double sf = usf.second;
 
     // Create the factor
-    double mpSigGa = 1.0;
-    double mpSigNu = 1.0;
+    double mpCovROSJerk = 1.0;
+    double mpCovPVAJerk = 1.0;
     double mp_loss_thres = -1;
     // nh_ptr->getParam("mp_loss_thres", mp_loss_thres);
     ceres::LossFunction *mp_loss_function = mp_loss_thres <= 0 ? NULL : new ceres::HuberLoss(mp_loss_thres);
-    GPExtrinsicFactorAutodiff *factor = new GPExtrinsicFactorAutodiff(mpSigGa, mpSigNu, traj->getGPMixerPtr(), traj->getGPMixerPtr(), ss, sf);
+    GPExtrinsicFactorAutodiff *factor = new GPExtrinsicFactorAutodiff(mpCovROSJerk, mpCovPVAJerk, traj->getGPMixerPtr(), traj->getGPMixerPtr(), ss, sf);
     auto *cost_function = new ceres::DynamicAutoDiffCostFunction<GPExtrinsicFactorAutodiff>(factor);
     cost_function->SetNumResiduals(18);
 
@@ -521,12 +521,12 @@ void AddAnalyticGPXtsFactor(GaussianProcessPtr &traj, ceres::Problem &problem,
     }
 
     // Create the factor
-    double mpSigGa = 1.0;
-    double mpSigNu = 1.0;
+    double mpCovROSJerk = 1.0;
+    double mpCovPVAJerk = 1.0;
     double mp_loss_thres = -1;
     // nh_ptr->getParam("mp_loss_thres", mp_loss_thres);
     ceres::LossFunction *mp_loss_function = mp_loss_thres <= 0 ? NULL : new ceres::HuberLoss(mp_loss_thres);
-    ceres::CostFunction *cost_function = new GPExtrinsicFactor(mpSigGa, mpSigNu, traj->getGPMixerPtr(), traj->getGPMixerPtr(), ss, sf);
+    ceres::CostFunction *cost_function = new GPExtrinsicFactor(mpCovROSJerk, mpCovPVAJerk, traj->getGPMixerPtr(), traj->getGPMixerPtr(), ss, sf);
     
     // Add res block
     auto res_block = problem.AddResidualBlock(cost_function, mp_loss_function, factor_param_blocks);

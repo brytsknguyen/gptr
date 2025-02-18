@@ -80,12 +80,12 @@ def generate_launch_description():
             {'lidar_weight'    : 10.0},
 
             # Motion prior factors
-            {'mpSigGa'         : 1.0},
-            {'mpSigNu'         : 1.0},
+            {'mpCovROSJerk'         : 1.0},
+            {'mpCovPVAJerk'         : 1.0},
 
             # Extrinsic factors
-            {'xtSigGa'         : 200.0},
-            {'xtSigNu'         : 200.0},
+            {'xtCovROSJerk'         : 200.0},
+            {'xtCovPVAJerk'         : 200.0},
 
             # Loss function threshold
             {'ld_loss_thres'   : -1.0},

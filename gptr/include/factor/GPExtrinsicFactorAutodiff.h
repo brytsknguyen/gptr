@@ -73,12 +73,8 @@ public:
 
         GPState<T> Xst(ss*Dts); vector<vector<Mat3T>> DXst_DXsa; vector<vector<Mat3T>> DXst_DXsb;
         GPState<T> Xft(sf*Dtf); vector<vector<Mat3T>> DXft_DXfa; vector<vector<Mat3T>> DXft_DXfb;
-
-        Eigen::Matrix<T, Eigen::Dynamic, 1> gammasa, gammasb, gammast;
-        Eigen::Matrix<T, Eigen::Dynamic, 1> gammafa, gammafb, gammaft;
-
-        gpms->ComputeXtAndJacobians<T>(Xsa, Xsb, Xst, DXst_DXsa, DXst_DXsb, gammasa, gammasb, gammast);
-        gpmf->ComputeXtAndJacobians<T>(Xfa, Xfb, Xft, DXft_DXfa, DXft_DXfb, gammafa, gammafb, gammaft);
+        gpms->ComputeXtAndJacobians<T>(Xsa, Xsb, Xst, DXst_DXsa, DXst_DXsb);
+        gpmf->ComputeXtAndJacobians<T>(Xfa, Xfb, Xft, DXft_DXfa, DXft_DXfb);
 
         /* #endregion Compute the interpolated states ---------------------------------------------------------------*/
 

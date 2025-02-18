@@ -105,12 +105,7 @@ public:
         /* #region Calculate the pose at sampling time --------------------------------------------------------------*/
 
         GPState Xt(s*Dt); vector<vector<Matrix3d>> DXt_DXa; vector<vector<Matrix3d>> DXt_DXb;
-
-        Eigen::Matrix<double, Eigen::Dynamic, 1> gammaa;
-        Eigen::Matrix<double, Eigen::Dynamic, 1> gammab;
-        Eigen::Matrix<double, Eigen::Dynamic, 1> gammat;
-
-        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
 
         constexpr int RES_SIZE = 12;
 
@@ -126,29 +121,20 @@ public:
         if (!jacobians)
             return true;
 
-        using sparseMat = SparseMatrix<double>;
-        // Lambda function for assigning a dense block to a sparse matrix at (startRow, startCol)
-        auto SetSparseMatBlock = [](sparseMat& sMat, int startRow, int startCol, const Eigen::MatrixXd& block)
-        {
-            for (int i = 0; i < block.rows(); ++i)
-                for (int j = 0; j < block.cols(); ++j)
-                sMat.insert(startRow + i, startCol + j) = block(i, j);
-            sMat.makeCompressed();
-        };
-
         Mat3 wAI  = Vector3d(wAcce, wAcce, wAcce).asDiagonal();
         Mat3 wGI  = Vector3d(wGyro, wGyro, wGyro).asDiagonal();
         Mat3 wBAI = Vector3d(wBiasAcce, wBiasAcce, wBiasAcce).asDiagonal();
         Mat3 wBGI = Vector3d(wBiasGyro, wBiasGyro, wBiasGyro).asDiagonal();
 
         // Define a fixed-size sparse matrix
-        SparseMatrix<double> Dr_DRt(RES_SIZE, 3);// = Dr_DRt_.sparseView(); Dr_DRt.makeCompressed();
-        SparseMatrix<double> Dr_DAt(RES_SIZE, 3);// = Dr_DAt_.sparseView(); Dr_DAt.makeCompressed();
-        SparseMatrix<double> Dr_DOt(RES_SIZE, 3);// = Dr_DOt_.sparseView(); Dr_DOt.makeCompressed();
+        using sparseMat = SparseMatrix<double>;
+        sparseMat Dr_DRt(RES_SIZE, 3);
+        sparseMat Dr_DAt(RES_SIZE, 3);
+        sparseMat Dr_DOt(RES_SIZE, 3);
 
-        SetSparseMatBlock(Dr_DRt, 0, 0, wAcce*(SO3d::hat(Rtp * (Xt.A + g))));
-        SetSparseMatBlock(Dr_DAt, 0, 0, wAcce*(Rtp));
-        SetSparseMatBlock(Dr_DOt, 3, 0, wGI);
+        Util::SetSparseMatBlock<double>(Dr_DRt, 0, 0, wAcce*(SO3d::hat(Rtp * (Xt.A + g))));
+        Util::SetSparseMatBlock<double>(Dr_DAt, 0, 0, wAcce*(Rtp));
+        Util::SetSparseMatBlock<double>(Dr_DOt, 3, 0, wGI);
 
         size_t idx;
 

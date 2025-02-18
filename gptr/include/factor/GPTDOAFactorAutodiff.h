@@ -66,12 +66,7 @@ public:
 
         GPState<T> Xt(s*Dt); 
         vector<vector<Matrix<T, 3, 3>>> DXt_DXa; vector<vector<Matrix<T, 3, 3>>> DXt_DXb;
-
-        Eigen::Matrix<T, Eigen::Dynamic, 1> gammaa;
-        Eigen::Matrix<T, Eigen::Dynamic, 1> gammab;
-        Eigen::Matrix<T, Eigen::Dynamic, 1> gammat;
-
-        gpm->ComputeXtAndJacobians<T>(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+        gpm->ComputeXtAndJacobians<T>(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
 
         // Residual
         Eigen::Map<Matrix<T, 1, 1>> residual(residuals);

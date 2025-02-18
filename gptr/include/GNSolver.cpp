@@ -44,8 +44,8 @@ GNSolver::GNSolver(NodeHandlePtr &nh_, int &LIDX_) : nh(nh_), LIDX(LIDX_)
     nh->getParam("/dxmax", dxmax);
     
     // Weight for the motion prior
-    nh->getParam("mpSigGa", mpSigGa);
-    nh->getParam("mpSigNu", mpSigNu);
+    nh->getParam("mpCovROSJerk", mpCovROSJerk);
+    nh->getParam("mpCovPVAJerk", mpCovPVAJerk);
 }
 
 void GNSolver::EvaluateLidarFactors

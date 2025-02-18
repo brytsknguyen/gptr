@@ -54,6 +54,8 @@
 #include <mutex>
 #include <glob.h>
 
+#include <Eigen/Sparse>
+
 // ROS
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/header.hpp>
@@ -557,20 +559,6 @@ typedef myTf<> mytf;
 
 namespace Util
 {
-    // template <typename T>
-    // inline bool SO3IsValid(Sophus::SO3<T> &R, bool debug=false)
-    // {
-    //     Quaternion<T> Q = R.unit_quaternion();
-    //     double qx = double(Q.x());
-    //     double qy = double(Q.y());
-    //     double qz = double(Q.z());
-    //     double qw = double(Q.w());
-    //     double n = sqrt(qx*qx + qy*qy + qz*qz + qw*qw);
-    //     if (debug)
-    //         printf("norm: %f\n", n);
-    //     return fabs(n - 1.0) < 1e-4;
-    // }
-
     inline void ComputeCeresCost(const vector<ceres::internal::ResidualBlock *> &res_ids,
                                  double &cost, ceres::Problem &problem)
     {
@@ -594,6 +582,15 @@ namespace Util
         vector<int>::iterator it = std::set_union(vecA.begin(), vecA.end(), vecB.begin(), vecB.end(), vecTemp.begin());
         vecTemp.resize(it - vecTemp.begin());
         vecA = vecTemp;
+    }
+
+    template <typename T = double>
+    RosPc2Msg SetSparseMatBlock(Eigen::SparseMatrix<T> &spMat, int startRow, int startCol, const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& block)
+    {
+        for (int i = 0; i < block.rows(); ++i)
+            for (int j = 0; j < block.cols(); ++j)
+                spMat.insert(startRow + i, startCol + j) = block(i, j);
+        spMat.makeCompressed();
     }
 
     template <typename PointType>
@@ -693,16 +690,6 @@ namespace Util
               -q(1), q(0), typename Derived::Scalar(0);
         return ans;
     }
-
-    // template <typename Derived>
-    // inline Eigen::Quaternion<typename Derived::Scalar> positify(const Eigen::QuaternionBase<Derived> &q)
-    // {
-    //     //printf("a: %f %f %f %f", q.w(), q.x(), q.y(), q.z());
-    //     //Eigen::Quaternion<typename Derived::Scalar> p(-q.w(), -q.x(), -q.y(), -q.z());
-    //     //printf("b: %f %f %f %f", p.w(), p.x(), p.y(), p.z());
-    //     //return q.template w() >= (typename Derived::Scalar)(0.0) ? q : Eigen::Quaternion<typename Derived::Scalar>(-q.w(), -q.x(), -q.y(), -q.z());
-    //     return q;
-    // }
 
     template <typename Derived>
     inline Eigen::Matrix<typename Derived::Scalar, 4, 4> Qleft(const Eigen::QuaternionBase<Derived> &q)

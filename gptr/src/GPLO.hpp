@@ -64,8 +64,8 @@ protected:
     double max_vel = 10.0;
     double max_acc = 2.0;
 
-    double xtSigGa = 1.0;
-    double xtSigNu = 1.0;
+    double xtCovROSJerk = 1.0;
+    double xtCovPVAJerk = 1.0;
 
     int max_lidarcoefs = 4000;
 
@@ -131,8 +131,8 @@ public:
         Util::GetParam(nh, "max_alp", max_alp);
         Util::GetParam(nh, "max_vel", max_omg);
         Util::GetParam(nh, "max_acc", max_alp);
-        Util::GetParam(nh, "xtSigGa", xtSigGa);
-        Util::GetParam(nh, "xtSigNu", xtSigNu);
+        Util::GetParam(nh, "xtCovROSJerk", xtCovROSJerk);
+        Util::GetParam(nh, "xtCovPVAJerk", xtCovPVAJerk);
 
         use_ceres = Util::GetBoolParam(nh, "use_ceres", true);
         fuse_marg = Util::GetBoolParam(nh, "fuse_marg", false);
@@ -365,7 +365,7 @@ public:
     {
         GPMixerPtr gpmx = trajx->getGPMixerPtr();
         GPMixerPtr gpmy = trajy->getGPMixerPtr();
-        GPMixerPtr gpmextr(new GPMixer(gpmx->getDt(), (xtSigGa*Vec3(1.0, 1.0, 1.0)).asDiagonal(), (xtSigNu*Vec3(1.0, 1.0, 1.0)).asDiagonal()));
+        GPMixerPtr gpmextr(new GPMixer(gpmx->getDt(), (xtCovROSJerk*Vec3(1.0, 1.0, 1.0)).asDiagonal(), (xtCovPVAJerk*Vec3(1.0, 1.0, 1.0)).asDiagonal()));
 
         int XTRZ_DENSITY = 1;
         nh->get_parameter("XTRZ_DENSITY", XTRZ_DENSITY);
@@ -800,7 +800,7 @@ public:
 
             GPMixerPtr gpmx = trajx->getGPMixerPtr();
             GPMixerPtr gpmy = trajy->getGPMixerPtr();
-            GPMixerPtr gpmextr(new GPMixer(gpmx->getDt(), (xtSigGa*Vec3(1.0, 1.0, 1.0)).asDiagonal(), (xtSigNu*Vec3(1.0, 1.0, 1.0)).asDiagonal()));
+            GPMixerPtr gpmextr(new GPMixer(gpmx->getDt(), (xtCovROSJerk*Vec3(1.0, 1.0, 1.0)).asDiagonal(), (xtCovPVAJerk*Vec3(1.0, 1.0, 1.0)).asDiagonal()));
 
             // Calculate the factor with eigen method
             GPExtrinsicFactorTMN xtFactor(gpmextr, gpmx, gpmy, 1.0, ss, sf);

@@ -92,12 +92,7 @@ public:
         /* #region Calculate the pose at sampling time --------------------------------------------------------------*/
 
         GPState Xt(s*Dt); vector<vector<Matrix3d>> DXt_DXa; vector<vector<Matrix3d>> DXt_DXb;
-
-        Eigen::Matrix<double, Eigen::Dynamic, 1> gammaa;
-        Eigen::Matrix<double, Eigen::Dynamic, 1> gammab;
-        Eigen::Matrix<double, Eigen::Dynamic, 1> gammat;
-
-        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
 
         // Residual
         Eigen::Map<Matrix<double, 6, 1>> residual(residuals);

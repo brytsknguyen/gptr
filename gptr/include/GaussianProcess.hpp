@@ -196,7 +196,7 @@ class GPMixer
 private:
 
     // Knot length
-    double dt = 0.0;
+    double Dt = 0.0;
 
     // Identity matrix
     const Mat3 Eye = Mat3::Identity();
@@ -204,14 +204,20 @@ private:
     // 3x3 Zero matrix
     const Mat3 Zr3 = Mat3::Zero();
 
-    // Covariance of angular jerk
-    Mat3 SigGa = Eye;
+    // Covariance of so3 GP jerk
+    Mat3 CovROSJerk = Eye;
 
-    // Covariance of translational jerk
-    Mat3 SigNu = Eye;
+    // Covariance of R3 GP jerk
+    Mat3 CovPVAJerk = Eye;
 
-    // Covariance of wrench
-    Matrix<double, 6, 6> SigGN = Matrix<double, 6, 6>::Identity(6, 6);
+    // Covariance of SE3 Jerk
+    Matrix<double, 6, 6> CovTTWJerk = Matrix<double, 6, 6>::Identity(6, 6);
+
+    // Transition matrix
+    Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Fmat;
+
+    // Square root of GP convariance, needed for the motion prior factor
+    Matrix<double, STATE_DIM, STATE_DIM> sqrtW;
 
     // Type of pose representation
     POSE_GROUP pose_representation = POSE_GROUP::SO3xR3;
@@ -222,16 +228,43 @@ public:
 //    ~GPMixer() {};
 
     // Constructor
-    GPMixer(double dt_, const Mat3 SigGa_, const Mat3 SigNu_, const POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3)
-        : dt(dt_), SigGa(SigGa_), SigNu(SigNu_), pose_representation(pose_representation_)
+    GPMixer(double Dt_, const Mat3 CovROSJerk_, const Mat3 CovPVAJerk_, const POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3)
+        : Dt(Dt_), CovROSJerk(CovROSJerk_), CovPVAJerk(CovPVAJerk_), pose_representation(pose_representation_)
     {
-        SigGN.block<3, 3>(0, 0) = SigGa;
-        SigGN.block<3, 3>(3, 3) = SigNu;
+        CovTTWJerk.block<3, 3>(0, 0) = CovROSJerk;
+        CovTTWJerk.block<3, 3>(3, 3) = CovPVAJerk;
+
+        // Calculate the transition matrix
+        if(pose_representation == POSE_GROUP::SO3xR3)
+            Fmat = kron(Fbase(Dt, 3), Eye);
+        else if(pose_representation == POSE_GROUP::SE3)
+            Fmat = kron(Fbase(Dt, 3), Matrix<double, 6, 6>::Identity(6, 6));
+        
+        // Calculate the information matrix for motion prior
+        Matrix<double, STATE_DIM, STATE_DIM> Info;
+        Info.setZero();
+
+        double Dtpow[7];
+        for(int j = 0; j < 7; j++)
+            Dtpow[j] = pow(Dt, j);
+
+        Matrix3d Qtilde = Qbase(Dt, 3);
+
+        if(pose_representation == POSE_GROUP::SO3xR3)
+        {
+            Info.block<9, 9>(0, 0) = kron(Qtilde, getCovROSJerk());
+            Info.block<9, 9>(9, 9) = kron(Qtilde, getCovPVAJerk());
+        }
+        else if(pose_representation == POSE_GROUP::SE3)
+            Info = kron(Qtilde, CovTTWJerk);
+
+        sqrtW = Eigen::LLT<Matrix<double, STATE_DIM, STATE_DIM>>(Info.inverse()).matrixL().transpose();
     };
 
-    Matrix3d   getSigGa() const              { return SigGa;               }
-    Matrix3d   getSigNu() const              { return SigNu;               }
-    double     getDt()    const              { return dt;                  }
+    Matrix3d   getCovROSJerk() const         { return CovROSJerk;          }
+    Matrix3d   getCovPVAJerk() const         { return CovPVAJerk;          }
+    Matrix3d   getCovTTWJerk() const         { return CovPVAJerk;          }
+    double     getDt()    const              { return Dt;                  }
     POSE_GROUP getPoseRepresentation() const { return pose_representation; }    
 
     template <typename MatrixType1, typename MatrixType2>
@@ -245,68 +278,68 @@ public:
         return result;
     }
 
-    void setSigGa(const Mat3 &m)
+    void setCovROSJerk(const Mat3 &m)
     {
-        SigGa = m;
+        CovROSJerk = m;
     }
 
-    void setSigNu(const Mat3 &m)
+    void setCovPVAJerk(const Mat3 &m)
     {
-        SigNu = m;
+        CovPVAJerk = m;
     }
 
     // Transition Matrix, PHI(tau, 0)
-    MatrixXd Fbase(const double dtau, int N) const
+    MatrixXd Fbase(const double Dtau, int N) const
     {
         std::function<int(int)> factorial = [&factorial](int n) -> int {return (n <= 1) ? 1 : n * factorial(n - 1);};
 
         MatrixXd Phi = MatrixXd::Identity(N, N);
         for(int n = 0; n < N; n++)
             for(int m = n + 1; m < N; m++)
-                Phi(n, m) = pow(dtau, m-n)/factorial(m-n);
+                Phi(n, m) = pow(Dtau, m-n)/factorial(m-n);
 
         return Phi;
     }
 
-    // Gaussian Process covariance, Q = \int{Phi*F*SigNu*F'*Phi'}
-    MatrixXd Qbase(const double dtau, int N) const 
+    // Gaussian Process covariance, Q = \int{Phi*F*CovPVAJerk*F'*Phi'}
+    MatrixXd Qbase(const double Dtau, int N) const 
     {
         std::function<int(int)> factorial = [&factorial](int n) -> int {return (n <= 1) ? 1 : n * factorial(n - 1);};
         
         MatrixXd Q(N, N);
         for(int n = 0; n < N; n++)
             for(int m = 0; m < N; m++)
-                Q(n, m) = pow(dtau, 2*N-1-n-m)/double(2*N-1-n-m)/double(factorial(N-1-n))/double(factorial(N-1-m));
+                Q(n, m) = pow(Dtau, 2*N-1-n-m)/double(2*N-1-n-m)/double(factorial(N-1-n))/double(factorial(N-1-m));
         // cout << "MyQ: " << Q << endl;
         return Q;
     }
 
     MatrixXd Qga(const double s, int N) const 
     {
-        double dtau = s*dt;
+        double Dtau = s*Dt;
 
         std::function<int(int)> factorial = [&factorial](int n) -> int {return (n <= 1) ? 1 : n * factorial(n - 1);};
         
         MatrixXd Q(N, N);
         for(int n = 0; n < N; n++)
             for(int m = 0; m < N; m++)
-                Q(n, m) = pow(dtau, 2*N-1-n-m)/double(2*N-1-n-m)/double(factorial(N-1-n))/double(factorial(N-1-m));
+                Q(n, m) = pow(Dtau, 2*N-1-n-m)/double(2*N-1-n-m)/double(factorial(N-1-n))/double(factorial(N-1-m));
 
-        return kron(Qbase(dt, 3), SigGa);
+        return kron(Qbase(Dt, 3), CovROSJerk);
     }
 
     MatrixXd Qnu(const double s, int N) const 
     {
-        double dtau = s*dt;
+        double Dtau = s*Dt;
 
         std::function<int(int)> factorial = [&factorial](int n) -> int {return (n <= 1) ? 1 : n * factorial(n - 1);};
         
         MatrixXd Q(N, N);
         for(int n = 0; n < N; n++)
             for(int m = 0; m < N; m++)
-                Q(n, m) = pow(dtau, 2*N-1-n-m)/double(2*N-1-n-m)/double(factorial(N-1-n))/double(factorial(N-1-m));
+                Q(n, m) = pow(Dtau, 2*N-1-n-m)/double(2*N-1-n-m)/double(factorial(N-1-n))/double(factorial(N-1-m));
 
-        return kron(Qbase(dt, 3), SigNu);
+        return kron(Qbase(Dt, 3), CovPVAJerk);
     }
 
     Matrix<double, STATE_DIM, STATE_DIM> PropagateFullCov(Matrix<double, STATE_DIM, STATE_DIM> P0) const
@@ -314,58 +347,58 @@ public:
         Matrix<double, STATE_DIM, STATE_DIM> F; F.setZero();
         Matrix<double, STATE_DIM, STATE_DIM> Q; Q.setZero();
         
-        F.block<9, 9>(0, 0) = kron(Fbase(dt, 3), Eye);
-        F.block<9, 9>(9, 9) = kron(Fbase(dt, 3), Eye);
+        F.block<9, 9>(0, 0) = kron(Fbase(Dt, 3), Eye);
+        F.block<9, 9>(9, 9) = kron(Fbase(Dt, 3), Eye);
 
-        Q.block<9, 9>(0, 0) = kron(Qbase(dt, 3), SigGa);
-        Q.block<9, 9>(9, 9) = kron(Qbase(dt, 3), SigNu);
+        Q.block<9, 9>(0, 0) = kron(Qbase(Dt, 3), CovROSJerk);
+        Q.block<9, 9>(9, 9) = kron(Qbase(Dt, 3), CovPVAJerk);
 
         return F*P0*F.transpose() + Q;
     }
 
-    MatrixXd PSI(const double dtau, const MatrixXd &Q) const
+    MatrixXd PSI(const double Dtau, const MatrixXd &Q) const
     {
         MatrixXd Eye = MatrixXd::Identity(Q.rows(), Q.rows());
 
-        if (dtau < DOUBLE_EPSILON)
+        if (Dtau < DOUBLE_EPSILON)
             return kron(MatrixXd::Zero(3, 3), Eye);
 
-        MatrixXd Phidtaubar = kron(Fbase(dt - dtau, 3), Eye);
-        MatrixXd Qdtau = kron(Qbase(dtau, 3), Q);
-        MatrixXd Qdt = kron(Qbase(dt, 3), Q);
+        MatrixXd PhiDtaubar = kron(Fbase(Dt - Dtau, 3), Eye);
+        MatrixXd QDtau = kron(Qbase(Dtau, 3), Q);
+        MatrixXd QDt = kron(Qbase(Dt, 3), Q);
 
-        return Qdtau*Phidtaubar.transpose()*Qdt.inverse();
+        return QDtau*PhiDtaubar.transpose()*QDt.inverse();
     }
 
-    MatrixXd PSI_ROS(const double dtau) const
+    MatrixXd PSI_ROS(const double Dtau) const
     {
-        return PSI(dtau, SigGa);
+        return PSI(Dtau, CovROSJerk);
     }
 
-    MatrixXd PSI_PVA(const double dtau) const
+    MatrixXd PSI_PVA(const double Dtau) const
     {
-        return PSI(dtau, SigNu);
+        return PSI(Dtau, CovPVAJerk);
     }
 
-    MatrixXd LMD(const double dtau, const MatrixXd &Q) const
+    MatrixXd LMD(const double Dtau, const MatrixXd &Q) const
     {
         MatrixXd Eye = MatrixXd::Identity(Q.rows(), Q.rows());
 
-        MatrixXd PSIdtau = PSI(dtau, Q);
-        MatrixXd Fdtau = kron(Fbase(dtau, 3), Eye);
-        MatrixXd Fdt = kron(Fbase(dt, 3), Eye);
+        MatrixXd PSIDtau = PSI(Dtau, Q);
+        MatrixXd FDtau = kron(Fbase(Dtau, 3), Eye);
+        MatrixXd FDt = kron(Fbase(Dt, 3), Eye);
         
-        return Fdtau - PSIdtau*Fdt;
+        return FDtau - PSIDtau*FDt;
     }
 
-    MatrixXd LMD_ROS(const double dtau) const
+    MatrixXd LMD_ROS(const double Dtau) const
     {
-        return LMD(dtau, SigGa);
+        return LMD(Dtau, CovROSJerk);
     }
 
-    MatrixXd LMD_PVA(const double dtau) const
+    MatrixXd LMD_PVA(const double Dtau) const
     {
-        return LMD(dtau, SigNu);
+        return LMD(Dtau, CovPVAJerk);
     }
 
     template <class T = double>
@@ -1046,16 +1079,13 @@ public:
                                      GPState<T> &Xt,
                                vector<vector<Eigen::Matrix<T, 3, 3>>> &DXt_DXa,
                                vector<vector<Eigen::Matrix<T, 3, 3>>> &DXt_DXb,
-                               Eigen::Matrix<T, Eigen::Dynamic, 1> &gammaa,
-                               Eigen::Matrix<T, Eigen::Dynamic, 1> &gammab,
-                               Eigen::Matrix<T, Eigen::Dynamic, 1> &gammat,
                                bool find_jacobian = true
                               ) const
     {
         if (pose_representation == POSE_GROUP::SO3xR3)
-            ComputeXtAndJacobiansSO3xR3(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat, find_jacobian);
+            ComputeXtAndJacobiansSO3xR3(Xa, Xb, Xt, DXt_DXa, DXt_DXb, find_jacobian);
         else if (pose_representation == POSE_GROUP::SE3)
-            ComputeXtAndJacobiansSE3(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat, find_jacobian);
+            ComputeXtAndJacobiansSE3(Xa, Xb, Xt, DXt_DXa, DXt_DXb, find_jacobian);
     }
 
     template <class T = double>
@@ -1064,9 +1094,6 @@ public:
                                            GPState<T> &Xt,
                                      vector<vector<Eigen::Matrix<T, 3, 3>>> &DXt_DXa,
                                      vector<vector<Eigen::Matrix<T, 3, 3>>> &DXt_DXb,
-                                     Eigen::Matrix<T, Eigen::Dynamic, 1> &gammaa_,
-                                     Eigen::Matrix<T, Eigen::Dynamic, 1> &gammab_,
-                                     Eigen::Matrix<T, Eigen::Dynamic, 1> &gammat_,
                                      bool find_jacobian = true
                                     ) const
     {
@@ -1084,7 +1111,7 @@ public:
         using Vec9T = Eigen::Matrix<T, 9, 1>;
         using Mat3T = Eigen::Matrix<T, 3, 3>;
 
-        double dtau = (Xt.t - Xa.t)/(Xb.t - Xa.t)*dt;
+        double Dtau = (Xt.t - Xa.t)/(Xb.t - Xa.t)*Dt;
 
         // Map the variables of the state
         SO3T   &Rt =  Xt.R;
@@ -1097,8 +1124,8 @@ public:
         /* #region Processing the RO3 states ------------------------------------------------------------------------*/
 
         // Prepare the the mixer matrixes
-        Matrix<T, 9, 9> LAM_ROSt = LMD(dtau, SigGa).cast<T>();
-        Matrix<T, 9, 9> PSI_ROSt = PSI(dtau, SigGa).cast<T>();
+        Matrix<T, 9, 9> LAM_ROSt = LMD(Dtau, CovROSJerk).cast<T>();
+        Matrix<T, 9, 9> PSI_ROSt = PSI(Dtau, CovROSJerk).cast<T>();
 
         // Find the relative rotation
         SO3T Rab = Xa.R.inverse()*Xb.R;
@@ -1145,10 +1172,6 @@ public:
         Rt = Xa.R*Exp_Thet;
         Ot = Jr_Thet*Thetd1;
         St = Jr_Thet*Thetd2 + H1_ThetThetd1*Thetd1;
-
-        gammaa_ = gammaa;
-        gammab_ = gammab;
-        gammat_ = gammat;
 
         // If calculating the Jacobian
         if(find_jacobian)
@@ -1247,8 +1270,8 @@ public:
         /* #region Processing the R3 states -------------------------------------------------------------------------*/
         
         // Performing interpolation on R3
-        Matrix<T, 9, 9> LAM_PVAt = LMD(dtau, SigNu).cast<T>();
-        Matrix<T, 9, 9> PSI_PVAt = PSI(dtau, SigNu).cast<T>();
+        Matrix<T, 9, 9> LAM_PVAt = LMD(Dtau, CovPVAJerk).cast<T>();
+        Matrix<T, 9, 9> PSI_PVAt = PSI(Dtau, CovPVAJerk).cast<T>();
 
         // Calculate the knot euclid states and put them in vector form
         Vec9T pvaa; pvaa << Xa.P, Xa.V, Xa.A;
@@ -1323,9 +1346,6 @@ public:
                                         GPState<T> &Xt,
                                   vector<vector<Eigen::Matrix<T, 3, 3>>> &DXt_DXa,
                                   vector<vector<Eigen::Matrix<T, 3, 3>>> &DXt_DXb,
-                                  Eigen::Matrix<T, Eigen::Dynamic, 1> &gammaa_,
-                                  Eigen::Matrix<T, Eigen::Dynamic, 1> &gammab_,
-                                  Eigen::Matrix<T, Eigen::Dynamic, 1> &gammat_,
                                   bool find_jacobian = true
                                  ) const
     {
@@ -1346,11 +1366,11 @@ public:
         using MatLT  = Eigen::Matrix<T, 3, 6>;   // L is for long T is for tall
         using MatTT  = Eigen::Matrix<T, 6, 3>;   // L is for long T is for tall
 
-        double dtau = (Xt.t - Xa.t)/(Xb.t - Xa.t)*dt;
+        double Dtau = (Xt.t - Xa.t)/(Xb.t - Xa.t)*Dt;
 
         // Prepare the the mixer matrixes
-        Matrix<T, 18, 18> LAM_TTWt = LMD(dtau, SigGN).cast<T>();
-        Matrix<T, 18, 18> PSI_TTWt = PSI(dtau, SigGN).cast<T>();
+        Matrix<T, 18, 18> LAM_TTWt = LMD(Dtau, CovTTWJerk).cast<T>();
+        Matrix<T, 18, 18> PSI_TTWt = PSI(Dtau, CovTTWJerk).cast<T>();
 
         // Find the global 6DOF states
         
@@ -1410,10 +1430,6 @@ public:
 
         // Get the interpolated states as variable
         Xt = GPState<T>(Xt.t, Tft, Twt, Wrt);
-
-        gammaa_ = gammaa;
-        gammab_ = gammab;
-        gammat_ = gammat;
 
         if (find_jacobian)
         {
@@ -1628,11 +1644,110 @@ public:
         }
     }
 
+    template <class T = double>
+    void MotionPriorFactor(const GPState<T> &Xa,
+                           const GPState<T> &Xb,
+                           Eigen::Matrix<T, Dynamic, 1> &residual,
+                           vector<vector<Eigen::Matrix<T, 3, 3>>> &Dr_DXa,
+                           vector<vector<Eigen::Matrix<T, 3, 3>>> &Dr_DXb
+                          ) const
+    {
+        // Local index for the states in the state vector
+        const int RIDX = 0;
+        const int OIDX = 1;
+        const int SIDX = 2;
+        const int PIDX = 3;
+        const int VIDX = 4;
+        const int AIDX = 5;
+
+        using SO3T   = Sophus::SO3<T>;
+        using SE3T   = Sophus::SE3<T>;
+        using Vec3T  = Eigen::Matrix<T, 3, 1>;
+        using Vec6T  = Eigen::Matrix<T, 6, 1>;
+        using Vec9T  = Eigen::Matrix<T, 9, 1>;
+        using Mat3T  = Eigen::Matrix<T, 3, 3>;
+        using Mat6T  = Eigen::Matrix<T, 6, 6>;
+        using MatLT  = Eigen::Matrix<T, 3, 6>;   // L is for long T is for tall
+        using MatTT  = Eigen::Matrix<T, 6, 3>;   // L is for long T is for tall
+
+        if(pose_representation == POSE_GROUP::SO3xR3)
+        {
+            // Find the relative rotation
+            SO3T Rab = Xa.R.inverse()*Xb.R;
+
+            // Calculate the SO3 knots in relative form
+            Vec3T Thead0 = Vec3T::Zero();
+            Vec3T Thead1 = Xa.O;
+            Vec3T Thead2 = Xa.S;
+
+            // Find the local variable at tb and the associated Jacobians
+            Vec3T Theb = Rab.log();
+            Mat3T JrInv_Theb = JrInv(Theb);
+            Mat3T Hp1_ThebOb = DJrInvUV_DU(Theb, Xb.O);
+
+            Vec3T Thebd0 = Theb;
+            Vec3T Thebd1 = JrInv_Theb*Xb.O;
+            Vec3T Thebd2 = JrInv_Theb*Xb.S + Hp1_ThebOb*Thebd1;
+            
+            Mat3T Hp1_ThebSb = DJrInvUV_DU(Theb, Xb.S);
+            Mat3T Lp11_ThebObThebd1 = DDJrInvUVW_DUDU(Theb, Xb.O, Thebd1);
+            Mat3T Lp12_ThebObThebd1 = DDJrInvUVW_DUDV(Theb, Xb.O, Thebd1);
+
+            // Put them in vector form
+            Vec9T gammaa; gammaa << Thead0, Thead1, Thead2;
+            Vec9T gammab; gammab << Thebd0, Thebd1, Thebd2;
+
+            Vec9T PVAa; PVAa << Xa.P, Xa.V, Xa.A;
+            Vec9T PVAb; PVAb << Xb.P, Xb.V, Xb.A;
+
+            // Calculate the residual
+            residual << gammab - Fmat*gammaa, PVAb - Fmat*PVAa;
+            residual = sqrtW*residual;
+
+        }
+        else if (pose_representation == POSE_GROUP::SE3)
+        {
+            // Find the global 6DOF states
+            SE3T Tfa; Vec6T Twa; Vec6T Wra; Xa.GetTUW(Tfa, Twa, Wra);
+            SE3T Tfb; Vec6T Twb; Vec6T Wrb; Xb.GetTUW(Tfb, Twb, Wrb);
+
+            // Find the relative pose
+            SE3T Tfab = Tfa.inverse()*Tfb;
+
+            // Calculate the local variable at the two ends
+            Vec6T Xiad0 = Vec6T::Zero();
+            Vec6T Xiad1; Xiad1 << Twa;
+            Vec6T Xiad2; Xiad2 << Wra;
+
+            Vec6T Xib = SE3Log(Tfab);
+            Vec6T Xibd0 = Xib;
+            Vec6T Xibd1;
+            Vec6T Xibd2;
+
+            Mat6T JrInv_Xib;         JrInv_Xib.setZero();
+            Mat6T Hp1_XibTwb;        Hp1_XibTwb.setZero();
+            Mat6T Hp1_XibWrb;        Hp1_XibWrb.setZero();
+            Mat6T Lp11_XibTwbXibd1;  Lp11_XibTwbXibd1.setZero();
+            Mat6T Lp12_XibTwbXibd1;  Lp12_XibTwbXibd1.setZero();
+
+            // Populate the matrices related to Xib
+            Get_JrInvHpLp<T>(Xib, Twb, Wrb, Xibd1, Xibd2, JrInv_Xib, Hp1_XibTwb, Hp1_XibWrb, Lp11_XibTwbXibd1, Lp12_XibTwbXibd1);
+
+            // Stack the local variables in vector form
+            Matrix<T, 18, 1> gammaa; gammaa << Xiad0, Xiad1, Xiad2;
+            Matrix<T, 18, 1> gammab; gammab << Xibd0, Xibd1, Xibd2;
+
+            // Calculate the residual
+            residual << gammab - Fmat*gammaa;
+            residual = sqrtW*residual;
+        }
+    }
+
     GPMixer &operator=(const GPMixer &other)
     {
-        this->dt = other.dt;
-        this->SigGa = other.SigGa;
-        this->SigNu = other.SigNu;
+        this->Dt = other.Dt;
+        this->CovROSJerk = other.CovROSJerk;
+        this->CovPVAJerk = other.CovPVAJerk;
     }
 };
 
@@ -1657,7 +1772,7 @@ private:
     double t0 = 0;
 
     // Knot length
-    double dt = 0.0;
+    double Dt = 0.0;
 
     // Mixer
     GPMixerPtr gpm;
@@ -1685,11 +1800,11 @@ public:
     // ~GaussianProcess(){};
 
     // Constructor
-    GaussianProcess(double dt_, Mat3 SigGa_, Mat3 SigNu_, bool keepCov_ = false, POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3)
-        : dt(dt_), gpm(GPMixerPtr(new GPMixer(dt_, SigGa_, SigNu_, pose_representation_))), keepCov(keepCov_) {};
+    GaussianProcess(double Dt_, Mat3 CovROSJerk_, Mat3 CovPVAJerk_, bool keepCov_ = false, POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3)
+        : Dt(Dt_), gpm(GPMixerPtr(new GPMixer(Dt_, CovROSJerk_, CovPVAJerk_, pose_representation_))), keepCov(keepCov_) {};
 
-    Mat3 getSigGa() const { return gpm->getSigGa(); }
-    Mat3 getSigNu() const { return gpm->getSigNu(); }
+    Mat3 getCovROSJerk() const { return gpm->getCovROSJerk(); }
+    Mat3 getCovPVAJerk() const { return gpm->getCovPVAJerk(); }
     bool getKeepCov() const {return keepCov;}
 
     GPMixerPtr getGPMixerPtr()
@@ -1709,7 +1824,7 @@ public:
 
     double getMaxTime() const
     {
-        return t0 + max(0, int(R.size()) - 1)*dt;
+        return t0 + max(0, int(R.size()) - 1)*Dt;
     }
 
     int getNumKnots() const
@@ -1719,12 +1834,12 @@ public:
 
     double getKnotTime(int kidx) const
     {
-        return t0 + kidx*dt;
+        return t0 + kidx*Dt;
     }
 
     double getDt() const
     {
-        return dt;
+        return Dt;
     }
 
     bool TimeInInterval(double t, double eps=0.0) const
@@ -1734,8 +1849,8 @@ public:
 
     pair<int, double> computeTimeIndex(double t) const
     {
-        int u = int((t - t0)/dt);
-        double s = double(t - t0)/dt - u;
+        int u = int((t - t0)/Dt);
+        double s = double(t - t0)/Dt - u;
         return make_pair(u, s);
     }
 
@@ -1752,18 +1867,18 @@ public:
         if (ub >= R.size() && fabs(1.0 - s) < DOUBLE_EPSILON)
         {
             // printf(KYEL "Boundary issue: ub: %d, Rsz: %d, s: %f, 1-s: %f\n" RESET, ub, R.size(), s, fabs(1.0 - s));
-            return GPState(t0 + ua*dt, R[ua], O[ua], S[ua], P[ua], V[ua], A[ua]);
+            return GPState(t0 + ua*Dt, R[ua], O[ua], S[ua], P[ua], V[ua], A[ua]);
         }
 
         // Extract the states of the two adjacent knots
-        GPState Xa = GPState(t0 + ua*dt, R[ua], O[ua], S[ua], P[ua], V[ua], A[ua]);
+        GPState Xa = GPState(t0 + ua*Dt, R[ua], O[ua], S[ua], P[ua], V[ua], A[ua]);
         if (fabs(s) < DOUBLE_EPSILON)
         {
             // printf(KYEL "Boundary issue: ub: %d, Rsz: %d, s: %f, 1-s: %f\n" RESET, ub, R.size(), s, fabs(1.0 - s));
             return Xa;
         }
 
-        GPState Xb = GPState(t0 + ub*dt, R[ub], O[ub], S[ua], P[ub], V[ub], A[ub]);
+        GPState Xb = GPState(t0 + ub*Dt, R[ub], O[ub], S[ua], P[ub], V[ub], A[ub]);
         if (fabs(1.0 - s) < DOUBLE_EPSILON)
         {
             // printf(KYEL "Boundary issue: ub: %d, Rsz: %d, s: %f, 1-s: %f\n" RESET, ub, R.size(), s, fabs(1.0 - s));
@@ -1771,10 +1886,7 @@ public:
         }
 
         GPState Xt(t); vector<vector<Matrix3d>> DXt_DXa, DXt_DXb;
-        Eigen::Matrix<double, Eigen::Dynamic, 1> gammaa = MatrixXd(9, 1);
-        Eigen::Matrix<double, Eigen::Dynamic, 1> gammab = MatrixXd(9, 1);
-        Eigen::Matrix<double, Eigen::Dynamic, 1> gammat = MatrixXd(9, 1);
-        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat, false);
+        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb, false);
 
         return Xt;
     }
@@ -1806,11 +1918,11 @@ public:
         
         for(int k = 0; k < steps; k++)
         {
-            SO3d Rpred = Rc*SO3d::exp(dt*Oc + 0.5*dt*dt*Sc);
-            Vec3 Opred = Oc + dt*Sc;
+            SO3d Rpred = Rc*SO3d::exp(Dt*Oc + 0.5*Dt*Dt*Sc);
+            Vec3 Opred = Oc + Dt*Sc;
             Vec3 Spred = Sc;
-            Vec3 Ppred = Pc + dt*Vc + 0.5*dt*dt*Ac;
-            Vec3 Vpred = Vc + dt*Ac;
+            Vec3 Ppred = Pc + Dt*Vc + 0.5*Dt*Dt*Ac;
+            Vec3 Vpred = Vc + Dt*Ac;
             Vec3 Apred = Ac;
 
             Rc = Rpred;
@@ -1821,7 +1933,7 @@ public:
             Ac = Apred;
         }
 
-        return GPState<double>(getMaxTime() + steps*dt, Rc, Oc, Sc, Pc, Vc, Ac);
+        return GPState<double>(getMaxTime() + steps*Dt, Rc, Oc, Sc, Pc, Vc, Ac);
     }
 
     inline SO3d &getKnotSO3(size_t kidx) { return R[kidx]; }
@@ -1910,11 +2022,11 @@ public:
         Vec3 Vc = V.back();
         Vec3 Ac = A.back();
 
-        SO3d Rn = Rc*SO3d::exp(dt*Oc + 0.5*dt*dt*Sc);
-        Vec3 On = Oc + dt*Sc;
+        SO3d Rn = Rc*SO3d::exp(Dt*Oc + 0.5*Dt*Dt*Sc);
+        Vec3 On = Oc + Dt*Sc;
         Vec3 Sn = Sc;
-        Vec3 Pn = Pc + dt*Vc + 0.5*dt*dt*Ac;
-        Vec3 Vn = Vc + dt*Ac;
+        Vec3 Pn = Pc + Dt*Vc + 0.5*Dt*Dt*Ac;
+        Vec3 Vn = Vc + Dt*Ac;
         Vec3 An = Ac;
 
         R.push_back(Rn);
@@ -1941,14 +2053,14 @@ public:
             propagateCovariance();
     }
 
-    void setSigNu(const Matrix3d &m)
+    void setCovPVAJerk(const Matrix3d &m)
     {
-        gpm->setSigNu(m);
+        gpm->setCovPVAJerk(m);
     }
 
-    void setSigGa(const Matrix3d &m)
+    void setCovROSJerk(const Matrix3d &m)
     {
-        gpm->setSigGa(m);
+        gpm->setCovROSJerk(m);
     }
 
     void setKnot(int kidx, const GPState<double> &Xn)
@@ -2020,7 +2132,7 @@ public:
     GaussianProcess &operator=(GaussianProcess &other)
     {
         this->t0 = other.getMinTime();
-        this->dt = other.getDt();
+        this->Dt = other.getDt();
         
         *(this->gpm) = (*other.getGPMixerPtr());
 
@@ -2044,13 +2156,13 @@ public:
         logfile.open(log_); // Open the file for writing
         logfile.precision(std::numeric_limits<double>::digits10 + 1);
 
-        logfile << "Dt:" << dt << ";Order:" << 3 << ";Knots:" << getNumKnots() << ";MinTime:" << t0 << ";MaxTime:" << getMaxTime()
-                << ";SigGa:" << getSigGa()(0, 0) << "," << getSigGa()(0, 1) << "," << getSigGa()(0, 2) << ","
-                             << getSigGa()(1, 0) << "," << getSigGa()(1, 1) << "," << getSigGa()(1, 2) << ","
-                             << getSigGa()(2, 0) << "," << getSigGa()(2, 1) << "," << getSigGa()(2, 2)
-                << ";SigNu:" << getSigNu()(0, 0) << "," << getSigNu()(0, 1) << "," << getSigNu()(0, 2) << ","
-                             << getSigNu()(1, 0) << "," << getSigNu()(1, 1) << "," << getSigNu()(1, 2) << ","
-                             << getSigNu()(2, 0) << "," << getSigNu()(2, 1) << "," << getSigNu()(2, 2)
+        logfile << "Dt:" << Dt << ";Order:" << 3 << ";Knots:" << getNumKnots() << ";MinTime:" << t0 << ";MaxTime:" << getMaxTime()
+                << ";CovROSJerk:" << getCovROSJerk()(0, 0) << "," << getCovROSJerk()(0, 1) << "," << getCovROSJerk()(0, 2) << ","
+                             << getCovROSJerk()(1, 0) << "," << getCovROSJerk()(1, 1) << "," << getCovROSJerk()(1, 2) << ","
+                             << getCovROSJerk()(2, 0) << "," << getCovROSJerk()(2, 1) << "," << getCovROSJerk()(2, 2)
+                << ";CovPVAJerk:" << getCovPVAJerk()(0, 0) << "," << getCovPVAJerk()(0, 1) << "," << getCovPVAJerk()(0, 2) << ","
+                             << getCovPVAJerk()(1, 0) << "," << getCovPVAJerk()(1, 1) << "," << getCovPVAJerk()(1, 2) << ","
+                             << getCovPVAJerk()(2, 0) << "," << getCovPVAJerk()(2, 1) << "," << getCovPVAJerk()(2, 2)
                 << ";keepCov:" << getKeepCov()
                 << endl;
 
@@ -2096,7 +2208,7 @@ public:
             return o;    
         };
 
-        double dt_inLog;
+        double Dt_inLog;
         double t0_inLog;
         GPMixerPtr gpm_inLog;
 
@@ -2130,8 +2242,8 @@ public:
                 Eigen::Map<Matrix3d, Eigen::RowMajor> M(&Mdbl[0]);
                 return M;
             };
-            Matrix3d logSigNu = strToMat3(splitstr(fields[fieldidx["SigNu"]], ':').back(), ',');
-            Matrix3d logSigGa = strToMat3(splitstr(fields[fieldidx["SigGa"]], ':').back(), ',');
+            Matrix3d logCovPVAJerk = strToMat3(splitstr(fields[fieldidx["CovPVAJerk"]], ':').back(), ',');
+            Matrix3d logCovROSJerk = strToMat3(splitstr(fields[fieldidx["CovROSJerk"]], ':').back(), ',');
             double logDt = stod(splitstr(fields[fieldidx["Dt"]], ':').back());
             double logMinTime = stod(splitstr(fields[fieldidx["MinTime"]], ':').back());
             bool logkeepCov = (stoi(splitstr(fields[fieldidx["keepCov"]], ':').back()) == 1);
@@ -2139,14 +2251,14 @@ public:
             printf("Log configs:\n");
             printf("Dt: %f\n", logDt);
             printf("MinTime: %f\n", logMinTime);
-            printf("SigNu: \n");
-            cout << logSigNu << endl;
-            printf("SigGa: \n");
-            cout << logSigGa << endl;
+            printf("CovPVAJerk: \n");
+            cout << logCovPVAJerk << endl;
+            printf("CovROSJerk: \n");
+            cout << logCovROSJerk << endl;
 
-            dt_inLog = logDt;
+            Dt_inLog = logDt;
             t0_inLog = logMinTime;
-            gpm_inLog = GPMixerPtr(new GPMixer(logDt, logSigGa, logSigNu));
+            gpm_inLog = GPMixerPtr(new GPMixer(logDt, logCovROSJerk, logCovPVAJerk));
 
             if (logkeepCov == keepCov)
                 printf(KYEL "Covariance tracking is disabled\n" RESET);
@@ -2204,9 +2316,9 @@ public:
         //         exit(-1);
         // }
         
-        if(dt == 0 || dt_inLog == dt)
+        if(Dt == 0 || Dt_inLog == Dt)
         {
-            printf("dt has not been set. Use log's dt %f.\n", dt_inLog);
+            printf("dt has not been set. Use log's dt %f.\n", Dt_inLog);
             
             // Clear the knots
             R.clear(); O.clear(); S.clear(); P.clear(); V.clear(); A.clear(); C.clear();
@@ -2227,17 +2339,17 @@ public:
         }
         else
         {
-            printf(KYEL "Logged GPCT is has different knot length. Chosen: %f. Log: %f.\n" RESET, dt, dt_inLog);
+            printf(KYEL "Logged GPCT is has different knot length. Chosen: %f. Log: %f.\n" RESET, Dt, Dt_inLog);
             
             // Create a trajectory
-            GaussianProcess trajLog(dt_inLog, gpm_inLog->getSigGa(), gpm_inLog->getSigNu());
+            GaussianProcess trajLog(Dt_inLog, gpm_inLog->getCovROSJerk(), gpm_inLog->getCovPVAJerk());
             trajLog.setStartTime(t0_inLog);
 
             // Create the trajectory
             for(int ridx = 0; ridx < traj.rows(); ridx++)
             {
                 VectorXd X = traj.row(ridx);
-                trajLog.extendOneKnot(GPState<double>(ridx*dt_inLog+t0_inLog, SO3d(Quaternd(X(5), X(2), X(3), X(4))),
+                trajLog.extendOneKnot(GPState<double>(ridx*Dt_inLog+t0_inLog, SO3d(Quaternd(X(5), X(2), X(3), X(4))),
                                                                               Vec3(X(6),  X(7),  X(8)),
                                                                               Vec3(X(9),  X(10), X(11)),
                                                                               Vec3(X(12), X(13), X(14)),
@@ -2248,7 +2360,7 @@ public:
             // Sample the log trajectory to initialize current trajectory
             t0 = t0_inLog;
             R.clear(); O.clear(); S.clear(); P.clear(); V.clear(); A.clear(); C.clear();
-            for(double ts = t0; ts < trajLog.getMaxTime() - trajLog.getDt(); ts += dt)
+            for(double ts = t0; ts < trajLog.getMaxTime() - trajLog.getDt(); ts += Dt)
                 extendOneKnot(trajLog.getStateAt(ts));
         }
 

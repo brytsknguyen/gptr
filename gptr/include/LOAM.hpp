@@ -41,8 +41,8 @@ private:
 
     // Knot length
     double deltaT = 0.1;
-    double mpSigGa = 10;
-    double mpSigNu = 10;
+    double mpCovROSJerk = 10;
+    double mpCovPVAJerk = 10;
     
     // Associate params
     int knnSize = 6;
@@ -72,8 +72,8 @@ public:
         Util::GetParam(nh_ptr, "deltaT", deltaT);
 
         // Weight for the motion prior
-        Util::GetParam(nh_ptr, "mpSigGa", mpSigGa);
-        Util::GetParam(nh_ptr, "mpSigNu", mpSigNu);
+        Util::GetParam(nh_ptr, "mpCovROSJerk", mpCovROSJerk);
+        Util::GetParam(nh_ptr, "mpCovPVAJerk", mpCovPVAJerk);
 
         // Association params
         Util::GetParam(nh_ptr, "min_planarity", min_planarity);
@@ -85,10 +85,10 @@ public:
         assocCloudPub = nh_ptr->create_publisher<RosPc2Msg>(myprintf("/lidar_%d/assoc_cloud", LIDX), 1);
         deskewedCloudPub = nh_ptr->create_publisher<RosPc2Msg>(myprintf("/lidar_%d/cloud_inW", LIDX), 1);
 
-        Matrix3d SigGa = Vector3d(mpSigGa, mpSigGa, mpSigGa).asDiagonal();
-        Matrix3d SigNu = Vector3d(mpSigNu, mpSigNu, mpSigNu).asDiagonal();
+        Matrix3d CovROSJerk = Vector3d(mpCovROSJerk, mpCovROSJerk, mpCovROSJerk).asDiagonal();
+        Matrix3d CovPVAJerk = Vector3d(mpCovPVAJerk, mpCovPVAJerk, mpCovPVAJerk).asDiagonal();
 
-        traj = GaussianProcessPtr(new GaussianProcess(deltaT, SigGa, SigNu, true));
+        traj = GaussianProcessPtr(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true));
         traj->setStartTime(t0);
         traj->setKnot(0, GPState(t0, T_W_Li0));
     }

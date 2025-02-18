@@ -98,12 +98,7 @@ public:
         /* #region Calculate the pose at sampling time --------------------------------------------------------------*/
 
         GPState<T> Xt(s*Dt); vector<vector<Mat3T>> DXt_DXa; vector<vector<Mat3T>> DXt_DXb;
-        
-        Eigen::Matrix<T, Eigen::Dynamic, 1> gammaa;
-        Eigen::Matrix<T, Eigen::Dynamic, 1> gammab;
-        Eigen::Matrix<T, Eigen::Dynamic, 1> gammat;
-
-        gpm->ComputeXtAndJacobians<T>(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+        gpm->ComputeXtAndJacobians<T>(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
         
         // Residual
         Eigen::Map<Matrix<T, RESITRZ_SIZE, 1>> residual(residuals);
@@ -211,12 +206,7 @@ public:
         /* #region Calculate the pose at sampling time --------------------------------------------------------------*/
 
         GPState Xt(s*Dt); vector<vector<Matrix3d>> DXt_DXa; vector<vector<Matrix3d>> DXt_DXb;
-
-        Eigen::Matrix<double, Eigen::Dynamic, 1> gammaa;
-        Eigen::Matrix<double, Eigen::Dynamic, 1> gammab;
-        Eigen::Matrix<double, Eigen::Dynamic, 1> gammat;
-
-        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
 
         SE3d Tft; Vec6d Twt; Vec6d Wrt;
         Xt.GetTUW(Tft, Twt, Wrt);
@@ -1119,9 +1109,9 @@ int main(int argc, char **argv)
     // exit(0);
 
     double Dt = 0.1102;
-    Mat3 SigGa = Vec3(9.4, 4.7, 3.1).asDiagonal();
-    Mat3 SigNu = Vec3(6.3, 6.5, 0.7).asDiagonal();
-    GPMixer mygpm(0.1102, SigGa, SigNu);
+    Mat3 CovROSJerk = Vec3(9.4, 4.7, 3.1).asDiagonal();
+    Mat3 CovPVAJerk = Vec3(6.3, 6.5, 0.7).asDiagonal();
+    GPMixer mygpm(0.1102, CovROSJerk, CovPVAJerk);
 
     GPState Xa(0.213,
         SO3d::exp(Vec3(5.7, 4.3, 9.1)),
@@ -1143,15 +1133,14 @@ int main(int argc, char **argv)
     GPState Xt(Xa.t + ts);
     vector<vector<Matrix3d>> DXt_DXa;
     vector<vector<Matrix3d>> DXt_DXb;
-    Eigen::Matrix<double, Eigen::Dynamic, 1> gammaa, gammab, gammat;
 
     // Interpolate and find Jacobian
     TicToc tt_split;
-    mygpm.ComputeXtAndJacobiansSO3xR3(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+    mygpm.ComputeXtAndJacobiansSO3xR3(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
     tt_split.Toc();
 
     TicToc tt_se3;
-    mygpm.ComputeXtAndJacobiansSE3(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+    mygpm.ComputeXtAndJacobiansSE3(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
     tt_se3.Toc();
 
     printf("tt_se3   : %f ms\n", tt_se3.GetLastStop());
@@ -1159,7 +1148,7 @@ int main(int argc, char **argv)
 
     // POSE_GROUP pr = POSE_GROUP::SO3xR3;
     POSE_GROUP pr = POSE_GROUP::SE3;
-    GaussianProcessPtr traj(new GaussianProcess(Dt, SigGa, SigNu, false, POSE_GROUP::SE3));
+    GaussianProcessPtr traj(new GaussianProcess(Dt, CovROSJerk, CovPVAJerk, false, POSE_GROUP::SE3));
     traj->setStartTime(Xa.t);
     traj->genRandomTrajectory(2);
     traj->setKnot(0, Xa);
