@@ -562,7 +562,7 @@ int main(int argc, char **argv)
     // Check the factor jacobian
     {
         double Dt = 0.04357;
-        GaussianProcessPtr traj(new GaussianProcess(Dt, Vector3d(10, 10, 10).asDiagonal(), Vector3d(10, 10, 10).asDiagonal()));
+        GaussianProcessPtr traj(new GaussianProcess(Dt, Vector3d(10, 10, 10).asDiagonal(), Vector3d(10, 10, 10).asDiagonal(), false, POSE_GROUP::SO3xR3));
         traj->setStartTime(0.5743);
         traj->genRandomTrajectory(6);
 
