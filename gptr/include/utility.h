@@ -585,7 +585,7 @@ namespace Util
     }
 
     template <typename T = double>
-    RosPc2Msg SetSparseMatBlock(Eigen::SparseMatrix<T> &spMat, int startRow, int startCol, const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& block)
+    void SetSparseMatBlock(Eigen::SparseMatrix<T> &spMat, int startRow, int startCol, const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& block)
     {
         for (int i = 0; i < block.rows(); ++i)
             for (int j = 0; j < block.cols(); ++j)

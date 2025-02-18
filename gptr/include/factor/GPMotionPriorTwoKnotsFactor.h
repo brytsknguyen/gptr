@@ -47,6 +47,9 @@ public:
 
     virtual bool Evaluate(double const *const *parameters, double *residuals, double **jacobians) const
     {
+        using Vec18   = Eigen::Matrix<double, STATE_DIM, 1>;
+        using Mat18x3 = Eigen::Matrix<double, STATE_DIM, 3>;
+
         /* #region Map the memory to control points -----------------------------------------------------------------*/
 
         // Map parameters to the control point states
@@ -87,9 +90,15 @@ public:
         Vec3 rAcc = Xb.A - Xa.A;
 
         // Residual
-        Eigen::Map<Matrix<double, STATE_DIM, 1>> residual(residuals);
+        Eigen::Map<Vec18> residual(residuals);
         residual << rRot, rRdot, rRddot, rPos, rVel, rAcc;
         residual = sqrtW*residual;
+
+        // vector<Mat18x3> Dr_DXa(6, Mat18x3::Zero(18, 3));
+        // vector<Mat18x3> Dr_DXb(6, Mat18x3::Zero(18, 3));
+        // Vec18 residual_;
+        // gpm->MotionPriorFactor(Xa, Xb, residual_, Dr_DXa, Dr_DXb);
+        // cout << "res diff:\n" << (residual_ - residual).cwiseAbs().maxCoeff() << endl;
 
         /* #endregion Calculate the residual ------------------------------------------------------------------------*/
 

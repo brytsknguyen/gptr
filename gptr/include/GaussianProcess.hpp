@@ -1647,9 +1647,9 @@ public:
     template <class T = double>
     void MotionPriorFactor(const GPState<T> &Xa,
                            const GPState<T> &Xb,
-                           Eigen::Matrix<T, Dynamic, 1> &residual,
-                           vector<vector<Eigen::Matrix<T, 3, 3>>> &Dr_DXa,
-                           vector<vector<Eigen::Matrix<T, 3, 3>>> &Dr_DXb
+                           Eigen::Matrix<T, STATE_DIM, 1> &residual,
+                           vector<Eigen::Matrix<T, STATE_DIM, 3>> &Dr_DXa,
+                           vector<Eigen::Matrix<T, STATE_DIM, 3>> &Dr_DXb
                           ) const
     {
         // Local index for the states in the state vector
