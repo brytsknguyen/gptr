@@ -1636,6 +1636,7 @@ public:
             DXt_DXa[AIDX][VIDX] = J_At_Tft*J_Tft_Va + J_At_Twt*J_Twt_Va + J_At_Wrt*J_Wrt_Va;    DXt_DXb[AIDX][VIDX] = J_At_Tft*J_Tft_Vb + J_At_Twt*J_Twt_Vb + J_At_Wrt*J_Wrt_Vb; // DOt_DVb
             DXt_DXa[AIDX][AIDX] = J_At_Tft*J_Tft_Aa + J_At_Twt*J_Twt_Aa + J_At_Wrt*J_Wrt_Aa;    DXt_DXb[AIDX][AIDX] = J_At_Tft*J_Tft_Ab + J_At_Twt*J_Twt_Ab + J_At_Wrt*J_Wrt_Ab; // DOt_DAb
         }
+
     }
 
     template <class T = double>
@@ -1832,7 +1833,7 @@ public:
 
         if(find_jacobian)
         {
-            // Mapping
+            // Basic variables
             const SO3T  &Ra = Xa.R;          const SO3T  &Rb = Xb.R;
             const Vec3T &Oa = Xa.O;          const Vec3T &Ob = Xb.O;
             const Vec3T &Sa = Xa.S;          const Vec3T &Sb = Xb.S;
@@ -1841,6 +1842,7 @@ public:
             const Vec3T &Aa = Xa.A;          const Vec3T &Ab = Xb.A;
             const Vec3T Na = Twa.tail(3);    const Vec3T Nb = Twb.tail(3);
             const Vec3T Ba = Wra.tail(3);    const Vec3T Bb = Wrb.tail(3);
+
 
             // Jacobians from L2 to L1
             MatLT U; U.setZero(); U.block(0, 0, 3, 3) = Mat3T::Identity();
@@ -1863,31 +1865,33 @@ public:
             Mat6T  J_Xibd2_Twb = Lp12_XibTwbXibd1 + Hp1_XibTwb*J_Xibd1_Twb;
             Mat6T &J_Xibd2_Wrb = JrInv_Xib;
 
+
             // Jacobian from L1 to L0
-            Mat3T hat_Oa = SO3T::hat(Oa);                              Mat3T hat_Ob = SO3T::hat(Ob);                           
-            Mat3T Ratp = Ra.inverse().matrix();                        Mat3T Rbtp = Rb.inverse().matrix();                     
-            Mat3T hat_RatpVa = SO3T::hat(Ratp*Va);                     Mat3T hat_RbtpVb = SO3T::hat(Rbtp*Vb);                  
-            Mat3T hat_RatpAa = SO3T::hat(Ratp*Aa);                     Mat3T hat_RbtpAb = SO3T::hat(Rbtp*Ab);                  
-                                                                                                                               
-            MatTT J_Tfa_Ra =  Utp;                                     MatTT J_Tfb_Rb =  Utp;                                  
-            MatTT J_Tfa_Pa =  Dtp*Ratp;                                MatTT J_Tfb_Pb =  Dtp*Rbtp;                             
-                                                                                                                               
-            MatTT J_Twa_Oa =  Utp;                                     MatTT J_Twb_Ob =  Utp;                                  
-            MatTT J_Twa_Ra =  Dtp*hat_RatpVa;                          MatTT J_Twb_Rb =  Dtp*hat_RbtpVb;                       
-            MatTT J_Twa_Va =  Dtp*Ratp;                                MatTT J_Twb_Vb =  Dtp*Rbtp;                             
-                                                                                                                               
-            MatTT J_Wra_Sa =  Utp;                                     MatTT J_Wrb_Sb =  Utp;                                  
-            MatTT J_Wra_Ra =  Dtp*(hat_RatpAa - hat_Oa*hat_RatpVa);    MatTT J_Wrb_Rb =  Dtp*(hat_RbtpAb - hat_Ob*hat_RbtpVb); 
-            MatTT J_Wra_Aa =  Dtp*Ratp;                                MatTT J_Wrb_Ab =  Dtp*Rbtp;                             
-            MatTT J_Wra_Oa =  Dtp*hat_RatpVa;                          MatTT J_Wrb_Ob =  Dtp*hat_RbtpVb;                       
-            MatTT J_Wra_Va = -Dtp*hat_Oa*Ratp;
+            Mat3T hat_Oa = SO3T::hat(Oa);                               Mat3T hat_Ob = SO3T::hat(Ob);                           
+            Mat3T Ratp = Ra.inverse().matrix();                         Mat3T Rbtp = Rb.inverse().matrix();                     
+            Mat3T hat_RatpVa = SO3T::hat(Ratp*Va);                      Mat3T hat_RbtpVb = SO3T::hat(Rbtp*Vb);                  
+            Mat3T hat_RatpAa = SO3T::hat(Ratp*Aa);                      Mat3T hat_RbtpAb = SO3T::hat(Rbtp*Ab);                  
+                                                                                                                                
+            MatTT J_Tfa_Ra =  Utp;                                      MatTT J_Tfb_Rb =  Utp;                                  
+            MatTT J_Tfa_Pa =  Dtp*Ratp;                                 MatTT J_Tfb_Pb =  Dtp*Rbtp;                                  
+                                                                                                                                
+            MatTT J_Twa_Oa =  Utp;                                      MatTT J_Twb_Ob =  Utp;                                  
+            MatTT J_Twa_Ra =  Dtp*hat_RatpVa;                           MatTT J_Twb_Rb =  Dtp*hat_RbtpVb;                       
+            MatTT J_Twa_Va =  Dtp*Ratp;                                 MatTT J_Twb_Vb =  Dtp*Rbtp;                             
+                                                                                                                                
+            MatTT J_Wra_Sa =  Utp;                                      MatTT J_Wrb_Sb =  Utp;                                  
+            MatTT J_Wra_Ra =  Dtp*(hat_RatpAa - hat_Oa*hat_RatpVa);     MatTT J_Wrb_Rb =  Dtp*(hat_RbtpAb - hat_Ob*hat_RbtpVb); 
+            MatTT J_Wra_Aa =  Dtp*Ratp;                                 MatTT J_Wrb_Ab =  Dtp*Rbtp;                             
+            MatTT J_Wra_Oa =  Dtp*hat_RatpVa;                           MatTT J_Wrb_Ob =  Dtp*hat_RbtpVb;                       
+            MatTT J_Wra_Va = -Dtp*hat_Oa*Ratp;                          MatTT J_Wrb_Vb = -Dtp*hat_Ob*Rbtp;                      
+
 
             // Jacobian from L2 to L0
 
             MatTT J_Xiad1_Ra = J_Xiad1_Twa*J_Twa_Ra;
             MatTT J_Xiad1_Oa = J_Xiad1_Twa*J_Twa_Oa;
             MatTT J_Xiad1_Va = J_Xiad1_Twa*J_Twa_Va;
-                                                    
+
             MatTT J_Xiad2_Ra = J_Xiad2_Wra*J_Wra_Ra;
             MatTT J_Xiad2_Oa = J_Xiad2_Wra*J_Wra_Oa;
             MatTT J_Xiad2_Sa = J_Xiad2_Wra*J_Wra_Sa;
@@ -1896,28 +1900,28 @@ public:
 
             MatTT J_Xibd0_Ra = J_Xibd0_Tfa*J_Tfa_Ra;
             MatTT J_Xibd0_Pa = J_Xibd0_Tfa*J_Tfa_Pa;
-            
-            MatTT J_Xibd0_Rb = J_Xibd0_Tfb*J_Tfb_Rb;
-            MatTT J_Xibd0_Pb = J_Xibd0_Tfb*J_Tfb_Pb;
 
             MatTT J_Xibd1_Ra = J_Xibd1_Tfa*J_Tfa_Ra;
             MatTT J_Xibd1_Pa = J_Xibd1_Tfa*J_Tfa_Pa;
-            
-            MatTT J_Xibd1_Rb = J_Xibd1_Tfb*J_Tfb_Rb + J_Xibd1_Twb*J_Twb_Rb;
-            MatTT J_Xibd1_Ob = J_Xibd1_Twb*J_Twb_Ob;
-            MatTT J_Xibd1_Pb = J_Xibd1_Tfb*J_Tfb_Pb;
-            MatTT J_Xibd1_Vb = J_Xibd1_Twb*J_Twb_Vb;
 
             MatTT J_Xibd2_Ra = J_Xibd2_Tfa*J_Tfa_Ra;
             MatTT J_Xibd2_Pa = J_Xibd2_Tfa*J_Tfa_Pa;
 
-            MatTT J_Xibd2_Rb = J_Xibd2_Tfb*J_Tfb_Rb;
-            MatTT J_Xibd2_Ob = J_Xibd2_Twb*J_Twb_Ob;
-            MatTT J_Xibd2_Sb = J_Xibd2_Wrb*J_Wrb_Sb;
+            MatTT J_Xibd0_Rb = J_Xibd0_Tfb*J_Tfb_Rb;
+            MatTT J_Xibd0_Pb = J_Xibd0_Tfb*J_Tfb_Pb;
+
+            MatTT J_Xibd1_Rb = J_Xibd1_Tfb*J_Tfb_Rb + J_Xibd1_Twb*J_Twb_Rb;
+            MatTT J_Xibd1_Ob =                        J_Xibd1_Twb*J_Twb_Ob;
+            MatTT J_Xibd1_Pb = J_Xibd1_Tfb*J_Tfb_Pb;
+            MatTT J_Xibd1_Vb =                        J_Xibd1_Twb*J_Twb_Vb;
+
+            MatTT J_Xibd2_Rb = J_Xibd2_Tfb*J_Tfb_Rb + J_Xibd2_Twb*J_Twb_Rb + J_Xibd2_Wrb*J_Wrb_Rb;
+            MatTT J_Xibd2_Ob =                        J_Xibd2_Twb*J_Twb_Ob + J_Xibd2_Wrb*J_Wrb_Ob;
+            MatTT J_Xibd2_Sb =                                               J_Xibd2_Wrb*J_Wrb_Sb;
             MatTT J_Xibd2_Pb = J_Xibd2_Tfb*J_Tfb_Pb;
-            MatTT J_Xibd2_Vb = J_Xibd2_Twb*J_Twb_Vb;
-            MatTT J_Xibd2_Ab = J_Xibd2_Wrb*J_Wrb_Ab;
-            
+            MatTT J_Xibd2_Vb =                        J_Xibd2_Twb*J_Twb_Vb + J_Xibd2_Wrb*J_Wrb_Vb;
+            MatTT J_Xibd2_Ab =                                               J_Xibd2_Wrb*J_Wrb_Ab;
+
             // Find J_r_Xia and J_r_Xib
             Matrix<T, 18, 18> mF = -Fmat.cast<T>().toDense();
             SparseMatrix<T> J_r_Xiad0 = (mF.template block<STATE_DIM, 6>(0, 0 )).sparseView(); J_r_Xiad0.makeCompressed();
@@ -1928,19 +1932,19 @@ public:
             SparseMatrix<T> J_r_Xibd1(18, 6); Util::SetSparseMatBlock<T>(J_r_Xibd1, 6,  0, Mat6T::Identity()); J_r_Xibd1.makeCompressed();
             SparseMatrix<T> J_r_Xibd2(18, 6); Util::SetSparseMatBlock<T>(J_r_Xibd2, 12, 0, Mat6T::Identity()); J_r_Xibd2.makeCompressed();
 
-            Dr_DXa[Ridx] = sqrtW*(J_r_Xiad1*J_Xiad1_Ra + J_r_Xiad2*J_Xiad2_Ra + J_r_Xibd0*J_Xibd0_Ra);
-            Dr_DXa[Oidx] = sqrtW*(J_r_Xiad1*J_Xiad1_Oa + J_r_Xiad2*J_Xiad2_Oa                       );
-            Dr_DXa[Sidx] = sqrtW*(                       J_r_Xiad2*J_Xiad2_Sa                       );
-            Dr_DXa[Pidx] = sqrtW*(                                              J_r_Xibd0*J_Xibd0_Pa);
-            Dr_DXa[Vidx] = sqrtW*(J_r_Xiad1*J_Xiad1_Va + J_r_Xiad2*J_Xiad2_Va                       );
-            Dr_DXa[Aidx] = sqrtW*(                       J_r_Xiad2*J_Xiad2_Aa                       );
+            Dr_DXa[Ridx] = sqrtW*(J_r_Xiad1*J_Xiad1_Ra + J_r_Xiad2*J_Xiad2_Ra + J_r_Xibd0*J_Xibd0_Ra + J_r_Xibd1*J_Xibd1_Ra + J_r_Xibd2*J_Xibd2_Ra);
+            Dr_DXa[Oidx] = sqrtW*(J_r_Xiad1*J_Xiad1_Oa + J_r_Xiad2*J_Xiad2_Oa                                                                     );
+            Dr_DXa[Sidx] = sqrtW*(                       J_r_Xiad2*J_Xiad2_Sa                                                                     );
+            Dr_DXa[Pidx] = sqrtW*(                                              J_r_Xibd0*J_Xibd0_Pa + J_r_Xibd1*J_Xibd1_Pa + J_r_Xibd2*J_Xibd2_Pa);
+            Dr_DXa[Vidx] = sqrtW*(J_r_Xiad1*J_Xiad1_Va + J_r_Xiad2*J_Xiad2_Va                                                                     );
+            Dr_DXa[Aidx] = sqrtW*(                       J_r_Xiad2*J_Xiad2_Aa                                                                     );
 
-            Dr_DXb[Ridx] = sqrtW*(J_r_Xibd0*J_Xibd0_Rb + J_r_Xibd1*J_Xibd1_Rb + J_r_Xibd2*J_Xibd2_Rb);
-            Dr_DXb[Oidx] = sqrtW*(                       J_r_Xibd1*J_Xibd1_Ob + J_r_Xibd2*J_Xibd2_Ob);
-            Dr_DXb[Sidx] = sqrtW*(                       J_r_Xibd2*J_Xibd2_Sb                       );
-            Dr_DXb[Pidx] = sqrtW*(J_r_Xibd0*J_Xibd0_Pb                                              );
-            Dr_DXb[Vidx] = sqrtW*(                       J_r_Xibd1*J_Xibd1_Vb + J_r_Xibd2*J_Xibd2_Vb);
-            Dr_DXb[Aidx] = sqrtW*(                                              J_r_Xibd2*J_Xibd2_Ab);
+            Dr_DXb[Ridx] = sqrtW*(                                              J_r_Xibd0*J_Xibd0_Rb + J_r_Xibd1*J_Xibd1_Rb + J_r_Xibd2*J_Xibd2_Rb);
+            Dr_DXb[Oidx] = sqrtW*(                                                                     J_r_Xibd1*J_Xibd1_Ob + J_r_Xibd2*J_Xibd2_Ob);
+            Dr_DXb[Sidx] = sqrtW*(                                                                                            J_r_Xibd2*J_Xibd2_Sb);
+            Dr_DXb[Pidx] = sqrtW*(                                              J_r_Xibd0*J_Xibd0_Pb + J_r_Xibd1*J_Xibd1_Pb + J_r_Xibd2*J_Xibd2_Pb);
+            Dr_DXb[Vidx] = sqrtW*(                                                                     J_r_Xibd1*J_Xibd1_Vb + J_r_Xibd2*J_Xibd2_Vb);
+            Dr_DXb[Aidx] = sqrtW*(                                                                                            J_r_Xibd2*J_Xibd2_Ab);
         }
     }
 
