@@ -214,10 +214,10 @@ private:
     Matrix<double, 6, 6> CovTTWJerk = Matrix<double, 6, 6>::Identity(6, 6);
 
     // Transition matrix
-    Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Fmat;
+    Eigen::SparseMatrix<double> Fmat;
 
     // Square root of GP convariance, needed for the motion prior factor
-    Matrix<double, STATE_DIM, STATE_DIM> sqrtW;
+    Eigen::SparseMatrix<double> sqrtW = Eigen::SparseMatrix<double>(STATE_DIM, STATE_DIM);
 
     // Type of pose representation
     POSE_GROUP pose_representation = POSE_GROUP::SO3xR3;
@@ -236,20 +236,14 @@ public:
 
         // Calculate the transition matrix
         if(pose_representation == POSE_GROUP::SO3xR3)
-            Fmat = kron(Fbase(Dt, 3), Eye);
+            Fmat = kron(Fbase(Dt, 3), Eye).sparseView();
         else if(pose_representation == POSE_GROUP::SE3)
-            Fmat = kron(Fbase(Dt, 3), Matrix<double, 6, 6>::Identity(6, 6));
+            Fmat = kron(Fbase(Dt, 3), Matrix<double, 6, 6>::Identity(6, 6)).sparseView();
+        Fmat.makeCompressed();
         
         // Calculate the information matrix for motion prior
-        Matrix<double, STATE_DIM, STATE_DIM> Info;
-        Info.setZero();
-
-        double Dtpow[7];
-        for(int j = 0; j < 7; j++)
-            Dtpow[j] = pow(Dt, j);
-
         Matrix3d Qtilde = Qbase(Dt, 3);
-
+        Matrix<double, STATE_DIM, STATE_DIM> Info; Info.setZero();
         if(pose_representation == POSE_GROUP::SO3xR3)
         {
             Info.block<9, 9>(0, 0) = kron(Qtilde, getCovROSJerk());
@@ -258,7 +252,8 @@ public:
         else if(pose_representation == POSE_GROUP::SE3)
             Info = kron(Qtilde, CovTTWJerk);
 
-        sqrtW = Eigen::LLT<Matrix<double, STATE_DIM, STATE_DIM>>(Info.inverse()).matrixL().transpose();
+        sqrtW = MatrixXd(Eigen::LLT<Matrix<double, STATE_DIM, STATE_DIM>>(Info.inverse()).matrixL().transpose()).sparseView();
+        sqrtW.makeCompressed();
     };
 
     Matrix3d   getCovROSJerk() const         { return CovROSJerk;          }
@@ -1645,12 +1640,28 @@ public:
     }
 
     template <class T = double>
-    void MotionPriorFactor(const GPState<T> &Xa,
-                           const GPState<T> &Xb,
-                           Eigen::Matrix<T, STATE_DIM, 1> &residual,
-                           vector<Eigen::Matrix<T, STATE_DIM, 3>> &Dr_DXa,
-                           vector<Eigen::Matrix<T, STATE_DIM, 3>> &Dr_DXb
-                          ) const
+    void ComputeMotionPriorFactor(const GPState<T> &Xa,
+                                  const GPState<T> &Xb,
+                                  Eigen::Matrix<T, STATE_DIM, 1> &residual,
+                                  vector<Eigen::Matrix<T, STATE_DIM, 3>> &Dr_DXa,
+                                  vector<Eigen::Matrix<T, STATE_DIM, 3>> &Dr_DXb,
+                                  bool find_jacobian = true
+                                 ) const
+    {
+        if(pose_representation == POSE_GROUP::SO3xR3)
+            ComputeMotionPriorFactorSO3xR3(Xa, Xb, residual, Dr_DXa, Dr_DXb, find_jacobian);
+        else if (pose_representation == POSE_GROUP::SE3)
+            ComputeMotionPriorFactorSE3(Xa, Xb, residual, Dr_DXa, Dr_DXb, find_jacobian);
+    }
+
+    template <class T = double>
+    void ComputeMotionPriorFactorSO3xR3(const GPState<T> &Xa,
+                                        const GPState<T> &Xb,
+                                        Eigen::Matrix<T, STATE_DIM, 1> &residual,
+                                        vector<Eigen::Matrix<T, STATE_DIM, 3>> &Dr_DXa,
+                                        vector<Eigen::Matrix<T, STATE_DIM, 3>> &Dr_DXb,
+                                        bool find_jacobian = true
+                                       ) const
     {
         // Local index for the states in the state vector
         const int RIDX = 0;
@@ -1670,77 +1681,155 @@ public:
         using MatLT  = Eigen::Matrix<T, 3, 6>;   // L is for long T is for tall
         using MatTT  = Eigen::Matrix<T, 6, 3>;   // L is for long T is for tall
 
-        if(pose_representation == POSE_GROUP::SO3xR3)
+        // Find the relative rotation
+        SO3T Rab = Xa.R.inverse()*Xb.R;
+
+        // Calculate the SO3 knots in relative form
+        Vec3T Thead0 = Vec3T::Zero();
+        Vec3T Thead1 = Xa.O;
+        Vec3T Thead2 = Xa.S;
+
+        // Find the local variable at tb and the associated Jacobians
+        Vec3T Theb = Rab.log();
+        Mat3T JrInvTheb = JrInv(Theb);
+        Mat3T Hp1ThebOb = DJrInvUV_DU(Theb, Xb.O);
+
+        Vec3T Thebd0 = Theb;
+        Vec3T Thebd1 = JrInvTheb*Xb.O;
+        Vec3T Thebd2 = JrInvTheb*Xb.S + Hp1ThebOb*Thebd1;
+
+        // Put them in vector form
+        Vec9T gammaa; gammaa << Thead0, Thead1, Thead2;
+        Vec9T gammab; gammab << Thebd0, Thebd1, Thebd2;
+
+        Vec9T PVAa; PVAa << Xa.P, Xa.V, Xa.A;
+        Vec9T PVAb; PVAb << Xb.P, Xb.V, Xb.A;
+
+        // Calculate the residual
+        residual << gammab - Fmat*gammaa, PVAb - Fmat*PVAa;
+        residual = sqrtW*residual;
+
+        if (find_jacobian)
         {
-            // Find the relative rotation
-            SO3T Rab = Xa.R.inverse()*Xb.R;
+            double Dtsq = Dt*Dt;
+            Mat3T Eye = Mat3T::Identity();
+            Mat3T DtI = Vec3(Dt, Dt, Dt).asDiagonal();
+            T     DtsqDiv2 = 0.5*Dtsq;
+            Mat3T DtsqDiv2I = Vec3(DtsqDiv2, DtsqDiv2, DtsqDiv2).asDiagonal();
 
-            // Calculate the SO3 knots in relative form
-            Vec3T Thead0 = Vec3T::Zero();
-            Vec3T Thead1 = Xa.O;
-            Vec3T Thead2 = Xa.S;
+            // Reusable Jacobians
+            Mat3T DTheb_DRa = -JrInvTheb*Rab.inverse().matrix();
+            Mat3T DTheb_DRb =  JrInvTheb;
 
-            // Find the local variable at tb and the associated Jacobians
-            Vec3T Theb = Rab.log();
-            Mat3T JrInv_Theb = JrInv(Theb);
-            Mat3T Hp1_ThebOb = DJrInvUV_DU(Theb, Xb.O);
+            Mat3T &DThebd1_DTheb = Hp1ThebOb;
+            Mat3T &DJrInvThebOb_DTheb = Hp1ThebOb;
+            Mat3T DThebd1_DRa = DThebd1_DTheb*DTheb_DRa;
+            Mat3T DThebd1_DRb = DThebd1_DTheb*DTheb_DRb;
 
-            Vec3T Thebd0 = Theb;
-            Vec3T Thebd1 = JrInv_Theb*Xb.O;
-            Vec3T Thebd2 = JrInv_Theb*Xb.S + Hp1_ThebOb*Thebd1;
+            Mat3T DJrInvThebSb_DTheb = DJrInvUV_DU(Theb, Xb.S);
+            Mat3T DDJrInvThebObThebd1_DThebDTheb = DDJrInvUVW_DUDU(Theb, Xb.O, Thebd1);
             
-            Mat3T Hp1_ThebSb = DJrInvUV_DU(Theb, Xb.S);
-            Mat3T Lp11_ThebObThebd1 = DDJrInvUVW_DUDU(Theb, Xb.O, Thebd1);
-            Mat3T Lp12_ThebObThebd1 = DDJrInvUVW_DUDV(Theb, Xb.O, Thebd1);
+            Mat3T DThebd2_DTheb = DJrInvThebSb_DTheb + DDJrInvThebObThebd1_DThebDTheb + DJrInvThebOb_DTheb*DJrInvThebOb_DTheb;
+            Mat3T DThebd2_DRa = DThebd2_DTheb*DTheb_DRa;
+            Mat3T DThebd2_DRb = DThebd2_DTheb*DTheb_DRb;
 
-            // Put them in vector form
-            Vec9T gammaa; gammaa << Thead0, Thead1, Thead2;
-            Vec9T gammab; gammab << Thebd0, Thebd1, Thebd2;
+            Mat3T DDJrInvThebObThebd1_DThebDOb = DDJrInvUVW_DUDV(Theb, Xb.O, Thebd1);
+            Mat3T DThebd2_DOb = DDJrInvThebObThebd1_DThebDOb + DJrInvThebOb_DTheb*JrInvTheb;
 
-            Vec9T PVAa; PVAa << Xa.P, Xa.V, Xa.A;
-            Vec9T PVAb; PVAb << Xb.P, Xb.V, Xb.A;
+            // Set the jacobian on Ra                                    // Set the jacobian on Rb
+            Dr_DXa[RIDX].template block<3, 3>(0, 0) = DTheb_DRa;         Dr_DXb[RIDX].template block<3, 3>(0, 0) = DTheb_DRb;
+            Dr_DXa[RIDX].template block<3, 3>(3, 0) = DThebd1_DRa;       Dr_DXb[RIDX].template block<3, 3>(3, 0) = DThebd1_DRb;
+            Dr_DXa[RIDX].template block<3, 3>(6, 0) = DThebd2_DRa;       Dr_DXb[RIDX].template block<3, 3>(6, 0) = DThebd2_DRb;
+            Dr_DXa[RIDX] = sqrtW*Dr_DXa[RIDX];                           Dr_DXb[RIDX] = sqrtW*Dr_DXb[RIDX];
 
-            // Calculate the residual
-            residual << gammab - Fmat*gammaa, PVAb - Fmat*PVAa;
-            residual = sqrtW*residual;
+            // Set the jacobian on Oa                                    // Set the jacobian on Ob
+            Dr_DXa[OIDX].template block<3, 3>(0, 0) = -DtI;              Dr_DXb[OIDX].template block<3, 3>(3, 0) = JrInvTheb;
+            Dr_DXa[OIDX].template block<3, 3>(3, 0) = -Eye;              Dr_DXb[OIDX].template block<3, 3>(6, 0) = DThebd2_DOb;
+            Dr_DXa[OIDX] = sqrtW*Dr_DXa[OIDX];                           Dr_DXb[OIDX] = sqrtW*Dr_DXb[OIDX];
 
+            // Set the jacobian on Sa                                    // Set the jacobian on Sb
+            Dr_DXa[SIDX].template block<3, 3>(0, 0) = -DtsqDiv2I;        Dr_DXb[SIDX].template block<3, 3>(6, 0) = JrInvTheb;
+            Dr_DXa[SIDX].template block<3, 3>(3, 0) = -DtI;              Dr_DXb[SIDX] = sqrtW*Dr_DXb[SIDX];
+            Dr_DXa[SIDX].template block<3, 3>(6, 0) = -Eye;
+            Dr_DXa[SIDX] = sqrtW*Dr_DXa[SIDX];    
+        
+            // Set the jacobian on Pa                                    // Set the jacobian on Pb
+            Dr_DXa[PIDX].template block<3, 3>(9,  0) = -Eye;             Dr_DXb[PIDX].template block<3, 3>(9, 0) = Eye;
+            Dr_DXa[PIDX] = sqrtW*Dr_DXa[PIDX];                           Dr_DXb[PIDX] = sqrtW*Dr_DXb[PIDX];
+
+            // Set the jacobian on Va                                    // Set the jacobian on Vb
+            Dr_DXa[VIDX].template block<3, 3>(9,  0) = -DtI;             Dr_DXb[VIDX].template block<3, 3>(12, 0) = Eye;
+            Dr_DXa[VIDX].template block<3, 3>(12, 0) = -Eye;             Dr_DXb[VIDX] = sqrtW*Dr_DXb[VIDX];
+            Dr_DXa[VIDX] = sqrtW*Dr_DXa[VIDX];                             
+
+            // Set the jacobian on Aa                                    // Set the jacobian on Ab
+            Dr_DXa[AIDX].template block<3, 3>(9,  0) = -DtsqDiv2I;       Dr_DXb[AIDX].template block<3, 3>(15, 0) = Eye;
+            Dr_DXa[AIDX].template block<3, 3>(12, 0) = -DtI;             Dr_DXb[AIDX] = sqrtW*Dr_DXb[AIDX];
+            Dr_DXa[AIDX].template block<3, 3>(15, 0) = -Eye;
+            Dr_DXa[AIDX] = sqrtW*Dr_DXa[AIDX];
         }
-        else if (pose_representation == POSE_GROUP::SE3)
-        {
-            // Find the global 6DOF states
-            SE3T Tfa; Vec6T Twa; Vec6T Wra; Xa.GetTUW(Tfa, Twa, Wra);
-            SE3T Tfb; Vec6T Twb; Vec6T Wrb; Xb.GetTUW(Tfb, Twb, Wrb);
+    }
 
-            // Find the relative pose
-            SE3T Tfab = Tfa.inverse()*Tfb;
+    template <class T = double>
+    void ComputeMotionPriorFactorSE3(const GPState<T> &Xa,
+                                     const GPState<T> &Xb,
+                                     Eigen::Matrix<T, STATE_DIM, 1> &residual,
+                                     vector<Eigen::Matrix<T, STATE_DIM, 3>> &Dr_DXa,
+                                     vector<Eigen::Matrix<T, STATE_DIM, 3>> &Dr_DXb,
+                                     bool find_jacobian = true
+                                    ) const
+    {
+        // Local index for the states in the state vector
+        const int RIDX = 0;
+        const int OIDX = 1;
+        const int SIDX = 2;
+        const int PIDX = 3;
+        const int VIDX = 4;
+        const int AIDX = 5;
 
-            // Calculate the local variable at the two ends
-            Vec6T Xiad0 = Vec6T::Zero();
-            Vec6T Xiad1; Xiad1 << Twa;
-            Vec6T Xiad2; Xiad2 << Wra;
+        using SO3T   = Sophus::SO3<T>;
+        using SE3T   = Sophus::SE3<T>;
+        using Vec3T  = Eigen::Matrix<T, 3, 1>;
+        using Vec6T  = Eigen::Matrix<T, 6, 1>;
+        using Vec9T  = Eigen::Matrix<T, 9, 1>;
+        using Mat3T  = Eigen::Matrix<T, 3, 3>;
+        using Mat6T  = Eigen::Matrix<T, 6, 6>;
+        using MatLT  = Eigen::Matrix<T, 3, 6>;   // L is for long T is for tall
+        using MatTT  = Eigen::Matrix<T, 6, 3>;   // L is for long T is for tall
+        
+        // Find the global 6DOF states
+        SE3T Tfa; Vec6T Twa; Vec6T Wra; Xa.GetTUW(Tfa, Twa, Wra);
+        SE3T Tfb; Vec6T Twb; Vec6T Wrb; Xb.GetTUW(Tfb, Twb, Wrb);
 
-            Vec6T Xib = SE3Log(Tfab);
-            Vec6T Xibd0 = Xib;
-            Vec6T Xibd1;
-            Vec6T Xibd2;
+        // Find the relative pose
+        SE3T Tfab = Tfa.inverse()*Tfb;
 
-            Mat6T JrInv_Xib;         JrInv_Xib.setZero();
-            Mat6T Hp1_XibTwb;        Hp1_XibTwb.setZero();
-            Mat6T Hp1_XibWrb;        Hp1_XibWrb.setZero();
-            Mat6T Lp11_XibTwbXibd1;  Lp11_XibTwbXibd1.setZero();
-            Mat6T Lp12_XibTwbXibd1;  Lp12_XibTwbXibd1.setZero();
+        // Calculate the local variable at the two ends
+        Vec6T Xiad0 = Vec6T::Zero();
+        Vec6T Xiad1; Xiad1 << Twa;
+        Vec6T Xiad2; Xiad2 << Wra;
 
-            // Populate the matrices related to Xib
-            Get_JrInvHpLp<T>(Xib, Twb, Wrb, Xibd1, Xibd2, JrInv_Xib, Hp1_XibTwb, Hp1_XibWrb, Lp11_XibTwbXibd1, Lp12_XibTwbXibd1);
+        Vec6T Xib = SE3Log(Tfab);
+        Vec6T Xibd0 = Xib;
+        Vec6T Xibd1;
+        Vec6T Xibd2;
 
-            // Stack the local variables in vector form
-            Matrix<T, 18, 1> gammaa; gammaa << Xiad0, Xiad1, Xiad2;
-            Matrix<T, 18, 1> gammab; gammab << Xibd0, Xibd1, Xibd2;
+        Mat6T JrInv_Xib;         JrInv_Xib.setZero();
+        Mat6T Hp1_XibTwb;        Hp1_XibTwb.setZero();
+        Mat6T Hp1_XibWrb;        Hp1_XibWrb.setZero();
+        Mat6T Lp11_XibTwbXibd1;  Lp11_XibTwbXibd1.setZero();
+        Mat6T Lp12_XibTwbXibd1;  Lp12_XibTwbXibd1.setZero();
 
-            // Calculate the residual
-            residual << gammab - Fmat*gammaa;
-            residual = sqrtW*residual;
-        }
+        // Populate the matrices related to Xib
+        Get_JrInvHpLp<T>(Xib, Twb, Wrb, Xibd1, Xibd2, JrInv_Xib, Hp1_XibTwb, Hp1_XibWrb, Lp11_XibTwbXibd1, Lp12_XibTwbXibd1);
+
+        // Stack the local variables in vector form
+        Matrix<T, 18, 1> gammaa; gammaa << Xiad0, Xiad1, Xiad2;
+        Matrix<T, 18, 1> gammab; gammab << Xibd0, Xibd1, Xibd2;
+
+        // Calculate the residual
+        residual << gammab - Fmat*gammaa;
+        residual = sqrtW*residual;
     }
 
     GPMixer &operator=(const GPMixer &other)

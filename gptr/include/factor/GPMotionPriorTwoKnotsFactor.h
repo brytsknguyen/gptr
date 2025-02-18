@@ -47,6 +47,13 @@ public:
 
     virtual bool Evaluate(double const *const *parameters, double *residuals, double **jacobians) const
     {
+        const int Ridx = 0;
+        const int Oidx = 1;
+        const int Sidx = 2;
+        const int Pidx = 3;
+        const int Vidx = 4;
+        const int Aidx = 5;
+
         using Vec18   = Eigen::Matrix<double, STATE_DIM, 1>;
         using Mat18x3 = Eigen::Matrix<double, STATE_DIM, 3>;
 
@@ -60,208 +67,39 @@ public:
 
         /* #region Calculate the residual ---------------------------------------------------------------------------*/
 
-        SO3d Rab = Xa.R.inverse()*Xb.R;
-        Vec3 Theb = Rab.log();
+        constexpr int RES_SIZE = 18;
 
-        Mat3 JrInvTheb = gpm->JrInv(Theb);
-        Mat3 DJrInvThebOb_DTheb = gpm->DJrInvUV_DU(Theb, Xb.O);
-
-        Vec3 Thedotb = JrInvTheb*Xb.O;
-        Vec3 Theddotb = DJrInvThebOb_DTheb*Thedotb + JrInvTheb*Xb.S;
-
-        double Dtsq = Dt*Dt;
-
-        // Rotational residual
-        Vec3 rRot = Theb - Dt*Xa.O - 0.5*Dtsq*Xa.S;
-
-        // Rotational rate residual
-        Vec3 rRdot = Thedotb - Xa.O - Dt*Xa.S;
-
-        // Rotational acc residual
-        Vec3 rRddot = Theddotb - Xa.S;
-
-        // Positional residual
-        Vec3 rPos = Xb.P - (Xa.P + Dt*Xa.V + 0.5*Dtsq*Xa.A);
-
-        // Velocity residual
-        Vec3 rVel = Xb.V - (Xa.V + Dt*Xa.A);
-
-        // Acceleration residual
-        Vec3 rAcc = Xb.A - Xa.A;
-
-        // Residual
-        Eigen::Map<Vec18> residual(residuals);
-        residual << rRot, rRdot, rRddot, rPos, rVel, rAcc;
-        residual = sqrtW*residual;
-
-        // vector<Mat18x3> Dr_DXa(6, Mat18x3::Zero(18, 3));
-        // vector<Mat18x3> Dr_DXb(6, Mat18x3::Zero(18, 3));
-        // Vec18 residual_;
-        // gpm->MotionPriorFactor(Xa, Xb, residual_, Dr_DXa, Dr_DXb);
-        // cout << "res diff:\n" << (residual_ - residual).cwiseAbs().maxCoeff() << endl;
+        // Compute residual and jacobian
+        Vec18 residual_; vector<Mat18x3> Dr_DXa_(6, Mat18x3::Zero()); vector<Mat18x3> Dr_DXb_(6, Mat18x3::Zero());
+        gpm->ComputeMotionPriorFactor(Xa, Xb, residual_, Dr_DXa_, Dr_DXb_, jacobians);
+        
+        // Loa the residual
+        Eigen::Map<Vec18> residual(residuals); residual << residual_;
 
         /* #endregion Calculate the residual ------------------------------------------------------------------------*/
 
         if (!jacobians)
             return true;
 
-        Mat3 Eye = Mat3::Identity();
-        Mat3 DtI = Vec3(Dt, Dt, Dt).asDiagonal();
-        double DtsqDiv2 = 0.5*Dtsq;
-        Mat3 DtsqDiv2I = Vec3(DtsqDiv2, DtsqDiv2, DtsqDiv2).asDiagonal();
-
-        // Reusable Jacobians
-        Mat3 DTheb_DRa = -JrInvTheb*Rab.inverse().matrix();
-        Mat3 DTheb_DRb =  JrInvTheb;
-
-        Mat3 DThedotb_DTheb = gpm->DJrInvUV_DU(Theb, Xb.O);
-        Mat3 DThedotb_DRa = DThedotb_DTheb*DTheb_DRa;
-        Mat3 DThedotb_DRb = DThedotb_DTheb*DTheb_DRb;
-
-        Mat3 DJrInvThebSb_DTheb = gpm->DJrInvUV_DU(Theb, Xb.S);
-        // Mat3 DJrInvThebOb_DTheb = gpm->DJrInvUV_DU(Theb, Xb.O);
-        Mat3 DDJrInvThebObThedotb_DThebDTheb = gpm->DDJrInvUVW_DUDU(Theb, Xb.O, Thedotb);
-        
-        Mat3 DTheddotb_DTheb = DJrInvThebSb_DTheb + DDJrInvThebObThedotb_DThebDTheb + DJrInvThebOb_DTheb*DJrInvThebOb_DTheb;
-        Mat3 DTheddotb_DRa = DTheddotb_DTheb*DTheb_DRa;
-        Mat3 DTheddotb_DRb = DTheddotb_DTheb*DTheb_DRb;
-
-        Mat3 DDJrInvThebObThedotb_DThebDOb = gpm->DDJrInvUVW_DUDV(Theb, Xb.O, Thedotb);
-        Mat3 DTheddotb_DOb = DDJrInvThebObThedotb_DThebDOb + DJrInvThebOb_DTheb*JrInvTheb;        
-
-        size_t idx;
-
-        // Work out the Jacobians for SO3 states first
+        for(size_t idx = Ridx; idx <= Aidx; idx++)
         {
-            // dr_dRa
-            idx = RaIdx;
-            if(jacobians[idx])
-            {
-                Eigen::Map<Eigen::Matrix<double, STATE_DIM, 4, Eigen::RowMajor>> Dr_DRa(jacobians[idx]);
-                Dr_DRa.setZero();
-                Dr_DRa.block<3, 3>(0, 0) = DTheb_DRa;
-                Dr_DRa.block<3, 3>(3, 0) = DThedotb_DRa;
-                Dr_DRa.block<3, 3>(6, 0) = DTheddotb_DRa;
-                Dr_DRa = sqrtW*Dr_DRa;
-            }
+            size_t idxa = idx, idxb = idx+RbIdx;
 
-            // dr_dOa
-            idx = OaIdx;
-            if(jacobians[idx])
+            if (idx == Ridx)
             {
-                Eigen::Map<Eigen::Matrix<double, STATE_DIM, 3, Eigen::RowMajor>> Dr_DOa(jacobians[idx]);
-                Dr_DOa.setZero();
-                Dr_DOa.block<3, 3>(0, 0) = -DtI;
-                Dr_DOa.block<3, 3>(3, 0) = -Eye;
-                Dr_DOa = sqrtW*Dr_DOa;
-            }
+                Eigen::Map<Eigen::Matrix<double, RES_SIZE, 4, Eigen::RowMajor>> Dr_DXa(jacobians[idxa]);
+                Eigen::Map<Eigen::Matrix<double, RES_SIZE, 4, Eigen::RowMajor>> Dr_DXb(jacobians[idxb]);
 
-            // dr_dSa
-            idx = SaIdx;
-            if(jacobians[idx])
-            {
-                Eigen::Map<Eigen::Matrix<double, STATE_DIM, 3, Eigen::RowMajor>> Dr_DSa(jacobians[idx]);
-                Dr_DSa.setZero();
-                Dr_DSa.block<3, 3>(0, 0) = -DtsqDiv2I;
-                Dr_DSa.block<3, 3>(3, 0) = -DtI;
-                Dr_DSa.block<3, 3>(6, 0) = -Eye;
-                Dr_DSa = sqrtW*Dr_DSa;
+                if(jacobians[idxa]) { Dr_DXa.setZero(); Dr_DXa.block<RES_SIZE, 3>(0, 0) = Dr_DXa_[idx]; }
+                if(jacobians[idxb]) { Dr_DXb.setZero(); Dr_DXb.block<RES_SIZE, 3>(0, 0) = Dr_DXb_[idx]; }
             }
-
-            // dr_dRb
-            idx = RbIdx;
-            if(jacobians[idx])
+            else
             {
-                Eigen::Map<Eigen::Matrix<double, STATE_DIM, 4, Eigen::RowMajor>> Dr_DRb(jacobians[idx]);
-                Dr_DRb.setZero();
-                Dr_DRb.block<3, 3>(0, 0) = DTheb_DRb;
-                Dr_DRb.block<3, 3>(3, 0) = DThedotb_DRb;
-                Dr_DRb.block<3, 3>(6, 0) = DTheddotb_DRb;
-                Dr_DRb = sqrtW*Dr_DRb;
-            }
+                Eigen::Map<Eigen::Matrix<double, RES_SIZE, 3, Eigen::RowMajor>> Dr_DXa(jacobians[idxa]);
+                Eigen::Map<Eigen::Matrix<double, RES_SIZE, 3, Eigen::RowMajor>> Dr_DXb(jacobians[idxb]);
 
-            // dr_dOb
-            idx = ObIdx;
-            if(jacobians[idx])
-            {
-                Eigen::Map<Eigen::Matrix<double, STATE_DIM, 3, Eigen::RowMajor>> Dr_DOb(jacobians[idx]);
-                Dr_DOb.setZero();
-                Dr_DOb.block<3, 3>(3, 0) = JrInvTheb;
-                Dr_DOb.block<3, 3>(6, 0) = DTheddotb_DOb;
-                Dr_DOb = sqrtW*Dr_DOb;
-            }
-
-            // dr_dSb
-            idx = SbIdx;
-            if(jacobians[idx])
-            {
-                Eigen::Map<Eigen::Matrix<double, STATE_DIM, 3, Eigen::RowMajor>> Dr_DSb(jacobians[idx]);
-                Dr_DSb.setZero();
-                Dr_DSb.block<3, 3>(6, 0) = JrInvTheb;
-                Dr_DSb = sqrtW*Dr_DSb;
-            }
-        }
-
-        // Jacobians on PVAa states
-        {
-            idx = PaIdx;
-            if(jacobians[idx])
-            {
-                Eigen::Map<Eigen::Matrix<double, STATE_DIM, 3, Eigen::RowMajor>> Dr_DPa(jacobians[idx]);
-                Dr_DPa.setZero();
-                Dr_DPa.block<3, 3>(9,  0) = -Eye;
-                Dr_DPa = sqrtW*Dr_DPa;
-            }
-
-            idx = VaIdx;
-            if(jacobians[idx])
-            {
-                Eigen::Map<Eigen::Matrix<double, STATE_DIM, 3, Eigen::RowMajor>> Dr_DVa(jacobians[idx]);
-                Dr_DVa.setZero();
-                Dr_DVa.block<3, 3>(9,  0) = -DtI;
-                Dr_DVa.block<3, 3>(12, 0) = -Eye;
-                Dr_DVa = sqrtW*Dr_DVa;
-            }
-
-            idx = AaIdx;
-            if(jacobians[idx])
-            {
-                Eigen::Map<Eigen::Matrix<double, STATE_DIM, 3, Eigen::RowMajor>> Dr_DAa(jacobians[idx]);
-                Dr_DAa.setZero();
-                Dr_DAa.block<3, 3>(9,  0) = -DtsqDiv2I;
-                Dr_DAa.block<3, 3>(12, 0) = -DtI;
-                Dr_DAa.block<3, 3>(15, 0) = -Eye;
-                Dr_DAa = sqrtW*Dr_DAa;
-            }
-        }
-
-        // Jacobians on PVAb states
-        {
-            idx = PbIdx;
-            if(jacobians[idx])
-            {
-                Eigen::Map<Eigen::Matrix<double, STATE_DIM, 3, Eigen::RowMajor>> Dr_DPb(jacobians[idx]);
-                Dr_DPb.setZero();
-                Dr_DPb.block<3, 3>(9, 0) = Eye;
-                Dr_DPb = sqrtW*Dr_DPb;
-            }
-
-            idx = VbIdx;
-            if(jacobians[idx])
-            {
-                Eigen::Map<Eigen::Matrix<double, STATE_DIM, 3, Eigen::RowMajor>> Dr_DVb(jacobians[idx]);
-                Dr_DVb.setZero();
-                Dr_DVb.block<3, 3>(12, 0) = Eye;
-                Dr_DVb = sqrtW*Dr_DVb;
-            }
-
-            idx = AbIdx;
-            if(jacobians[idx])
-            {
-                Eigen::Map<Eigen::Matrix<double, STATE_DIM, 3, Eigen::RowMajor>> Dr_DAb(jacobians[idx]);
-                Dr_DAb.setZero();
-                Dr_DAb.block<3, 3>(15, 0) = Eye;
-                Dr_DAb = sqrtW*Dr_DAb;
+                if(jacobians[idxa]) { Dr_DXa.setZero(); Dr_DXa.block<RES_SIZE, 3>(0, 0) = Dr_DXa_[idx]; }
+                if(jacobians[idxb]) { Dr_DXb.setZero(); Dr_DXb.block<RES_SIZE, 3>(0, 0) = Dr_DXb_[idx]; }
             }
         }
 
