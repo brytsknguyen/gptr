@@ -1010,7 +1010,7 @@ int main(int argc, char **argv)
             // }
         }
     }
- 
+
     // Create the estimation module
     MLCMEPtr gpmlc(new MLCME(nh_ptr, Nlidar));
     vector<GaussianProcessPtr> trajs;

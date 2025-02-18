@@ -392,7 +392,8 @@ void TestAnalyticJacobian(ceres::Problem &problem, GaussianProcessPtr &swTraj, v
         VectorXd resdiff = residual_autodiff_ - residual_analytic_;
         MatrixXd jcbdiff = Jacobian_autodiff_ - Jacobian_analytic_;
         // cout << KRED "residual diff:\n" RESET << resdiff.transpose() << endl;
-        // cout << KRED "jacobian diff:\n" RESET << jcbdiff << endl;
+        cout << KRED "jacobian diff Xa:\n" RESET << jcbdiff.block(0, 0,  18, 18) << endl;
+        cout << KRED "jacobian diff Xb:\n" RESET << jcbdiff.block(0, 18, 18, 18) << endl;
         // if (maxCoef < jcbdiff.cwiseAbs().maxCoeff() && cidx != 0)
         //     maxCoef = jcbdiff.cwiseAbs().maxCoeff();
         printf(KGRN "CIDX: %d. MotionPrior 2K Jacobian max error: %.4f. Time: %.3f, %.3f. Ratio: %.0f\%\n\n" RESET,
@@ -603,7 +604,7 @@ int main(int argc, char **argv)
         double Dt = 0.04357;
         GaussianProcessPtr traj(new GaussianProcess(Dt, Vector3d(10, 10, 10).asDiagonal(), Vector3d(10, 10, 10).asDiagonal(), false, POSE_GROUP::SE3));
         traj->setStartTime(0.5743);
-        traj->genRandomTrajectory(6);
+        traj->genRandomTrajectory(2);
 
         ceres::Problem problem;
         ceres::Solver::Options options;

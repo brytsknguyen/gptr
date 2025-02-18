@@ -1017,6 +1017,18 @@ public:
         Vec3T Thed = Xid.template head(3);
         Vec3T Rhod = Xid.template tail(3);
 
+        if (Xid.norm() < 1e-3)
+        {
+            Hp1_XiTw = Mat6T::Identity();
+            Hp1_XiWr = Mat6T::Identity();
+            Lp11_XiTwXid.setZero();
+            Lp12_XiTwXid.setZero();
+
+            Xidd = JrInv_Xi*Wr + Hp1_XiTw*Xid;
+
+            return;
+        }
+
         SE3Qp<T> myQp_XiTw;
         myQp_XiTw.ComputeQSC(The, Rho, Thed, Rhod, Omg);
         
@@ -1368,7 +1380,7 @@ public:
         Matrix<T, 18, 18> PSI_TTWt = PSI(Dtau, CovTTWJerk).cast<T>();
 
         // Find the global 6DOF states
-        
+
         SE3T Tfa; Vec6T Twa; Vec6T Wra;
         Xa.GetTUW(Tfa, Twa, Wra);
 

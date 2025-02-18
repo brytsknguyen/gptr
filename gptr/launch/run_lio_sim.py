@@ -45,7 +45,7 @@ def generate_launch_description():
             {'VIZ_ONLY'        : 0},
 
             # Lidar topics and their settings
-            {'lidar_topic'     : ['/lidar_0/points', '/lidar_1/points']},
+            {'lidar_topic'     : ['/lidar_0/points']},
             {'lidar_type'      : ['livox', 'livox']},
             {'stamp_time'      : ['start', 'start']},
 
@@ -71,13 +71,13 @@ def generate_launch_description():
 
             # GN MAP optimization params
             {'deltaT'          : 0.02204},
+            # Motion prior factors
+            {'mpCovROSJerk'    : 1.0},
+            {'mpCovPVAJerk'    : 1.0},
+            {"pose_type"       : "SE3"},
 
             {'lidar_ds_rate'   : 1},
             {'lidar_weight'    : 10.0},
-
-            # Motion prior factors
-            {'mpCovROSJerk'         : 1.0},
-            {'mpCovPVAJerk'         : 1.0},
 
             # Extrinsic factors
             {'xtCovROSJerk'         : 200.0},
