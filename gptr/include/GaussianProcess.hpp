@@ -231,7 +231,7 @@ public:
 //    ~GPMixer() {};
 
     // Constructor
-    GPMixer(double Dt_, const Mat3 CovROSJerk_, const Mat3 CovPVAJerk_, const POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3, double SE3_EPSILON_)
+    GPMixer(double Dt_, const Mat3 CovROSJerk_, const Mat3 CovPVAJerk_, const POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3, double SE3_EPSILON_ = 1e-3)
         : Dt(Dt_), CovROSJerk(CovROSJerk_), CovPVAJerk(CovPVAJerk_), pose_representation(pose_representation_), SE3_EPSILON(SE3_EPSILON_)
     {
         CovTTWJerk.block<3, 3>(0, 0) = CovROSJerk;
@@ -895,7 +895,7 @@ public:
 
         Jr_Xi = Jr(Xi);
 
-        if (The.norm() < 1e-3)
+        if (The.norm() < DOUBLE_EPSILON)
         {
             // cout << "Thenorm " << The.transpose() << endl;
 
@@ -2010,7 +2010,7 @@ public:
     // ~GaussianProcess(){};
 
     // Constructor
-    GaussianProcess(double Dt_, Mat3 CovROSJerk_, Mat3 CovPVAJerk_, bool keepCov_ = false, POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3, double se3_epsilon_)
+    GaussianProcess(double Dt_, Mat3 CovROSJerk_, Mat3 CovPVAJerk_, bool keepCov_ = false, POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3, double se3_epsilon_ = 1e-3)
         : Dt(Dt_), gpm(GPMixerPtr(new GPMixer(Dt_, CovROSJerk_, CovPVAJerk_, pose_representation_, se3_epsilon_))), keepCov(keepCov_) {};
 
     Mat3 getCovROSJerk() const { return gpm->getCovROSJerk(); }
