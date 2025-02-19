@@ -222,14 +222,17 @@ private:
     // Type of pose representation
     POSE_GROUP pose_representation = POSE_GROUP::SO3xR3;
 
+    // Tolerance to use SE3
+    double SE3_EPSILON = 1e-3;
+
 public:
 
 //     // Destructor
 //    ~GPMixer() {};
 
     // Constructor
-    GPMixer(double Dt_, const Mat3 CovROSJerk_, const Mat3 CovPVAJerk_, const POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3)
-        : Dt(Dt_), CovROSJerk(CovROSJerk_), CovPVAJerk(CovPVAJerk_), pose_representation(pose_representation_)
+    GPMixer(double Dt_, const Mat3 CovROSJerk_, const Mat3 CovPVAJerk_, const POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3, double SE3_EPSILON_)
+        : Dt(Dt_), CovROSJerk(CovROSJerk_), CovPVAJerk(CovPVAJerk_), pose_representation(pose_representation_), SE3_EPSILON(SE3_EPSILON_)
     {
         CovTTWJerk.block<3, 3>(0, 0) = CovROSJerk;
         CovTTWJerk.block<3, 3>(3, 3) = CovPVAJerk;
@@ -256,11 +259,12 @@ public:
         sqrtW.makeCompressed();
     };
 
-    Matrix3d   getCovROSJerk() const         { return CovROSJerk;          }
-    Matrix3d   getCovPVAJerk() const         { return CovPVAJerk;          }
-    Matrix3d   getCovTTWJerk() const         { return CovPVAJerk;          }
-    double     getDt()    const              { return Dt;                  }
-    POSE_GROUP getPoseRepresentation() const { return pose_representation; }    
+    Matrix3d   getCovROSJerk()         const { return CovROSJerk;          }
+    Matrix3d   getCovPVAJerk()         const { return CovPVAJerk;          }
+    Matrix3d   getCovTTWJerk()         const { return CovPVAJerk;          }
+    double     getDt()                 const { return Dt;                  }
+    POSE_GROUP getPoseRepresentation() const { return pose_representation; }
+    double     getEps()                const { return SE3_EPSILON;         }
 
     template <typename MatrixType1, typename MatrixType2>
     MatrixXd kron(const MatrixType1& A, const MatrixType2& B) const
@@ -455,44 +459,39 @@ public:
 
     /* #region Lie operations for SO3 --------------------------------------------------------------------------------------------------------------------------------*/
 
-    // left Jacobian for SO3
-    template <class T = double>
-    static Eigen::Matrix<T, 3, 3> Jl(const Eigen::Matrix<T, 3, 1> &The)
-    {
-        // if (phi.norm() < DOUBLE_EPSILON)
-        //     return Eigen::Matrix<T, 3, 3>::Identity() - 0.5*Sophus::SO3<T>::hat(phi) + 1.0/6*hatSquare(phi);
-
-        return Sophus::SO3<T>::leftJacobian(The);
-    }
-
     // right Jacobian for SO3
-    template <typename Derived>
-    static Eigen::Matrix<typename Derived::Scalar, 3, 3> Jr(const Eigen::MatrixBase<Derived> &The)
-    {
-        // if (phi.norm() < DOUBLE_EPSILON)
-        //     return Eigen::Matrix<T, 3, 3>::Identity() - 0.5*Sophus::SO3<T>::hat(phi) + 1.0/6*hatSquare(phi);
-
-        return Sophus::SO3<typename Derived::Scalar>::leftJacobian(-The);
-    }
-
-    // inverse right Jacobian for SO3
     template <class T = double>
-    static Eigen::Matrix<T, 3, 3> JlInv(const Eigen::Matrix<T, 3, 1> &The)
+    static Eigen::Matrix<T, 3, 3> Jr(const Eigen::Matrix<T, 3, 1> &The)
     {
-        // if (The.norm() < DOUBLE_EPSILON)
-        //     return Eigen::Matrix<T, 3, 3>::Identity() + 0.5*Sophus::SO3<T>::hat(The) + 1.0/12*hatSquare(The);
+        if (The.norm() < DOUBLE_EPSILON)
+            return Eigen::Matrix<T, 3, 3>::Identity() - 0.5*Sophus::SO3<T>::hat(The) + (1.0/6.0)*hatSquare<T>(The);
 
-        return Sophus::SO3<T>::leftJacobianInverse(The);;
+        return Sophus::SO3<T>::leftJacobian(-The);
     }
 
     // inverse right Jacobian for SO3
     template <class T = double>
     static Eigen::Matrix<T, 3, 3> JrInv(const Eigen::Matrix<T, 3, 1> &The)
     {
-        // if (The.norm() < DOUBLE_EPSILON)
-        //     return Eigen::Matrix<T, 3, 3>::Identity() + 0.5*Sophus::SO3<T>::hat(The) + 1.0/12*hatSquare(The);
+        if (The.norm() < DOUBLE_EPSILON)
+            return Eigen::Matrix<T, 3, 3>::Identity() + 0.5*Sophus::SO3<T>::hat(The) + (1.0/12.0)*hatSquare(The);
 
         return Sophus::SO3<T>::leftJacobianInverse(-The);
+    }
+
+
+    // left Jacobian for SO3
+    template <class T = double>
+    static Eigen::Matrix<T, 3, 3> Jl(const Eigen::Matrix<T, 3, 1> &The)
+    {
+        return Sophus::SO3<T>::leftJacobian(The);
+    }
+
+    // inverse right Jacobian for SO3
+    template <class T = double>
+    static Eigen::Matrix<T, 3, 3> JlInv(const Eigen::Matrix<T, 3, 1> &The)
+    {
+        return Sophus::SO3<T>::leftJacobianInverse(The);;
     }
 
     // For calculating HThe_
@@ -506,7 +505,7 @@ public:
         T Un = U.norm();
 
         if(Un < DOUBLE_EPSILON)
-            return 0.5*SO3T::hat(V);
+            return 0.5*SO3T::hat(V) + Fu(U, V)/6.0;
 
         T Unp2 = Un*Un;
         T Unp3 = Unp2*Un;
@@ -598,7 +597,7 @@ public:
         T Un = U.norm();
 
         if(Un < DOUBLE_EPSILON)
-            return -0.5*SO3T::hat(W);
+            return -0.5*SO3T::hat(W) + Fuv(U, V, W)/6.0;
 
         T Unp2 = Un*Un;
         T Unp3 = Unp2*Un;
@@ -639,7 +638,7 @@ public:
 
         T Un = U.norm();
         if(Un < DOUBLE_EPSILON)
-            return -0.5*SO3T::hat(V);
+            return -0.5*SO3T::hat(V) + Fu(U, V)/12.0;
 
         T Unp2 = Un*Un;
         T Unp3 = Unp2*Un;
@@ -720,7 +719,7 @@ public:
         T Un = U.norm();
 
         if(Un < DOUBLE_EPSILON)
-            return 0.5*SO3T::hat(W);
+            return 0.5*SO3T::hat(W) + Fuv(U, V, W)/12.0;
 
         T Unp2 = Un*Un;
         T Unp3 = Unp2*Un;
@@ -757,14 +756,30 @@ public:
     /* #region Lie operations for SE3 --------------------------------------------------------------------------------------------------------------------------------*/
 
 
-    // right Jacobian for SE3
+    template <class T = double>
+    static Eigen::Matrix<T, 6, 6> SE3hat(const Eigen::Matrix<T, 6, 1> &Xi)
+    {
+        Eigen::Matrix<T, 3, 1> The = Xi.template head<3>();
+        Eigen::Matrix<T, 3, 1> Rho = Xi.template tail<3>();
+
+        Eigen::Matrix<T, 3, 3> Thehat = Sophus::SO3<T>::hat(The);
+        Eigen::Matrix<T, 3, 3> Rhohat = Sophus::SO3<T>::hat(Rho);
+        Eigen::Matrix<T, 3, 3> MZero3 = Eigen::Matrix<T, 3, 3>::Zero();
+
+        Eigen::Matrix<T, 6, 6> M;
+        M << Thehat, MZero3,
+             Rhohat, Thehat;
+
+        return M;
+    }
+
     template <class T = double>
     static Sophus::SE3<T> SE3Exp(const Eigen::Matrix<T, 6, 1> &Xi)
     {
         Eigen::Matrix<T, 3, 1> The = Xi.template head<3>();
         Eigen::Matrix<T, 3, 1> Rho = Xi.template tail<3>();
 
-        return Sophus::SE3<T>(Sophus::SO3<T>::exp(The), Jr(-The)*Rho);
+        return Sophus::SE3<T>(Sophus::SO3<T>::exp(The), Jr((-The).eval())*Rho);
     }
 
     template <class T = double>
@@ -780,7 +795,6 @@ public:
     template <class T = double>
     static Eigen::Matrix<T, 6, 6> SE3Adj(const Sophus::SE3<T> &Tf)
     {
-        Eigen::Matrix<T, 6, 1> Xi = SE3Log(Tf.log());
         Eigen::Matrix<T, 3, 1> The = Tf.so3().log();
         Eigen::Matrix<T, 3, 1> Pos = Tf.translation();
 
@@ -796,7 +810,6 @@ public:
     template <class T = double>
     static Eigen::Matrix<T, 6, 6> SE3AdjInv(const Sophus::SE3<T> &Tf)
     {
-        Eigen::Matrix<T, 6, 1> Xi = SE3Log(Tf);
         Eigen::Matrix<T, 3, 1> The = Tf.so3().log();
         Eigen::Matrix<T, 3, 1> Pos = Tf.translation();
 
@@ -818,7 +831,7 @@ public:
         
         Eigen::Matrix<T, 6, 6> Jr_Xi;
         Eigen::Matrix<T, 3, 3> Jr_The = Jr(The);
-        Eigen::Matrix<T, 3, 3> Q = -(Sophus::SO3<T>::exp(-The).matrix()*DJrUV_DU(Eigen::Matrix<T, 3, 1>(-The), Rho));
+        Eigen::Matrix<T, 3, 3> Q = -(Sophus::SO3<T>::exp(-The).matrix()*DJrUV_DU<T>(-The, Rho));
 
         Jr_Xi << Jr_The, Matrix<T, 3, 3>::Zero(),
                  Q, Jr_The;
@@ -826,18 +839,17 @@ public:
     }
 
     // inverse right Jacobian for SE3
-    template <typename Derived>
-    static Eigen::Matrix<typename Derived::Scalar, 6, 6> JrInv(const Eigen::MatrixBase<Derived> &Xi)
+    template <class T = double>
+    static Eigen::Matrix<T, 6, 6> JrInv(const Eigen::Matrix<T, 6, 1> &Xi)
     {
-        Eigen::Matrix<typename Derived::Scalar, 3, 1> The = Xi.template head<3>();
-        Eigen::Matrix<typename Derived::Scalar, 3, 1> Rho = Xi.template tail<3>();
+        Eigen::Matrix<T, 3, 1> The = Xi.template head<3>();
+        Eigen::Matrix<T, 3, 1> Rho = Xi.template tail<3>();
 
-        Eigen::Matrix<typename Derived::Scalar, 6, 6> JrInv_Xi;
-        Eigen::Matrix<typename Derived::Scalar, 3, 3> JrInv_The = JrInv(The);
-        Eigen::Matrix<typename Derived::Scalar, 3, 3> Q = -(Sophus::SO3<typename Derived::Scalar>::exp(-The).matrix()
-                                                            *DJrUV_DU(Eigen::Matrix<typename Derived::Scalar, 3, 1>(-The), Rho));
+        Eigen::Matrix<T, 6, 6> JrInv_Xi;
+        Eigen::Matrix<T, 3, 3> JrInv_The = JrInv(The);
+        Eigen::Matrix<T, 3, 3> Q = -(Sophus::SO3<T>::exp(-The).matrix()*DJrUV_DU<T>(-The, Rho));
 
-        JrInv_Xi << JrInv_The, Matrix<typename Derived::Scalar, 3, 3>::Zero(),
+        JrInv_Xi << JrInv_The, Matrix<T, 3, 3>::Zero(),
                    -JrInv_The*Q*JrInv_The, JrInv_The;
 
         return JrInv_Xi;
@@ -847,79 +859,14 @@ public:
     template <class T = double>
     static Eigen::Matrix<T, 6, 6> Jl(const Eigen::Matrix<T, 6, 1> &Xi)
     {
-        return Jr(Eigen::Matrix<T, 6, 1>(-Xi));
+        return Jr<T>(-Xi);
     }
 
     // inverse left Jacobian for SE3
     template <class T = double>
     static Eigen::Matrix<T, 6, 6> JlInv(const Eigen::Matrix<T, 6, 1> &Xi)
     {
-        return JrInv(Eigen::Matrix<T, 6, 1>(-Xi));
-    }
-
-    // For calculating H_Xi(Xi, Xid)
-    template <class T = double>
-    static Eigen::Matrix<T, 6, 6> DJrUV_DU(const Eigen::Matrix<T, 6, 1> &U, const Eigen::Matrix<T, 6, 1> &V)
-    {
-        using SO3T  = Sophus::SO3<T>;
-        using Vec3T = Eigen::Matrix<T, 3, 1>;
-        using Mat3T = Eigen::Matrix<T, 3, 3>;
-        using Mat6T = Eigen::Matrix<T, 6, 6>;
-
-        // T Un = U.norm();
-        // if(Un < DOUBLE_EPSILON)
-        //     return Eigen::Matrix<T, 6, 6>::Zero();    // To do: find the near-zero form
-
-        Vec3T The = U.template head(3);
-        Vec3T Rho = U.template tail(3);
-
-        Vec3T Thed = V.template head(3);
-        Vec3T Rhod = V.template tail(3);
-
-        Mat3T H1_TheThed = DJrUV_DU(The, Thed);
-        Mat3T H1_TheRhod = DJrUV_DU(The, Rhod);
-        Mat3T S1_XiThed, S2_XiThed;
-
-        SE3Q<T> myQ_XiXid;
-        myQ_XiXid.ComputeS(The, Rho, Thed);
-        
-        Mat6T H1_XiXid;
-        H1_XiXid << H1_TheThed, Mat3T::Zero(),
-                    myQ_XiXid.S1 + H1_TheRhod, myQ_XiXid.S2;
-
-        return H1_XiXid;
-    }
-
-    // For calculating H'_Xi(Xi, tau)
-    template <class T = double>
-    static Eigen::Matrix<T, 6, 6> DJrInvUV_DU(const Eigen::Matrix<T, 6, 1> &U, const Eigen::Matrix<T, 6, 1> &V)
-    {
-        using SO3T  = Sophus::SO3<T>;
-        using Vec3T = Eigen::Matrix<T, 3, 1>;
-        using Mat3T = Eigen::Matrix<T, 3, 3>;
-        using Mat6T = Eigen::Matrix<T, 6, 6>;
-
-        // T Un = U.norm();
-        // if(Un < DOUBLE_EPSILON)
-        //     return Eigen::Matrix<T, 6, 6>::Zero();    // To do: find the near-zero form
-
-        Vec3T The = U.template head(3);
-        Vec3T Rho = U.template tail(3);
-
-        Vec3T Omg = V.template head(3);
-        Vec3T Nuy = V.template tail(3);
-
-        Mat3T Hp1_TheOmg = DJrUV_DU(The, Omg);
-        Mat3T Hp1_TheNuy = DJrUV_DU(The, Nuy);
-
-        SE3Qp<T> myQp_XiOmg;
-        myQp_XiOmg.ComputeS(The, Rho, Omg);
-        
-        Mat6T Hp1_XiTau;
-        Hp1_XiTau << Hp1_TheOmg, Mat3T::Zero(),
-                     myQp_XiOmg.S1 + Hp1_TheNuy, myQp_XiOmg.S2;
-
-        return Hp1_XiTau;
+        return JrInv<T>(-Xi);
     }
 
     template <class T = double>
@@ -946,42 +893,70 @@ public:
         Vec3T Thedd = Xidd.template head(3);
         Vec3T Rhodd = Xidd.template tail(3);
 
-        SE3Q<T> myQ_XiXid;
-        myQ_XiXid.ComputeQSC(The, Rho, Thed, Rhod);
+        Jr_Xi = Jr(Xi);
+
+        if (The.norm() < 1e-3)
+        {
+            // cout << "Thenorm " << The.transpose() << endl;
+
+            H1_XiXid     =  0.5*SE3hat(Xid);
+            H1_XiXidd    =  0.5*SE3hat(Xidd);
+            L11_XiXidXid =  Mat6T::Zero();
+            L12_XiXidXid = -0.5*SE3hat(Xid);
+        }
+        else
+        {
+            SE3Q<T> myQ_XiXid;
+            myQ_XiXid.ComputeQSC(The, Rho, Thed, Rhod);
+            
+            SE3Q<T> myQ_XiXidd;
+            myQ_XiXidd.ComputeS(The, Rho, Thedd);
+            
+            Mat3T Zero = Mat3T::Zero(3, 3);
+            Mat3T Jr_The = Jr(The);
+            Mat3T H1_TheThed = DJrUV_DU(The, Thed);
+            Mat3T H1_TheRhod = DJrUV_DU(The, Rhod);
+            Mat3T H1_TheThedd = DJrUV_DU(The, Thedd);
+            Mat3T H1_TheRhodd = DJrUV_DU(The, Rhodd);
+            Mat3T L11_TheThedThed = DDJrUVW_DUDU(The, Thed, Thed);
+            Mat3T L11_TheRhodThed = DDJrUVW_DUDU(The, Rhod, Thed);
+            Mat3T L12_TheThedThed = DDJrUVW_DUDV(The, Thed, Thed);
+            Mat3T L12_TheRhodThed = DDJrUVW_DUDV(The, Rhod, Thed);
         
-        SE3Q<T> myQ_XiXidd;
-        myQ_XiXidd.ComputeS(The, Rho, Thedd);
-        
-        Mat3T Zero = Mat3T::Zero(3, 3);
-        Mat3T Jr_The = Jr(The);
-        Mat3T H1_TheThed = DJrUV_DU(The, Thed);
-        Mat3T H1_TheRhod = DJrUV_DU(The, Rhod);
-        Mat3T H1_TheThedd = DJrUV_DU(The, Thedd);
-        Mat3T H1_TheRhodd = DJrUV_DU(The, Rhodd);
-        Mat3T L11_TheThedThed = DDJrUVW_DUDU(The, Thed, Thed);
-        Mat3T L11_TheRhodThed = DDJrUVW_DUDU(The, Rhod, Thed);
-        Mat3T L12_TheThedThed = DDJrUVW_DUDV(The, Thed, Thed);
-        Mat3T L12_TheRhodThed = DDJrUVW_DUDV(The, Rhod, Thed);
-        
-        Jr_Xi
-        << Jr_The, Zero,
-           myQ_XiXid.Q,  Jr_The;
+            H1_XiXid
+                << H1_TheThed, Zero,
+                   myQ_XiXid.S1 + H1_TheRhod, myQ_XiXid.S2;
 
-        H1_XiXid
-        << H1_TheThed, Zero,
-           myQ_XiXid.S1 + H1_TheRhod, myQ_XiXid.S2;
+            H1_XiXidd
+                << H1_TheThedd, Zero,
+                   myQ_XiXidd.S1 + H1_TheRhodd, myQ_XiXidd.S2;
 
-        H1_XiXidd
-        << H1_TheThedd, Zero,
-           myQ_XiXidd.S1 + H1_TheRhodd, myQ_XiXidd.S2;
+            L11_XiXidXid
+                << L11_TheThedThed, Zero,
+                   myQ_XiXid.C11 + L11_TheRhodThed + myQ_XiXid.C21, myQ_XiXid.C12 + myQ_XiXid.C22;
 
-        L11_XiXidXid
-        << L11_TheThedThed, Zero,
-           myQ_XiXid.C11 + L11_TheRhodThed + myQ_XiXid.C21, myQ_XiXid.C12 + myQ_XiXid.C22;
+            L12_XiXidXid
+                << L12_TheThedThed, Zero,
+                   myQ_XiXid.C13 + myQ_XiXid.C23, L12_TheRhodThed;
 
-        L12_XiXidXid
-        << L12_TheThedThed, Zero,
-           myQ_XiXid.C13 + myQ_XiXid.C23, L12_TheRhodThed;
+            assert(!myQ_XiXid.Q.array().isNaN().any());
+            assert(!myQ_XiXid.S1.array().isNaN().any());
+            assert(!myQ_XiXid.S2.array().isNaN().any());
+            assert(!myQ_XiXid.C11.array().isNaN().any());
+            assert(!myQ_XiXid.C12.array().isNaN().any());
+            assert(!myQ_XiXid.C13.array().isNaN().any());
+            assert(!myQ_XiXid.C21.array().isNaN().any());
+            assert(!myQ_XiXid.C22.array().isNaN().any());
+            assert(!myQ_XiXid.C23.array().isNaN().any());
+
+            assert(!myQ_XiXidd.S1.array().isNaN().any());
+            assert(!myQ_XiXidd.S2.array().isNaN().any());
+
+            assert(!H1_XiXid.array().isNaN().any());
+            assert(!H1_XiXidd.array().isNaN().any());
+            assert(!L11_XiXidXid.array().isNaN().any());
+            assert(!L12_XiXidXid.array().isNaN().any());
+        }
     }
 
     template <class T = double>
@@ -1017,53 +992,71 @@ public:
         Vec3T Thed = Xid.template head(3);
         Vec3T Rhod = Xid.template tail(3);
 
-        if (Xid.norm() < 1e-3)
+        if (The.norm() < DOUBLE_EPSILON)
         {
-            Hp1_XiTw = Mat6T::Identity();
-            Hp1_XiWr = Mat6T::Identity();
-            Lp11_XiTwXid.setZero();
-            Lp12_XiTwXid.setZero();
+            // cout << "Thenorm " << The.transpose() << endl;
 
-            Xidd = JrInv_Xi*Wr + Hp1_XiTw*Xid;
+            Hp1_XiTw     = -0.5*SE3hat(Tw);
+            Hp1_XiWr     = -0.5*SE3hat(Wr);
+            Lp11_XiTwXid =  Mat6T::Zero();
+            Lp12_XiTwXid =  0.5*SE3hat(Xid);
+        }
+        else
+        {
+            SE3Qp<T> myQp_XiTw;
+            myQp_XiTw.ComputeQSC(The, Rho, Thed, Rhod, Omg);
+            
+            SE3Qp<T> myQp_XiWr;
+            myQp_XiWr.ComputeS(The, Rho, Alp);
+            
+            Mat3T Zero = Mat3T::Zero(3, 3);
+            Mat3T JrInv_The = JrInv(The);
+            
+            Mat3T Hp1_TheOmg = DJrInvUV_DU(The, Omg);
+            Mat3T Hp1_TheNuy = DJrInvUV_DU(The, Nuy);
+            Mat3T Hp1_TheAlp = DJrInvUV_DU(The, Alp);
+            Mat3T Hp1_TheBta = DJrInvUV_DU(The, Bta);
+            Mat3T Lp11_TheOmgThed = DDJrInvUVW_DUDU(The, Omg, Thed);
+            Mat3T Lp11_TheNuyThed = DDJrInvUVW_DUDU(The, Nuy, Thed);
+            Mat3T Lp12_TheOmgThed = DDJrInvUVW_DUDV(The, Omg, Thed);
+            Mat3T Lp12_TheNuyThed = DDJrInvUVW_DUDV(The, Nuy, Thed);
 
-            return;
+            Hp1_XiTw
+                << Hp1_TheOmg, Zero,
+                   myQp_XiTw.S1 + Hp1_TheNuy, myQp_XiTw.S2;
+
+            Hp1_XiWr
+                << Hp1_TheAlp, Zero,
+                   myQp_XiWr.S1 + Hp1_TheBta, myQp_XiWr.S2;
+
+            Lp11_XiTwXid
+                << Lp11_TheOmgThed, Zero,
+                   myQp_XiTw.C11 + Lp11_TheNuyThed + myQp_XiTw.C21, myQp_XiTw.C12 + myQp_XiTw.C22;
+
+            Lp12_XiTwXid
+                << Lp12_TheOmgThed, Zero,
+                   myQp_XiTw.C13 + myQp_XiTw.C23, Lp12_TheNuyThed;
+
+            assert(!myQp_XiTw.Q.array().isNaN().any());
+            assert(!myQp_XiTw.S1.array().isNaN().any());
+            assert(!myQp_XiTw.S2.array().isNaN().any());
+            assert(!myQp_XiTw.C11.array().isNaN().any());
+            assert(!myQp_XiTw.C12.array().isNaN().any());
+            assert(!myQp_XiTw.C13.array().isNaN().any());
+            assert(!myQp_XiTw.C21.array().isNaN().any());
+            assert(!myQp_XiTw.C22.array().isNaN().any());
+            assert(!myQp_XiTw.C23.array().isNaN().any());
+            
+            assert(!myQp_XiWr.S1.array().isNaN().any());
+            assert(!myQp_XiWr.S2.array().isNaN().any());
+            
+            assert(!Hp1_XiTw.array().isNaN().any());
+            assert(!Hp1_XiWr.array().isNaN().any());
+            assert(!Lp11_XiTwXid.array().isNaN().any());
+            assert(!Lp12_XiTwXid.array().isNaN().any());
         }
 
-        SE3Qp<T> myQp_XiTw;
-        myQp_XiTw.ComputeQSC(The, Rho, Thed, Rhod, Omg);
-        
-        SE3Qp<T> myQp_XiWr;
-        myQp_XiWr.ComputeS(The, Rho, Alp);
-        
-        Mat3T Zero = Mat3T::Zero(3, 3);
-        Mat3T JrInv_The = JrInv(The);
-        
-        Mat3T Hp1_TheOmg = DJrInvUV_DU(The, Omg);
-        Mat3T Hp1_TheNuy = DJrInvUV_DU(The, Nuy);
-        Mat3T Hp1_TheAlp = DJrInvUV_DU(The, Alp);
-        Mat3T Hp1_TheBta = DJrInvUV_DU(The, Bta);
-        Mat3T Lp11_TheOmgThed = DDJrInvUVW_DUDU(The, Omg, Thed);
-        Mat3T Lp11_TheNuyThed = DDJrInvUVW_DUDU(The, Nuy, Thed);
-        Mat3T Lp12_TheOmgThed = DDJrInvUVW_DUDV(The, Omg, Thed);
-        Mat3T Lp12_TheNuyThed = DDJrInvUVW_DUDV(The, Nuy, Thed);
-
-        Hp1_XiTw
-        << Hp1_TheOmg, Zero,
-           myQp_XiTw.S1 + Hp1_TheNuy, myQp_XiTw.S2;
-
         Xidd = JrInv_Xi*Wr + Hp1_XiTw*Xid;
-
-        Hp1_XiWr
-        << Hp1_TheAlp, Zero,
-           myQp_XiWr.S1 + Hp1_TheBta, myQp_XiWr.S2;
-
-        Lp11_XiTwXid
-        << Lp11_TheOmgThed, Zero,
-           myQp_XiTw.C11 + Lp11_TheNuyThed + myQp_XiTw.C21, myQp_XiTw.C12 + myQp_XiTw.C22;
-
-        Lp12_XiTwXid
-        << Lp12_TheOmgThed, Zero,
-           myQp_XiTw.C13 + myQp_XiTw.C23, Lp12_TheNuyThed;
     }
 
     /* #endregion Lie operations for SE3 -----------------------------------------------------------------------------------------------------------------------------*/
@@ -1448,7 +1441,7 @@ public:
             Mat6T  J_Xiad1_Twa = Mat6T::Identity();
             Mat6T  J_Xiad2_Wra = Mat6T::Identity();
 
-            Mat6T  J_Xibd0_Tfa = -JrInv(-Xibd0);    // Technically we can use JrInv_Xib*Tab.Adj().inverse().matrix() but the order of The and Rho in Sophus is different
+            Mat6T  J_Xibd0_Tfa = -JrInv((-Xibd0).eval());    // Technically we can use JrInv_Xib*Tab.Adj().inverse().matrix() but the order of The and Rho in Sophus is different
             Mat6T &J_Xibd0_Tfb =  JrInv_Xib;
 
             Mat6T  J_Xibd1_Tfa = Hp1_XibTwb*J_Xibd0_Tfa;
@@ -1865,7 +1858,7 @@ public:
             Mat6T  J_Xiad1_Twa = Mat6T::Identity();
             Mat6T  J_Xiad2_Wra = Mat6T::Identity();
 
-            Mat6T  J_Xibd0_Tfa = -JrInv(-Xibd0);    // Technically we can use JrInv_Xib*Tab.Adj().inverse().matrix() but the order of The and Rho in Sophus is different
+            Mat6T  J_Xibd0_Tfa = -JrInv((-Xibd0).eval());    // Technically we can use JrInv_Xib*Tab.Adj().inverse().matrix() but the order of The and Rho in Sophus is different
             Mat6T &J_Xibd0_Tfb =  JrInv_Xib;
 
             Mat6T  J_Xibd1_Tfa = Hp1_XibTwb*J_Xibd0_Tfa;
@@ -2017,8 +2010,8 @@ public:
     // ~GaussianProcess(){};
 
     // Constructor
-    GaussianProcess(double Dt_, Mat3 CovROSJerk_, Mat3 CovPVAJerk_, bool keepCov_ = false, POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3)
-        : Dt(Dt_), gpm(GPMixerPtr(new GPMixer(Dt_, CovROSJerk_, CovPVAJerk_, pose_representation_))), keepCov(keepCov_) {};
+    GaussianProcess(double Dt_, Mat3 CovROSJerk_, Mat3 CovPVAJerk_, bool keepCov_ = false, POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3, double se3_epsilon_)
+        : Dt(Dt_), gpm(GPMixerPtr(new GPMixer(Dt_, CovROSJerk_, CovPVAJerk_, pose_representation_, se3_epsilon_))), keepCov(keepCov_) {};
 
     Mat3 getCovROSJerk() const { return gpm->getCovROSJerk(); }
     Mat3 getCovPVAJerk() const { return gpm->getCovPVAJerk(); }

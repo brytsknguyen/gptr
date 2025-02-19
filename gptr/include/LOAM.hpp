@@ -80,6 +80,8 @@ public:
         pose_type = pose_type_ == "SE3" ? POSE_GROUP::SE3 : POSE_GROUP::SO3xR3;
         RINFO("Pose representation: %s. Num: %d\n", pose_type_.c_str(), pose_type);
 
+        Util::GetParam(nh_ptr, "se3_epsilon", se3_epsilon);
+
         // Association params
         Util::GetParam(nh_ptr, "min_planarity", min_planarity);
         Util::GetParam(nh_ptr, "max_plane_dis", max_plane_dis);
@@ -92,7 +94,7 @@ public:
 
         Matrix3d CovROSJerk = Vector3d(mpCovROSJerk, mpCovROSJerk, mpCovROSJerk).asDiagonal();
         Matrix3d CovPVAJerk = Vector3d(mpCovPVAJerk, mpCovPVAJerk, mpCovPVAJerk).asDiagonal();
-        traj = GaussianProcessPtr(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, pose_type));
+        traj = GaussianProcessPtr(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, pose_type, se3_epsilon));
         traj->setStartTime(t0);
         traj->setKnot(0, GPState(t0, T_W_Li0));
     }

@@ -70,11 +70,12 @@ def generate_launch_description():
             {'cloud_ds'        : [0.1, 0.1]},
 
             # GN MAP optimization params
-            {'deltaT'          : 0.02204},
+            {'deltaT'          : 0.05743},
             # Motion prior factors
             {'mpCovROSJerk'    : 1.0},
             {'mpCovPVAJerk'    : 1.0},
             {"pose_type"       : "SE3"},
+            {"se3_epsilon"     : 1e-3},
 
             {'lidar_ds_rate'   : 1},
             {'lidar_weight'    : 10.0},

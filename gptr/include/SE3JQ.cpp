@@ -12,6 +12,13 @@ void SE3Q<T>::ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed)
     Matrix<T, 1, 3> Ubtp = Ub.transpose();
     Matrix<T, 3, 3> JUb = (Mat3T::Identity(3, 3) - Ub*Ubtp) / Un;
 
+    if (Un < T(SE3_EPSILON))
+    {
+        Ub.setZero();
+        Ubtp.setZero();
+        JUb.setZero();
+    }
+
     // This Q has 4 g and each has 3 derivatives 0th, 1st
     Matrix<T, COMPONENTS, 2> gdrv; gdrv.setZero();
 
@@ -20,6 +27,11 @@ void SE3Q<T>::ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed)
 
     /* #region Calculating the derivatives of g -----------------------------------------------------------------*/
 
+    if(Un < T(SE3_EPSILON))
+    {
+        gdrv(0, 0) = T(1.0/2.0); gdrv(1, 0) = T(1.0/6.0); gdrv(2, 0) = T(1.0/2.4E+1); gdrv(3, 0) = T(1.0/1.2E+2);
+    }
+    else
     {
         T t2 = cos(Un), t3 = sin(Un), t4 = Un*Un, t5 = 1.0/(Un*Un*Un), t7 = 1.0/(Un*Un*Un*Un*Un), t6 = 1.0/(t4*t4), t8 = -t3, t9 = Un+t8;
 
@@ -69,6 +81,9 @@ void SE3Q<T>::ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed)
 
     S1.setZero(); S2.setZero();
 
+    // ROS_ASSERT_MSG(!gdrv.array().isNaN().any(), "Un: %f\n", Un);
+    // ROS_ASSERT_MSG(!fdrv.array().isNaN().any(), "Un: %f\n", Un);
+
     // Calculating the component jacobians
     for (int idx = 0; idx < COMPONENTS; idx++)
     {
@@ -90,6 +105,9 @@ void SE3Q<T>::ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed)
         S1 += dfXi_W_dU*g + fXiW*Jdg_U;
         S2 += dfXi_W_dV*g;
 
+        // ROS_ASSERT_MSG(!S1.array().isNaN().any(), "Un: %f\n", Un);
+        // ROS_ASSERT_MSG(!S2.array().isNaN().any(), "Un: %f\n", Un);
+
         // cout << "ComputeS " << idx << ": g\n" << g << endl;
         // cout << "ComputeS " << idx << ": dfXi_W_dU\n" << dfXi_W_dU << endl;
         // cout << "ComputeS " << idx << ": dfXi_W_dV\n" << dfXi_W_dV << endl;
@@ -106,6 +124,13 @@ void SE3Q<T>::ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, 
     Matrix<T, 1, 3> Ubtp = Ub.transpose();
     Matrix<T, 3, 3> JUb = (Mat3T::Identity(3, 3) - Ub*Ubtp) / Un;
 
+    if (Un < T(SE3_EPSILON))
+    {
+        Ub.setZero();
+        Ubtp.setZero();
+        JUb.setZero();
+    }
+
     // This Q has 4 g and each has 3 derivatives 0th, 1st and 2nd
     Matrix<T, COMPONENTS, 3> gdrv; gdrv.setZero();
 
@@ -114,6 +139,11 @@ void SE3Q<T>::ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, 
 
     /* #region Calculating the derivatives of g -----------------------------------------------------------------*/
 
+    if(Un < T(SE3_EPSILON))
+    {
+        gdrv(0, 0) = T(1.0/2.0); gdrv(1, 0) = T(1.0/6.0); gdrv(1, 2) = T(-1.0/6.0E+1); gdrv(2, 0) = T(1.0/2.4E+1); gdrv(2, 2) = T(-1.0/3.6E+2); gdrv(3, 0) = T(1.0/1.2E+2); gdrv(3, 2) = T(-7.936507936507937E-4);
+    }
+    else
     {
         T t2 = cos(Un), t3 = sin(Un), t4 = Un*Un, t5 = 1.0/(Un*Un*Un), t7 = 1.0/(Un*Un*Un*Un*Un), t6 = 1.0/(t4*t4), t8 = 1.0/(t4*t4*t4), t9 = -t3, t10 = t3*t4, t11 = Un+t9;
 
@@ -221,6 +251,9 @@ void SE3Q<T>::ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, 
 
     ResetQSC();
 
+    // ROS_ASSERT_MSG(!gdrv.array().isNaN().any(), "Un: %f\n", Un);
+    // ROS_ASSERT_MSG(!fdrv.array().isNaN().any(), "Un: %f\n", Un);
+
     // Calculating the component jacobians
     for (int idx = 0; idx < COMPONENTS; idx++)
     {
@@ -256,6 +289,11 @@ void SE3Q<T>::ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, 
             C11 += dfXi_W_dU*(Jdg_U*X) + fXiW*Jddg_U*UbtpX + fXiW*Xtp*dg*JUb + ddfXiW_X_dUdU*g + dfXi_W_dU*X*Jdg_U;
             C12 += dfXi_W_dV*(Jdg_U*X) + ddfXiW_X_dUdV*g;
             C13 += fXi*(Jdg_U*X) + ddfXiW_X_dUdW*g;
+
+            // ROS_ASSERT_MSG(!S1.array().isNaN().any() , "Un: %f\n", Un);
+            // ROS_ASSERT_MSG(!C11.array().isNaN().any(), "Un: %f\n", Un);
+            // ROS_ASSERT_MSG(!C12.array().isNaN().any(), "Un: %f\n", Un);
+            // ROS_ASSERT_MSG(!C13.array().isNaN().any(), "Un: %f\n", Un);
         }
 
         // Find the S2 C2 jacobians
@@ -269,6 +307,11 @@ void SE3Q<T>::ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, 
             C21 += ddfXiW_X_dVdU*g + dfXi_W_dV*X*Jdg_U;
             C22 += ddfXiW_X_dVdV*g;
             C23 += ddfXiW_X_dVdW*g;
+
+            // ROS_ASSERT_MSG(!S2.array().isNaN().any() , "Un: %f\n", Un);
+            // ROS_ASSERT_MSG(!C21.array().isNaN().any(), "Un: %f\n", Un);
+            // ROS_ASSERT_MSG(!C22.array().isNaN().any(), "Un: %f\n", Un);
+            // ROS_ASSERT_MSG(!C23.array().isNaN().any(), "Un: %f\n", Un);
         }
 
         // cout << "ComputeQSC " << idx << ": g\n" << g << endl;
@@ -287,6 +330,13 @@ void SE3Qp<T>::ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Omg)
     Matrix<T, 1, 3> Ubtp = Ub.transpose();
     Matrix<T, 3, 3> JUb = (Mat3T::Identity(3, 3) - Ub*Ubtp) / Un;
 
+    if (Un < T(SE3_EPSILON))
+    {
+        Ub.setZero();
+        Ubtp.setZero();
+        JUb.setZero();
+    }
+
     // This Q has 4 g and each has 3 derivatives 0th, 1st
     Matrix<T, COMPONENTS, 2> gdrv; gdrv.setZero();
 
@@ -295,6 +345,14 @@ void SE3Qp<T>::ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Omg)
 
     /* #region Calculating the derivatives of g -----------------------------------------------------------------*/
 
+    if(Un < T(SE3_EPSILON))
+    {
+        gdrv(0, 0) = T(1.0/2.0); gdrv(1, 0) = T(1.0/6.0); gdrv(2, 0) = T(1.0/2.4E+1); gdrv(3, 0) = T(1.0/1.2E+2); gdrv(4, 0) = T(1.0/4.0); gdrv(5, 0) = T(1.0/1.2E+1); gdrv(6, 0) = T(1.0/4.8E+1); gdrv(7, 0) = T(1.0/2.4E+2); gdrv(8, 0) = T(1.0/2.4E+1); gdrv(9, 0) = T(1.0/7.2E+1);
+        gdrv(10, 0) = T(1.0/2.88E+2); gdrv(11, 0) = T(6.944444444444444E-4); gdrv(12, 0) = T(1.0/4.0); gdrv(13, 0) = T(1.0/1.2E+1); gdrv(14, 0) = T(1.0/4.8E+1); gdrv(15, 0) = T(1.0/2.4E+2); gdrv(16, 0) = T(1.0/8.0); gdrv(17, 0) = T(1.0/2.4E+1); gdrv(18, 0) = T(1.0/9.6E+1);
+        gdrv(19, 0) = T(1.0/4.8E+2); gdrv(20, 0) = T(1.0/4.8E+1); gdrv(21, 0) = T(1.0/1.44E+2); gdrv(22, 0) = T(1.0/5.76E+2); gdrv(23, 0) = T(3.472222222222222E-4); gdrv(24, 0) = T(1.0/2.4E+1); gdrv(25, 0) = T(1.0/7.2E+1); gdrv(26, 0) = T(1.0/2.88E+2); gdrv(27, 0) = T(6.944444444444444E-4);
+        gdrv(28, 0) = T(1.0/4.8E+1); gdrv(29, 0) = T(1.0/1.44E+2); gdrv(30, 0) = T(1.0/5.76E+2); gdrv(31, 0) = T(3.472222222222222E-4); gdrv(32, 0) = T(1.0/2.88E+2); gdrv(33, 0) = T(1.0/8.64E+2); gdrv(34, 0) = T(2.893518518518519E-4); gdrv(35, 0) = T(5.787037037037037E-5);
+    }
+    else
     {
         T t2 = cos(Un), t3 = sin(Un), t4 = Un*2.0, t5 = Un*3.0, t6 = Un*Un, t7 = Un*Un*Un, t20 = Un*8.0, t21 = 1.0/Un, t8 = cos(t4), t9 = t2*2.0, t10 = cos(t5), t11 = t2*4.0, t12 = t2*t2, t13 = t2*t2*t2, t14 = sin(t4), t15 = t3*2.0, t16 = sin(t5);
         T t17 = t3*3.0, t18 = Un*t2, t19 = Un*t3, t22 = 1.0/t6, t23 = 1.0/t7, t25 = t21*t21*t21*t21*t21, t27 = t21*t21*t21*t21*t21*t21*t21, t28 = Un*t4, t29 = t2*1.0E+1, t30 = t2*4.2E+1, t31 = t2-1.0, t32 = -t3, t35 = t3*1.5E+1, t36 = 1.0/t3;
@@ -727,6 +785,9 @@ void SE3Qp<T>::ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Omg)
 
     S1.setZero(); S2.setZero();
     
+    // ROS_ASSERT_MSG(!gdrv.array().isNaN().any(), "Un: %f\n", Un);
+    // ROS_ASSERT_MSG(!fdrv.array().isNaN().any(), "Un: %f\n", Un);
+
     // Calculating the component jacobians
     for (int idx = 0; idx < COMPONENTS; idx++)
     {
@@ -748,6 +809,9 @@ void SE3Qp<T>::ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Omg)
         S1 += dfXi_W_dU*g + fXiW*Jdg_U;
         S2 += dfXi_W_dV*g;
 
+        // ROS_ASSERT_MSG(!S1.array().isNaN().any(), "Un: %f\n", Un);
+        // ROS_ASSERT_MSG(!S2.array().isNaN().any(), "Un: %f\n", Un);
+
         // cout << "ComputeS " << idx << ": g\n" << g << endl;
         // cout << "ComputeS " << idx << ": dfXi_W_dU\n" << dfXi_W_dU << endl;
         // cout << "ComputeS " << idx << ": dfXi_W_dV\n" << dfXi_W_dV << endl;
@@ -764,6 +828,13 @@ void SE3Qp<T>::ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed,
     Matrix<T, 1, 3> Ubtp = Ub.transpose();
     Matrix<T, 3, 3> JUb = (Mat3T::Identity(3, 3) - Ub*Ubtp) / Un;
 
+    if (Un < T(SE3_EPSILON))
+    {
+        Ub.setZero();
+        Ubtp.setZero();
+        JUb.setZero();
+    }
+
     // This Q has 4 g and each has 3 derivatives 0th, 1st and 2nd
     Matrix<T, Eigen::Dynamic, 3> gdrv(COMPONENTS, 3); gdrv.setZero();
 
@@ -772,6 +843,18 @@ void SE3Qp<T>::ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed,
 
     /* #region Calculating the derivatives of g -----------------------------------------------------------------*/
 
+    if(Un < T(SE3_EPSILON))
+    {
+        gdrv(0, 0) = T(1.0/2.0); gdrv(1, 0) = T(1.0/6.0); gdrv(1, 2) = T(-1.0/6.0E+1); gdrv(2, 0) = T(1.0/2.4E+1); gdrv(2, 2) = T(-1.0/3.6E+2); gdrv(3, 0) = T(1.0/1.2E+2); gdrv(3, 2) = T(-7.936507936507937E-4); gdrv(4, 0) = T(1.0/4.0); gdrv(5, 0) = T(1.0/1.2E+1); gdrv(5, 2) = T(-1.0/1.2E+2);
+        gdrv(6, 0) = T(1.0/4.8E+1); gdrv(6, 2) = T(-1.0/7.2E+2); gdrv(7, 0) = T(1.0/2.4E+2); gdrv(7, 2) = T(-3.968253968253968E-4); gdrv(8, 0) = T(1.0/2.4E+1); gdrv(8, 2) = T(1.0/7.2E+2); gdrv(9, 0) = T(1.0/7.2E+1); gdrv(9, 2) = T(-9.259259259259259E-4); gdrv(10, 0) = T(1.0/2.88E+2);
+        gdrv(10, 2) = T(-1.157407407407407E-4); gdrv(11, 0) = T(6.944444444444444E-4); gdrv(12, 0) = T(1.0/4.0); gdrv(13, 0) = T(1.0/1.2E+1); gdrv(13, 2) = T(-1.0/1.2E+2); gdrv(14, 0) = T(1.0/4.8E+1); gdrv(14, 2) = T(-1.0/7.2E+2); gdrv(15, 0) = T(1.0/2.4E+2);
+        gdrv(15, 2) = T(-3.968253968253968E-4); gdrv(16, 0) = T(1.0/8.0); gdrv(17, 0) = T(1.0/2.4E+1); gdrv(17, 2) = T(-1.0/2.4E+2); gdrv(18, 0) = T(1.0/9.6E+1); gdrv(18, 2) = T(-6.944444444444444E-4); gdrv(19, 0) = T(1.0/4.8E+2); gdrv(19, 2) = T(-1.984126984126984E-4);
+        gdrv(20, 0) = T(1.0/4.8E+1); gdrv(20, 2) = T(6.944444444444444E-4); gdrv(21, 0) = T(1.0/1.44E+2); gdrv(21, 2) = T(-4.62962962962963E-4); gdrv(22, 0) = T(1.0/5.76E+2); gdrv(22, 2) = T(-5.787037037037037E-5); gdrv(23, 0) = T(3.472222222222222E-4); gdrv(24, 0) = T(1.0/2.4E+1);
+        gdrv(24, 2) = T(1.0/7.2E+2); gdrv(25, 0) = T(1.0/7.2E+1); gdrv(25, 2) = T(-9.259259259259259E-4); gdrv(26, 0) = T(1.0/2.88E+2); gdrv(26, 2) = T(-1.157407407407407E-4); gdrv(27, 0) = T(6.944444444444444E-4); gdrv(28, 0) = T(1.0/4.8E+1); gdrv(28, 2) = T(6.944444444444444E-4);
+        gdrv(29, 0) = T(1.0/1.44E+2); gdrv(29, 2) = T(-4.62962962962963E-4); gdrv(30, 0) = T(1.0/5.76E+2); gdrv(30, 2) = T(-5.787037037037037E-5); gdrv(31, 0) = T(3.472222222222222E-4); gdrv(32, 0) = T(1.0/2.88E+2); gdrv(32, 2) = T(2.314814814814815E-4); gdrv(33, 0) = T(1.0/8.64E+2);
+        gdrv(33, 2) = T(-3.858024691358025E-5); gdrv(34, 0) = T(2.893518518518519E-4); gdrv(35, 0) = T(5.787037037037037E-5); gdrv(35, 2) = T(-1.653439153439153E-6);
+    }
+    else
     {
         /* #region Repeated terms -------------------------------------------------------------------------------*/
 
@@ -876,6 +959,9 @@ void SE3Qp<T>::ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed,
 
     ResetQSC();
 
+    // ROS_ASSERT_MSG(!gdrv.array().isNaN().any(), "Un: %f\n", Un);
+    // ROS_ASSERT_MSG(!fdrv.array().isNaN().any(), "Un: %f\n", Un);
+
     // Calculating the component Jacobians
     for (int idx = 0; idx < COMPONENTS; idx++)
     {
@@ -911,6 +997,11 @@ void SE3Qp<T>::ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed,
             C11 += dfXi_W_dU*(Jdg_U*X) + fXiW*Jddg_U*UbtpX + fXiW*Xtp*dg*JUb + ddfXiW_X_dUdU*g + dfXi_W_dU*X*Jdg_U;
             C12 += dfXi_W_dV*(Jdg_U*X) + ddfXiW_X_dUdV*g;
             C13 += fXi*(Jdg_U*X) + ddfXiW_X_dUdW*g;
+
+            // ROS_ASSERT_MSG(!S1.array().isNaN().any() , "Un: %f\n", Un);
+            // ROS_ASSERT_MSG(!C11.array().isNaN().any(), "Un: %f\n", Un);
+            // ROS_ASSERT_MSG(!C12.array().isNaN().any(), "Un: %f\n", Un);
+            // ROS_ASSERT_MSG(!C13.array().isNaN().any(), "Un: %f\n", Un);
         }
 
         {
@@ -923,7 +1014,12 @@ void SE3Qp<T>::ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed,
             S2  += dfXi_W_dV*g;
             C21 += ddfXiW_X_dVdU*g + dfXi_W_dV*X*Jdg_U;
             C22 += ddfXiW_X_dVdV*g;
-            C23 += ddfXiW_X_dVdW*g;       
+            C23 += ddfXiW_X_dVdW*g;
+
+            // ROS_ASSERT_MSG(!S2.array().isNaN().any() , "Un: %f\n", Un);
+            // ROS_ASSERT_MSG(!C21.array().isNaN().any(), "Un: %f\n", Un);
+            // ROS_ASSERT_MSG(!C22.array().isNaN().any(), "Un: %f\n", Un);
+            // ROS_ASSERT_MSG(!C23.array().isNaN().any(), "Un: %f\n", Un);
         }
     }
 }

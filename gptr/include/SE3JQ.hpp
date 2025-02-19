@@ -1,5 +1,5 @@
-#include "utility.h"
 #include <Eigen/Dense>
+#include "utility.h"
 
 #ifndef SE3JQ_HPP
 #define SE3JQ_HPP
@@ -27,7 +27,7 @@ private:
 
 public:
     // Constructor
-    SE3Q()
+    SE3Q(T SE3_EPSILON_ = T(1e-3)) : SE3_EPSILON(SE3_EPSILON_)
     {
         // ResetQSC();
     }
@@ -44,6 +44,8 @@ public:
     void ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed);
 
     void ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, const Vec3T &Rhod);
+
+    T SE3_EPSILON = T(1e-3);
 
     Mat3T Q;
     Mat3T S1;
@@ -78,7 +80,7 @@ private:
 public:
 
     // Constructor
-    SE3Qp()
+    SE3Qp(T SE3_EPSILON_ = T(1e-3)) : SE3_EPSILON(SE3_EPSILON_)
     {
         // ResetQSC();
     }
@@ -132,6 +134,8 @@ public:
     Matrix<T, 3, 27> f34(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, const Vec3T &Rhod, const Vec3T &Omg);
     Matrix<T, 3, 27> f35(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, const Vec3T &Rhod, const Vec3T &Omg);
     Matrix<T, 3, 27> f36(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, const Vec3T &Rhod, const Vec3T &Omg);
+
+    T SE3_EPSILON = T(1e-3);
 
     Mat3T Q;
     Mat3T S1;
