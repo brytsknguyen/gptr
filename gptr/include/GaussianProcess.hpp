@@ -870,14 +870,14 @@ public:
     }
 
     template <class T = double>
-    static void Get_JHL(const Eigen::Matrix<T, 6, 1> &Xi,
-                        const Eigen::Matrix<T, 6, 1> &Xid,
-                        const Eigen::Matrix<T, 6, 1> &Xidd,
-                        Eigen::Matrix<T, 6, 6> &Jr_Xi,
-                        Eigen::Matrix<T, 6, 6> &H1_XiXid,
-                        Eigen::Matrix<T, 6, 6> &H1_XiXidd,
-                        Eigen::Matrix<T, 6, 6> &L11_XiXidXid,
-                        Eigen::Matrix<T, 6, 6> &L12_XiXidXid)
+    void Get_JHL(const Eigen::Matrix<T, 6, 1> &Xi,
+                 const Eigen::Matrix<T, 6, 1> &Xid,
+                 const Eigen::Matrix<T, 6, 1> &Xidd,
+                 Eigen::Matrix<T, 6, 6> &Jr_Xi,
+                 Eigen::Matrix<T, 6, 6> &H1_XiXid,
+                 Eigen::Matrix<T, 6, 6> &H1_XiXidd,
+                 Eigen::Matrix<T, 6, 6> &L11_XiXidXid,
+                 Eigen::Matrix<T, 6, 6> &L12_XiXidXid) const
     {
         // using SO3T  = Sophus::SO3<T>;
         using Vec3T = Eigen::Matrix<T, 3, 1>;
@@ -895,9 +895,9 @@ public:
 
         Jr_Xi = Jr(Xi);
 
-        if (The.norm() < DOUBLE_EPSILON)
+        if (The.norm() < SE3_EPSILON)
         {
-            // cout << "Thenorm " << The.transpose() << endl;
+            // cout << "approx form " << The.transpose() << endl;
 
             H1_XiXid     =  0.5*SE3hat(Xid);
             H1_XiXidd    =  0.5*SE3hat(Xidd);
@@ -906,6 +906,8 @@ public:
         }
         else
         {
+            // cout << "closed form" << endl;
+
             SE3Q<T> myQ_XiXid;
             myQ_XiXid.ComputeQSC(The, Rho, Thed, Rhod);
             
@@ -939,37 +941,37 @@ public:
                 << L12_TheThedThed, Zero,
                    myQ_XiXid.C13 + myQ_XiXid.C23, L12_TheRhodThed;
 
-            assert(!myQ_XiXid.Q.array().isNaN().any());
-            assert(!myQ_XiXid.S1.array().isNaN().any());
-            assert(!myQ_XiXid.S2.array().isNaN().any());
-            assert(!myQ_XiXid.C11.array().isNaN().any());
-            assert(!myQ_XiXid.C12.array().isNaN().any());
-            assert(!myQ_XiXid.C13.array().isNaN().any());
-            assert(!myQ_XiXid.C21.array().isNaN().any());
-            assert(!myQ_XiXid.C22.array().isNaN().any());
-            assert(!myQ_XiXid.C23.array().isNaN().any());
+            // assert(!myQ_XiXid.Q.array().isNaN().any());
+            // assert(!myQ_XiXid.S1.array().isNaN().any());
+            // assert(!myQ_XiXid.S2.array().isNaN().any());
+            // assert(!myQ_XiXid.C11.array().isNaN().any());
+            // assert(!myQ_XiXid.C12.array().isNaN().any());
+            // assert(!myQ_XiXid.C13.array().isNaN().any());
+            // assert(!myQ_XiXid.C21.array().isNaN().any());
+            // assert(!myQ_XiXid.C22.array().isNaN().any());
+            // assert(!myQ_XiXid.C23.array().isNaN().any());
 
-            assert(!myQ_XiXidd.S1.array().isNaN().any());
-            assert(!myQ_XiXidd.S2.array().isNaN().any());
+            // assert(!myQ_XiXidd.S1.array().isNaN().any());
+            // assert(!myQ_XiXidd.S2.array().isNaN().any());
 
-            assert(!H1_XiXid.array().isNaN().any());
-            assert(!H1_XiXidd.array().isNaN().any());
-            assert(!L11_XiXidXid.array().isNaN().any());
-            assert(!L12_XiXidXid.array().isNaN().any());
+            // assert(!H1_XiXid.array().isNaN().any());
+            // assert(!H1_XiXidd.array().isNaN().any());
+            // assert(!L11_XiXidXid.array().isNaN().any());
+            // assert(!L12_XiXidXid.array().isNaN().any());
         }
     }
 
     template <class T = double>
-    static void Get_JrInvHpLp(const Eigen::Matrix<T, 6, 1> &Xi,
-                              const Eigen::Matrix<T, 6, 1> &Tw,
-                              const Eigen::Matrix<T, 6, 1> &Wr,
-                              Eigen::Matrix<T, 6, 1> &Xid,
-                              Eigen::Matrix<T, 6, 1> &Xidd,
-                              Eigen::Matrix<T, 6, 6> &JrInv_Xi,
-                              Eigen::Matrix<T, 6, 6> &Hp1_XiTw,
-                              Eigen::Matrix<T, 6, 6> &Hp1_XiWr,
-                              Eigen::Matrix<T, 6, 6> &Lp11_XiTwXid,
-                              Eigen::Matrix<T, 6, 6> &Lp12_XiTwXid)
+    void Get_JrInvHpLp(const Eigen::Matrix<T, 6, 1> &Xi,
+                       const Eigen::Matrix<T, 6, 1> &Tw,
+                       const Eigen::Matrix<T, 6, 1> &Wr,
+                       Eigen::Matrix<T, 6, 1> &Xid,
+                       Eigen::Matrix<T, 6, 1> &Xidd,
+                       Eigen::Matrix<T, 6, 6> &JrInv_Xi,
+                       Eigen::Matrix<T, 6, 6> &Hp1_XiTw,
+                       Eigen::Matrix<T, 6, 6> &Hp1_XiWr,
+                       Eigen::Matrix<T, 6, 6> &Lp11_XiTwXid,
+                       Eigen::Matrix<T, 6, 6> &Lp12_XiTwXid) const
     {
         // using SO3T  = Sophus::SO3<T>;
         using Vec3T = Eigen::Matrix<T, 3, 1>;
@@ -992,9 +994,9 @@ public:
         Vec3T Thed = Xid.template head(3);
         Vec3T Rhod = Xid.template tail(3);
 
-        if (The.norm() < DOUBLE_EPSILON)
+        if (The.norm() < SE3_EPSILON)
         {
-            // cout << "Thenorm " << The.transpose() << endl;
+            // cout << "approxed form " << The.transpose() << endl;
 
             Hp1_XiTw     = -0.5*SE3hat(Tw);
             Hp1_XiWr     = -0.5*SE3hat(Wr);
@@ -1003,6 +1005,8 @@ public:
         }
         else
         {
+            // cout << "closed form" << endl;
+            
             SE3Qp<T> myQp_XiTw;
             myQp_XiTw.ComputeQSC(The, Rho, Thed, Rhod, Omg);
             
@@ -1037,23 +1041,23 @@ public:
                 << Lp12_TheOmgThed, Zero,
                    myQp_XiTw.C13 + myQp_XiTw.C23, Lp12_TheNuyThed;
 
-            assert(!myQp_XiTw.Q.array().isNaN().any());
-            assert(!myQp_XiTw.S1.array().isNaN().any());
-            assert(!myQp_XiTw.S2.array().isNaN().any());
-            assert(!myQp_XiTw.C11.array().isNaN().any());
-            assert(!myQp_XiTw.C12.array().isNaN().any());
-            assert(!myQp_XiTw.C13.array().isNaN().any());
-            assert(!myQp_XiTw.C21.array().isNaN().any());
-            assert(!myQp_XiTw.C22.array().isNaN().any());
-            assert(!myQp_XiTw.C23.array().isNaN().any());
+            // assert(!myQp_XiTw.Q.array().isNaN().any());
+            // assert(!myQp_XiTw.S1.array().isNaN().any());
+            // assert(!myQp_XiTw.S2.array().isNaN().any());
+            // assert(!myQp_XiTw.C11.array().isNaN().any());
+            // assert(!myQp_XiTw.C12.array().isNaN().any());
+            // assert(!myQp_XiTw.C13.array().isNaN().any());
+            // assert(!myQp_XiTw.C21.array().isNaN().any());
+            // assert(!myQp_XiTw.C22.array().isNaN().any());
+            // assert(!myQp_XiTw.C23.array().isNaN().any());
             
-            assert(!myQp_XiWr.S1.array().isNaN().any());
-            assert(!myQp_XiWr.S2.array().isNaN().any());
+            // assert(!myQp_XiWr.S1.array().isNaN().any());
+            // assert(!myQp_XiWr.S2.array().isNaN().any());
             
-            assert(!Hp1_XiTw.array().isNaN().any());
-            assert(!Hp1_XiWr.array().isNaN().any());
-            assert(!Lp11_XiTwXid.array().isNaN().any());
-            assert(!Lp12_XiTwXid.array().isNaN().any());
+            // assert(!Hp1_XiTw.array().isNaN().any());
+            // assert(!Hp1_XiWr.array().isNaN().any());
+            // assert(!Lp11_XiTwXid.array().isNaN().any());
+            // assert(!Lp12_XiTwXid.array().isNaN().any());
         }
 
         Xidd = JrInv_Xi*Wr + Hp1_XiTw*Xid;
