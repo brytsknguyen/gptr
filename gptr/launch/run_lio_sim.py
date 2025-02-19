@@ -74,7 +74,7 @@ def generate_launch_description():
             # Motion prior factors
             {'mpCovROSJerk'    : 1.0},
             {'mpCovPVAJerk'    : 1.0},
-            {"pose_type"       : "SE3"},
+            {"pose_type"       : "SE3"}, # Choose 'SE3' or 'SO3xR3'
             {"se3_epsilon"     : 1e-2},
 
             {'lidar_ds_rate'   : 1},
@@ -96,7 +96,7 @@ def generate_launch_description():
             {'max_acc'         : -5.0},
 
             # Extrinsic estimation
-            {'SW_CLOUDNUM'     : 40},
+            {'SW_CLOUDNUM'     : 10},
             {'SW_CLOUDSTEP'    : 1},
             {'max_lidarcoefs'  : 4000},
             {'XTRZ_DENSITY'    : 1},

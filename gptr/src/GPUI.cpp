@@ -450,6 +450,9 @@ int main(int argc, char **argv)
     pose_type = pose_type_ == "SE3" ? POSE_GROUP::SE3 : POSE_GROUP::SO3xR3;
     RINFO("Pose representation: %s. Num: %d\n", pose_type_.c_str(), pose_type);
 
+    double se3_epsilon = 1e-3;
+    Util::GetParam(nh_ptr, "se3_epsilon", se3_epsilon);
+
     // Find the path to anchor position
     string anchor_pose_path;
     Util::GetParam(nh_ptr, "anchor_pose_path", anchor_pose_path);
@@ -500,7 +503,7 @@ int main(int argc, char **argv)
     Util::GetParam(nh_ptr, "traj_save_path", traj_save_path);
 
     // Create the trajectory
-    traj = GaussianProcessPtr(new GaussianProcess(gpDt, gpQr, gpQc, true, pose_type));
+    traj = GaussianProcessPtr(new GaussianProcess(gpDt, gpQr, gpQc, true, pose_type, se3_epsilon));
     GPUIPtr gpmui(new GPUI(nh_ptr));
 
     // Wait to get the initial time
