@@ -853,4 +853,48 @@ int main(int argc, char **argv)
         // Test the jacobian
         TestAnalyticJacobian(problem, traj, Coef, 0);
     }
+
+    // Check the SE3 jacobian
+    {
+        double Dt = 0.04357;
+        Matrix3d mpCovROSJerk = Vector3d(10, 10, 10).asDiagonal();
+        Matrix3d mpCovPVAJerk = Vector3d(10, 10, 10).asDiagonal();
+        GaussianProcessPtr traj(new GaussianProcess(Dt, mpCovROSJerk, mpCovPVAJerk, false, POSE_GROUP::SE3, 1e-3, true));
+        traj->setStartTime(0.5743);
+        traj->genRandomTrajectory(6);
+
+        ceres::Problem problem;
+        ceres::Solver::Options options;
+        ceres::Solver::Summary summary;
+
+        // Create the ceres problem
+        CreateCeresProblem(problem, options, summary, traj, -0.1, -0.1);
+
+        // Create a random number engine
+        std::random_device rd;  // Will be used to obtain a seed for the random number engine
+        std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
+        // Define a distribution (e.g., uniform distribution in the range [1, 100])
+        std::uniform_int_distribution<> dis(1, 100);
+
+        // Create the fake lidar factors
+        int Npt = 4;
+        int Nknot = traj->getNumKnots();
+        vector<LidarCoef> Coef((Nknot - 1)*Npt);
+        for(int kidx = 0; kidx < Nknot - 1; kidx++)
+        {
+            for(int pidx = 0; pidx < Npt; pidx++)
+            {
+                Vector3d n = Vector3d::Random();
+                n /= n.norm();
+
+                Coef[kidx*4 + pidx].t =  traj->getKnotTime(kidx) + Dt/(Npt + 1)*(pidx + 1);
+                Coef[kidx*4 + pidx].f =  Vector3d::Random();
+                Coef[kidx*4 + pidx].n << n, double(dis(gen));
+                Coef[kidx*4 + pidx].plnrty = 0.69;
+            }
+        }
+
+        // Test the jacobian
+        TestAnalyticJacobian(problem, traj, Coef, 0);
+    }
 }
