@@ -16,6 +16,12 @@ double mpCovROSJerk = 1.0;
 double mpCovPVAJerk = 1.0;
 int lidar_ds_rate = 1;
 
+MatrixXd thresholdMatrix(const MatrixXd &matrix, double threshold)
+{
+    return (matrix.array().abs() >= threshold).cast<double>();
+}
+
+
 struct FactorMeta
 {
     vector<double *> so3_parameter_blocks;
@@ -367,12 +373,12 @@ void AddAutodiffGPXtsFactor(GaussianProcessPtr &traj, ceres::Problem &problem,
     double sf = usf.second;
 
     // Create the factor
-    double mpCovROSJerk = 1.0;
-    double mpCovPVAJerk = 1.0;
+    double xtsCovROSJerk = 5.7;
+    double xtsCovPVAJerk = 5.7;
     double mp_loss_thres = -1;
     // nh_ptr->getParam("mp_loss_thres", mp_loss_thres);
     ceres::LossFunction *mp_loss_function = mp_loss_thres <= 0 ? NULL : new ceres::HuberLoss(mp_loss_thres);
-    GPExtrinsicFactorAutodiff *factor = new GPExtrinsicFactorAutodiff(mpCovROSJerk, mpCovPVAJerk, traj->getGPMixerPtr(), traj->getGPMixerPtr(), ss, sf);
+    GPExtrinsicFactorAutodiff *factor = new GPExtrinsicFactorAutodiff(xtsCovROSJerk, xtsCovPVAJerk, traj->getGPMixerPtr(), traj->getGPMixerPtr(), ss, sf);
     auto *cost_function = new ceres::DynamicAutoDiffCostFunction<GPExtrinsicFactorAutodiff>(factor);
     cost_function->SetNumResiduals(18);
 
@@ -381,11 +387,11 @@ void AddAutodiffGPXtsFactor(GaussianProcessPtr &traj, ceres::Problem &problem,
     for (int kidx = umins; kidx < umins + 2; kidx++)
     {
         so3_param.push_back(traj->getKnotSO3(kidx).data());
-         rv3_param.push_back(traj->getKnotOmg(kidx).data());
-         rv3_param.push_back(traj->getKnotAlp(kidx).data());
-         rv3_param.push_back(traj->getKnotPos(kidx).data());
-         rv3_param.push_back(traj->getKnotVel(kidx).data());
-         rv3_param.push_back(traj->getKnotAcc(kidx).data());
+        rv3_param.push_back(traj->getKnotOmg(kidx).data());
+        rv3_param.push_back(traj->getKnotAlp(kidx).data());
+        rv3_param.push_back(traj->getKnotPos(kidx).data());
+        rv3_param.push_back(traj->getKnotVel(kidx).data());
+        rv3_param.push_back(traj->getKnotAcc(kidx).data());
 
         factor_param_blocks.push_back(traj->getKnotSO3(kidx).data());
         factor_param_blocks.push_back(traj->getKnotOmg(kidx).data());
@@ -405,11 +411,11 @@ void AddAutodiffGPXtsFactor(GaussianProcessPtr &traj, ceres::Problem &problem,
     for (int kidx = uminf; kidx < uminf + 2; kidx++)
     {
         so3_param.push_back(traj->getKnotSO3(kidx).data());
-         rv3_param.push_back(traj->getKnotOmg(kidx).data());
-         rv3_param.push_back(traj->getKnotAlp(kidx).data());
-         rv3_param.push_back(traj->getKnotPos(kidx).data());
-         rv3_param.push_back(traj->getKnotVel(kidx).data());
-         rv3_param.push_back(traj->getKnotAcc(kidx).data());
+        rv3_param.push_back(traj->getKnotOmg(kidx).data());
+        rv3_param.push_back(traj->getKnotAlp(kidx).data());
+        rv3_param.push_back(traj->getKnotPos(kidx).data());
+        rv3_param.push_back(traj->getKnotVel(kidx).data());
+        rv3_param.push_back(traj->getKnotAcc(kidx).data());
 
         factor_param_blocks.push_back(traj->getKnotSO3(kidx).data());
         factor_param_blocks.push_back(traj->getKnotOmg(kidx).data());
@@ -429,7 +435,7 @@ void AddAutodiffGPXtsFactor(GaussianProcessPtr &traj, ceres::Problem &problem,
     // Add the extrinsics
     {
         so3_param.push_back(R_Lx_Ly.data());
-         rv3_param.push_back(P_Lx_Ly.data());
+        rv3_param.push_back(P_Lx_Ly.data());
 
         factor_param_blocks.push_back(R_Lx_Ly.data());
         factor_param_blocks.push_back(P_Lx_Ly.data());
@@ -521,12 +527,14 @@ void AddAnalyticGPXtsFactor(GaussianProcessPtr &traj, ceres::Problem &problem,
     }
 
     // Create the factor
-    double mpCovROSJerk = 1.0;
-    double mpCovPVAJerk = 1.0;
+    double xtsCovROSJerk = 5.7;
+    double xtsCovPVAJerk = 5.7;
+    // GPMixerPtr gpmxts(new GPMixer(traj->getDt(), xtsCovROSJerk, xtsCovPVAJerk, traj->getPoseRepresentation()));
+
     double mp_loss_thres = -1;
     // nh_ptr->getParam("mp_loss_thres", mp_loss_thres);
     ceres::LossFunction *mp_loss_function = mp_loss_thres <= 0 ? NULL : new ceres::HuberLoss(mp_loss_thres);
-    ceres::CostFunction *cost_function = new GPExtrinsicFactor(mpCovROSJerk, mpCovPVAJerk, traj->getGPMixerPtr(), traj->getGPMixerPtr(), ss, sf);
+    ceres::CostFunction *cost_function = new GPExtrinsicFactor(xtsCovROSJerk, xtsCovPVAJerk, traj->getGPMixerPtr(), traj->getGPMixerPtr(), ss, sf);
     
     // Add res block
     auto res_block = problem.AddResidualBlock(cost_function, mp_loss_function, factor_param_blocks);
@@ -551,7 +559,7 @@ void TestAnalyticJacobian(ceres::Problem &problem, GaussianProcessPtr &swTraj, v
         
         vector <double> residual;
         MatrixXd J_autodiff;
-        int count = 100;
+        int count = 1;
         while(count-- > 0)
         {
             double eval_time_ = 0;
@@ -681,6 +689,7 @@ void TestAnalyticJacobian(ceres::Problem &problem, GaussianProcessPtr &swTraj, v
                 return;
             
             EvaluateFactorClass(problem, factorMetaAutodiff, 0, residual_autodiff, Jacobian_autodiff, cost_autodiff, time_autodiff, time_autodiff_eval);
+            // cout << "Xts Jacobian_autodiff\n" << Jacobian_autodiff << endl;
             printf(KCYN "Xts Autodiff Jacobian: Size %2d x %2d. Params: %d. Cost: %f. Time: %f, %f\n",
                    Jacobian_autodiff.rows(), Jacobian_autodiff.cols(),
                    factorMetaAutodiff.parameter_blocks(),
@@ -700,12 +709,14 @@ void TestAnalyticJacobian(ceres::Problem &problem, GaussianProcessPtr &swTraj, v
                 return;
             
             EvaluateFactorClass(problem, factorMetaAnalytic, 1, residual_analytic, Jacobian_analytic, cost_analytic, time_analytic, time_analytic_eval);
+            // cout << "Xts Jacobian_analytic\n" << Jacobian_analytic << endl;
             printf(KCYN "Xts Analytic Jacobian: Size %2d x %2d. Params: %d. Cost: %f. Time: %f, %f\n",
                    Jacobian_analytic.rows(), Jacobian_analytic.cols(),
                    factorMetaAnalytic.parameter_blocks(),
                    cost_analytic, time_analytic, time_analytic_eval);
         }
         
+        // cout << KYEL "Xts Jacobian diff:\n" RESET << thresholdMatrix(Jacobian_autodiff - Jacobian_analytic, 1e-9) << endl;
         printf(KGRN "CIDX: %d. Extrinsic Prior Factor. Residual max error: %.4f. Jacobian max error: %.4f. Time: %.3f, %.3f. Ratio: %.0f\%\n\n" RESET,
                cidx, maxDiff(residual_autodiff, residual_analytic), maxDiff(Jacobian_autodiff, Jacobian_analytic),
                time_autodiff, time_analytic,
@@ -799,10 +810,12 @@ int main(int argc, char **argv)
     }
 
 
-    // Check the factor jacobian
+    // Check the SO3xR3 jacobian
     {
         double Dt = 0.04357;
-        GaussianProcessPtr traj(new GaussianProcess(Dt, Vector3d(10, 10, 10).asDiagonal(), Vector3d(10, 10, 10).asDiagonal()));
+        Matrix3d mpCovROSJerk = Vector3d(10, 10, 10).asDiagonal();
+        Matrix3d mpCovPVAJerk = Vector3d(10, 10, 10).asDiagonal();
+        GaussianProcessPtr traj(new GaussianProcess(Dt, mpCovROSJerk, mpCovPVAJerk, false, POSE_GROUP::SO3xR3, 1e-3, true));
         traj->setStartTime(0.5743);
         traj->genRandomTrajectory(6);
 

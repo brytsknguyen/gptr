@@ -594,6 +594,16 @@ namespace Util
             spMat.makeCompressed();
     }
 
+    template <typename T = double>
+    void SetSparseMatBlock(Eigen::SparseMatrix<T> &spMat, int startRow, int startCol, const Eigen::SparseMatrix<T>& block, bool makeCompressed = true)
+    {
+        for (int i = 0; i < block.rows(); ++i)
+            for (int j = 0; j < block.cols(); ++j)
+                spMat.insert(startRow + i, startCol + j) = block.coeff(i, j);
+        if(makeCompressed)
+            spMat.makeCompressed();
+    }
+
     template <typename PointType>
     RosPc2Msg publishCloud(rclcpp::Publisher<RosPc2Msg>::SharedPtr thisPub,
                            pcl::PointCloud<PointType> &thisCloud,

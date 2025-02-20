@@ -1,6 +1,8 @@
 #pragma once
 
 #include <ceres/ceres.h>
+#include <ceres/jet.h>
+
 #include "GaussianProcess.hpp"
 #include "utility.h"
 
@@ -8,6 +10,29 @@ using SO3d = Sophus::SO3<double>;
 using SE3d = Sophus::SE3<double>;
 
 #define RES_DIM 18
+
+// Helper: generic case (non-jet types)
+template <typename Scalar>
+inline double getReal(const Scalar& x) {
+    return x;
+}
+
+// Specialization for ceres::Jet types
+template <typename T, int N>
+inline double getReal(const ceres::Jet<T, N>& x) {
+    return x.a;
+}
+
+// Function that converts an Eigen matrix of jets (or doubles) to an Eigen matrix of doubles.
+template<typename Derived>
+Eigen::Matrix<double, Derived::RowsAtCompileTime, Derived::ColsAtCompileTime>
+convertJetMatrixToDouble(const Eigen::MatrixBase<Derived>& jetMat)
+{
+    // This lambda will call getReal on each element
+    return jetMat.derived().unaryExpr([](const typename Derived::Scalar &x) -> double {
+        return getReal(x);
+    });
+}
 
 class GPExtrinsicFactorAutodiff
 {
