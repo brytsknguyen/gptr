@@ -226,7 +226,7 @@ private:
     double lie_epsilon = 1e-3;
 
     // Use / not use closed form derivatives
-    bool use_closed_form = false;
+    bool use_closed_form = true;
 
 public:
 
