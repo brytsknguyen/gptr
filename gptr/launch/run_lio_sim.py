@@ -45,7 +45,7 @@ def generate_launch_description():
             {'VIZ_ONLY'        : 0},
 
             # Lidar topics and their settings
-            {'lidar_topic'     : ['/lidar_0/points']},
+            {'lidar_topic'     : ['/lidar_0/points', '/lidar_1/points']},
             {'lidar_type'      : ['livox', 'livox']},
             {'stamp_time'      : ['start', 'start']},
 
