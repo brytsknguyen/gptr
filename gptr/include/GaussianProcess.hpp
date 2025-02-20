@@ -223,7 +223,10 @@ private:
     POSE_GROUP pose_representation = POSE_GROUP::SO3xR3;
 
     // Tolerance to use SE3
-    double SE3_EPSILON = 1e-3;
+    double lie_epsilon = 1e-3;
+
+    // Use / not use closed form derivatives
+    bool use_closed_form = false;
 
 public:
 
@@ -231,8 +234,12 @@ public:
 //    ~GPMixer() {};
 
     // Constructor
-    GPMixer(double Dt_, const Mat3 CovROSJerk_, const Mat3 CovPVAJerk_, const POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3, double SE3_EPSILON_ = 1e-3)
-        : Dt(Dt_), CovROSJerk(CovROSJerk_), CovPVAJerk(CovPVAJerk_), pose_representation(pose_representation_), SE3_EPSILON(SE3_EPSILON_)
+    GPMixer(double Dt_, const Mat3 CovROSJerk_, const Mat3 CovPVAJerk_,
+            const POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3,
+            double lie_epsilon_ = 1e-3, bool use_closed_form_ = true)
+        : Dt(Dt_), CovROSJerk(CovROSJerk_), CovPVAJerk(CovPVAJerk_),
+          pose_representation(pose_representation_),
+          lie_epsilon(lie_epsilon_), use_closed_form(use_closed_form_)
     {
         CovTTWJerk.block<3, 3>(0, 0) = CovROSJerk;
         CovTTWJerk.block<3, 3>(3, 3) = CovPVAJerk;
@@ -264,7 +271,7 @@ public:
     Matrix3d   getCovTTWJerk()         const { return CovPVAJerk;          }
     double     getDt()                 const { return Dt;                  }
     POSE_GROUP getPoseRepresentation() const { return pose_representation; }
-    double     getEps()                const { return SE3_EPSILON;         }
+    double     getEps()                const { return lie_epsilon;         }
 
     template <typename MatrixType1, typename MatrixType2>
     MatrixXd kron(const MatrixType1& A, const MatrixType2& B) const
@@ -496,11 +503,14 @@ public:
 
     // For calculating HThe_
     template <class T = double>
-    static Eigen::Matrix<T, 3, 3> DJrUV_DU(const Eigen::Matrix<T, 3, 1> &U, const Eigen::Matrix<T, 3, 1> &V)
+    Eigen::Matrix<T, 3, 3> DJrUV_DU(const Eigen::Matrix<T, 3, 1> &U, const Eigen::Matrix<T, 3, 1> &V) const
     {
         using SO3T  = Sophus::SO3<T>;
         using Vec3T = Eigen::Matrix<T, 3, 1>;
         using Mat3T = Eigen::Matrix<T, 3, 3>;
+
+        if(!use_closed_form)
+            return 0.5*SO3T::hat(V);
 
         T Un = U.norm();
 
@@ -532,13 +542,16 @@ public:
     }
 
     template <class T = double>
-    static Eigen::Matrix<T, 3, 3> DDJrUVW_DUDU(const Eigen::Matrix<T, 3, 1> &U, const Eigen::Matrix<T, 3, 1> &V, const Eigen::Matrix<T, 3, 1> &W)
+    Eigen::Matrix<T, 3, 3> DDJrUVW_DUDU(const Eigen::Matrix<T, 3, 1> &U, const Eigen::Matrix<T, 3, 1> &V, const Eigen::Matrix<T, 3, 1> &W) const
     {
         using SO3T = Sophus::SO3<T>;
         using Vec3T = Eigen::Matrix<T, 3, 1>;
         using Mat3T = Eigen::Matrix<T, 3, 3>;
 
         T Un = U.norm();
+
+        if(!use_closed_form)
+            return Mat3T::Zero(3, 3);
 
         if(Un < DOUBLE_EPSILON)
             return Fuu(U, V, W)/6.0;
@@ -588,13 +601,16 @@ public:
     }
 
     template <class T = double>
-    static Eigen::Matrix<T, 3, 3> DDJrUVW_DUDV(const Eigen::Matrix<T, 3, 1> &U, const Eigen::Matrix<T, 3, 1> &V, const Eigen::Matrix<T, 3, 1> &W)
+    Eigen::Matrix<T, 3, 3> DDJrUVW_DUDV(const Eigen::Matrix<T, 3, 1> &U, const Eigen::Matrix<T, 3, 1> &V, const Eigen::Matrix<T, 3, 1> &W) const
     {
         using SO3T = Sophus::SO3<T>;
         using Vec3T = Eigen::Matrix<T, 3, 1>;
         using Mat3T = Eigen::Matrix<T, 3, 3>;
 
         T Un = U.norm();
+
+        if(!use_closed_form)
+            return -0.5*SO3T::hat(W);
 
         if(Un < DOUBLE_EPSILON)
             return -0.5*SO3T::hat(W) + Fuv(U, V, W)/6.0;
@@ -630,13 +646,17 @@ public:
     }
 
     template <class T = double>
-    static Eigen::Matrix<T, 3, 3> DJrInvUV_DU(const Eigen::Matrix<T, 3, 1> &U, const Eigen::Matrix<T, 3, 1> &V)
+    Eigen::Matrix<T, 3, 3> DJrInvUV_DU(const Eigen::Matrix<T, 3, 1> &U, const Eigen::Matrix<T, 3, 1> &V) const
     {
         using SO3T  = Sophus::SO3<T>;
         using Vec3T = Eigen::Matrix<T, 3, 1>;
         using Mat3T = Eigen::Matrix<T, 3, 3>;
 
         T Un = U.norm();
+
+        if(!use_closed_form)
+            return -0.5*SO3T::hat(V);
+
         if(Un < DOUBLE_EPSILON)
             return -0.5*SO3T::hat(V) + Fu(U, V)/12.0;
 
@@ -661,13 +681,16 @@ public:
     }
 
     template <class T = double>
-    static Eigen::Matrix<T, 3, 3> DDJrInvUVW_DUDU(const Eigen::Matrix<T, 3, 1> &U, const Eigen::Matrix<T, 3, 1> &V, const Eigen::Matrix<T, 3, 1> &W)
+    Eigen::Matrix<T, 3, 3> DDJrInvUVW_DUDU(const Eigen::Matrix<T, 3, 1> &U, const Eigen::Matrix<T, 3, 1> &V, const Eigen::Matrix<T, 3, 1> &W) const
     {
         using SO3T = Sophus::SO3<T>;
         using Vec3T = Eigen::Matrix<T, 3, 1>;
         using Mat3T = Eigen::Matrix<T, 3, 3>;
 
         T Un = U.norm();
+
+        if(!use_closed_form)
+            return Mat3T::Zero();
 
         if(Un < DOUBLE_EPSILON)
             return Fuu(U, V, W)/12.0;
@@ -710,13 +733,16 @@ public:
     }
 
     template <class T = double>
-    static Eigen::Matrix<T, 3, 3> DDJrInvUVW_DUDV(const Eigen::Matrix<T, 3, 1> &U, const Eigen::Matrix<T, 3, 1> &V, const Eigen::Matrix<T, 3, 1> &W)
+    Eigen::Matrix<T, 3, 3> DDJrInvUVW_DUDV(const Eigen::Matrix<T, 3, 1> &U, const Eigen::Matrix<T, 3, 1> &V, const Eigen::Matrix<T, 3, 1> &W) const
     {
         using SO3T = Sophus::SO3<T>;
         using Vec3T = Eigen::Matrix<T, 3, 1>;
         using Mat3T = Eigen::Matrix<T, 3, 3>;
 
         T Un = U.norm();
+
+        if(!use_closed_form)
+            return 0.5*SO3T::hat(W);
 
         if(Un < DOUBLE_EPSILON)
             return 0.5*SO3T::hat(W) + Fuv(U, V, W)/12.0;
@@ -757,7 +783,7 @@ public:
 
 
     template <class T = double>
-    static Eigen::Matrix<T, 6, 6> SE3hat(const Eigen::Matrix<T, 6, 1> &Xi)
+    Eigen::Matrix<T, 6, 6> SE3hat(const Eigen::Matrix<T, 6, 1> &Xi) const
     {
         Eigen::Matrix<T, 3, 1> The = Xi.template head<3>();
         Eigen::Matrix<T, 3, 1> Rho = Xi.template tail<3>();
@@ -774,7 +800,7 @@ public:
     }
 
     template <class T = double>
-    static Sophus::SE3<T> SE3Exp(const Eigen::Matrix<T, 6, 1> &Xi)
+    Sophus::SE3<T> SE3Exp(const Eigen::Matrix<T, 6, 1> &Xi) const
     {
         Eigen::Matrix<T, 3, 1> The = Xi.template head<3>();
         Eigen::Matrix<T, 3, 1> Rho = Xi.template tail<3>();
@@ -783,7 +809,7 @@ public:
     }
 
     template <class T = double>
-    static Eigen::Matrix<T, 6, 1> SE3Log(const Sophus::SE3<T> &Tf)
+    Eigen::Matrix<T, 6, 1> SE3Log(const Sophus::SE3<T> &Tf) const
     {
         Eigen::Matrix<T, 6, 1> Xi_ = Tf.log();
         Eigen::Matrix<T, 6, 1> Xi;
@@ -793,7 +819,7 @@ public:
     }
 
     template <class T = double>
-    static Eigen::Matrix<T, 6, 6> SE3Adj(const Sophus::SE3<T> &Tf)
+    Eigen::Matrix<T, 6, 6> SE3Adj(const Sophus::SE3<T> &Tf) const
     {
         Eigen::Matrix<T, 3, 1> The = Tf.so3().log();
         Eigen::Matrix<T, 3, 1> Pos = Tf.translation();
@@ -808,7 +834,7 @@ public:
     }
 
     template <class T = double>
-    static Eigen::Matrix<T, 6, 6> SE3AdjInv(const Sophus::SE3<T> &Tf)
+    Eigen::Matrix<T, 6, 6> SE3AdjInv(const Sophus::SE3<T> &Tf) const
     {
         Eigen::Matrix<T, 3, 1> The = Tf.so3().log();
         Eigen::Matrix<T, 3, 1> Pos = Tf.translation();
@@ -822,6 +848,47 @@ public:
         return AdjInv;
     }
 
+    template <class T = double>
+    static Eigen::Matrix<T, 3, 3> SE3Qr(const Matrix<T, 6, 1> &Xi)
+    {
+        using SO3T = Sophus::SO3<T>;
+        using Vec3T = Eigen::Matrix<T, 3, 1>;
+        using Mat3T = Eigen::Matrix<T, 3, 3>;
+
+        Eigen::Matrix<T, 3, 1> U = -Xi.template head<3>();
+        Eigen::Matrix<T, 3, 1> V =  Xi.template tail<3>();
+
+        T Un = U.norm();
+
+        Mat3T Exp_U = SO3T::exp(U).matrix();
+
+        if(Un < DOUBLE_EPSILON)
+            return -(Exp_U*(0.5*SO3T::hat(V) + Fu(U, V)/6.0));
+
+        T Unp2 = Un*Un;
+        T Unp3 = Unp2*Un;
+        T Unp4 = Unp3*Un;
+
+        T sUn = sin(Un);
+        // T sUnp2 = sUn*sUn;
+        
+        T cUn = cos(Un);
+        // T cUnp2 = cUn*cUn;
+        
+        T gUn = (1.0 - cUn)/Unp2;
+        T DgUn_DUn = sUn/Unp2 - 2.0*(1.0 - cUn)/Unp3;
+
+        T hUn = (Un - sUn)/Unp3;
+        T DhUn_DUn = (1.0 - cUn)/Unp3 - 3.0*(Un - sUn)/Unp4;
+
+        Vec3T Ub = U/Un;
+        
+        Vec3T UsksqV = SO3T::hat(U)*SO3T::hat(U)*V;
+        Mat3T DUsksqV_DU = Fu<T>(U, V);
+
+        return -Exp_U*(SO3T::hat(V)*gUn + SO3T::hat(V)*U*DgUn_DUn*Ub.transpose() + DUsksqV_DU*hUn + UsksqV*DhUn_DUn*Ub.transpose());
+    }
+
     // right Jacobian for SE3
     template <class T = double>
     static Eigen::Matrix<T, 6, 6> Jr(const Eigen::Matrix<T, 6, 1> &Xi)
@@ -831,10 +898,10 @@ public:
         
         Eigen::Matrix<T, 6, 6> Jr_Xi;
         Eigen::Matrix<T, 3, 3> Jr_The = Jr(The);
-        Eigen::Matrix<T, 3, 3> Q = -(Sophus::SO3<T>::exp(-The).matrix()*DJrUV_DU<T>(-The, Rho));
+        Eigen::Matrix<T, 3, 3> Qr = SE3Qr(Xi);
 
         Jr_Xi << Jr_The, Matrix<T, 3, 3>::Zero(),
-                 Q, Jr_The;
+                 Qr, Jr_The;
         return Jr_Xi;
     }
 
@@ -846,11 +913,11 @@ public:
         Eigen::Matrix<T, 3, 1> Rho = Xi.template tail<3>();
 
         Eigen::Matrix<T, 6, 6> JrInv_Xi;
-        Eigen::Matrix<T, 3, 3> JrInv_The = JrInv(The);
-        Eigen::Matrix<T, 3, 3> Q = -(Sophus::SO3<T>::exp(-The).matrix()*DJrUV_DU<T>(-The, Rho));
+        Eigen::Matrix<T, 3, 3> JrInv_The = JrInv<T>(The);
+        Eigen::Matrix<T, 3, 3> Qr = SE3Qr(Xi);
 
         JrInv_Xi << JrInv_The, Matrix<T, 3, 3>::Zero(),
-                   -JrInv_The*Q*JrInv_The, JrInv_The;
+                   -JrInv_The*Qr*JrInv_The, JrInv_The;
 
         return JrInv_Xi;
     }
@@ -895,7 +962,7 @@ public:
 
         Jr_Xi = Jr(Xi);
 
-        if (The.norm() < SE3_EPSILON)
+        if (The.norm() < lie_epsilon || !use_closed_form)
         {
             // cout << "approx form " << The.transpose() << endl;
 
@@ -994,7 +1061,7 @@ public:
         Vec3T Thed = Xid.template head(3);
         Vec3T Rhod = Xid.template tail(3);
 
-        if (The.norm() < SE3_EPSILON)
+        if (The.norm() < lie_epsilon || !use_closed_form)
         {
             // cout << "approxed form " << The.transpose() << endl;
 
@@ -1141,7 +1208,7 @@ public:
 
         // Find the local variable at tb and the associated Jacobians
         Vec3T Theb = Rab.log();
-        Mat3T JrInv_Theb = JrInv(Theb);
+        Mat3T JrInv_Theb = JrInv<T>(Theb);
         Mat3T Hp1_ThebOb = DJrInvUV_DU(Theb, Xb.O);
 
         Vec3T Thebd0 = Theb;
@@ -1164,7 +1231,7 @@ public:
         Vec3T Thetd2 = gammat.block(6, 0, 3, 1);
 
         // Do all jacobians needed for L4-L3 interface 
-        Mat3T Jr_Thet = Jr(Thetd0);
+        Mat3T Jr_Thet = Jr<T>(Thetd0);
         Mat3T H1_ThetThetd1 = DJrUV_DU(Thetd0, Thetd1);
         Mat3T H1_ThetThetd2 = DJrUV_DU(Thetd0, Thetd2);
         Mat3T L11_ThetThetd1Thetd1 = DDJrUVW_DUDU(Thetd0, Thetd1, Thetd1);
@@ -1700,7 +1767,7 @@ public:
 
         // Find the local variable at tb and the associated Jacobians
         Vec3T Theb = Rab.log();
-        Mat3T JrInvTheb = JrInv(Theb);
+        Mat3T JrInvTheb = JrInv<T>(Theb);
         Mat3T Hp1ThebOb = DJrInvUV_DU(Theb, Xb.O);
 
         Vec3T Thebd0 = Theb;
@@ -2014,8 +2081,10 @@ public:
     // ~GaussianProcess(){};
 
     // Constructor
-    GaussianProcess(double Dt_, Mat3 CovROSJerk_, Mat3 CovPVAJerk_, bool keepCov_ = false, POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3, double se3_epsilon_ = 1e-3)
-        : Dt(Dt_), gpm(GPMixerPtr(new GPMixer(Dt_, CovROSJerk_, CovPVAJerk_, pose_representation_, se3_epsilon_))), keepCov(keepCov_) {};
+    GaussianProcess(double Dt_, Mat3 CovROSJerk_, Mat3 CovPVAJerk_, bool keepCov_ = false,
+                    POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3, double lie_epsilon_ = 1e-3, bool use_closed_form_ = true)
+        : Dt(Dt_), keepCov(keepCov_),
+          gpm(GPMixerPtr(new GPMixer(Dt_, CovROSJerk_, CovPVAJerk_, pose_representation_, lie_epsilon_, use_closed_form_))) {};
 
     Mat3 getCovROSJerk() const { return gpm->getCovROSJerk(); }
     Mat3 getCovPVAJerk() const { return gpm->getCovPVAJerk(); }

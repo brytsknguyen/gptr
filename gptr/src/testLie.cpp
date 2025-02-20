@@ -443,7 +443,9 @@ double maxDiff(const MatrixXd &A, const MatrixXd &B)
 
 void compare(string s, const MatrixXd &A, const MatrixXd &B)
 {
-    cout << s << (A - B).cwiseAbs().maxCoeff() << endl;
+    double maxError = (A - B).cwiseAbs().maxCoeff();
+    cout << s << maxError << endl;
+    assert(maxError < 1e-9);
 }
 
 void AddAutodiffIntrzJcbFactor(GaussianProcessPtr &traj, ceres::Problem &problem, FactorMeta &factorMeta)
@@ -675,6 +677,11 @@ void testUnifiedJacobians()
 
 int main(int argc, char **argv)
 {
+    double Dt = 0.1102;
+    Mat3 CovROSJerk = Vec3(9.4, 4.7, 3.1).asDiagonal();
+    Mat3 CovPVAJerk = Vec3(6.3, 6.5, 0.7).asDiagonal();
+    GPMixer mySE3GPMixer(Dt, CovROSJerk, CovPVAJerk, POSE_GROUP::SE3, 1e-3, true);
+
     Vec3 X(4.3, 5.7, 91.0);
     Vec3 Xd(11, 2, 19);
 
@@ -692,8 +699,8 @@ int main(int argc, char **argv)
     compare("Error Jr*JrInv: ", Jr * JrInv, Mat3::Identity(3, 3));
 
     Vec3 O = GPMixer::Jr(X) * Xd;
-    Matrix3d HX_XXd_direct = GPMixer::DJrUV_DU(X, Xd);
-    Matrix3d HX_XXd_circle = -GPMixer::Jr(X) * GPMixer::DJrInvUV_DU(X, O);
+    Matrix3d HX_XXd_direct =  mySE3GPMixer.DJrUV_DU(X, Xd);
+    Matrix3d HX_XXd_circle = -mySE3GPMixer.Jr(X) * mySE3GPMixer.DJrInvUV_DU(X, O);
 
     compare("HX_XXd error  : ", HX_XXd_direct, HX_XXd_circle);
 
@@ -722,7 +729,7 @@ int main(int argc, char **argv)
     printf("tt_qptime : %f ms\n", tt_qptime.GetLastStop());
 
     // Confirm that Q = -Exp(-The)*H1(-The, Rho)
-    compare("Q  error: ", myQ.Q, Mat3(-SO3d::exp(-The).matrix() * GPMixer::DJrUV_DU(Vector3d(-The), Rho)));
+    compare("Q  error: ", myQ.Q, Mat3(-SO3d::exp(-The).matrix() * mySE3GPMixer.DJrUV_DU(Vector3d(-The), Rho)));
     // Confirm that Qp = -JrInv*Q*JrInv
     compare("Q' error: ", myQp.Q, -(GPMixer::JrInv(The) * myQ.Q * GPMixer::JrInv(The)));
 
@@ -938,8 +945,8 @@ int main(int argc, char **argv)
 
     // Create the H and H' matrices of SE3
     Matrix<double, 6, 6> SE3H; SE3H.setZero();
-    SE3H.block<3, 3>(0, 0) = GPMixer::DJrUV_DU(The, Thed);
-    SE3H.block<3, 3>(3, 0) = myQ.S1 + GPMixer::DJrUV_DU(The, Rhod);
+    SE3H.block<3, 3>(0, 0) = mySE3GPMixer.DJrUV_DU(The, Thed);
+    SE3H.block<3, 3>(3, 0) = myQ.S1 + mySE3GPMixer.DJrUV_DU(The, Rhod);
     SE3H.block<3, 3>(3, 3) = myQ.S2;
 
     Matrix<double, 6, 6> SE3H_;
@@ -1023,8 +1030,8 @@ int main(int argc, char **argv)
 
     Matrix<double, 6, 6> SE3Hp;
     SE3Hp.setZero();
-    SE3Hp.block<3, 3>(0, 0) = GPMixer::DJrInvUV_DU(The, Omg);
-    SE3Hp.block<3, 3>(3, 0) = myQp.S1 + GPMixer::DJrInvUV_DU(The, Nuy);
+    SE3Hp.block<3, 3>(0, 0) = mySE3GPMixer.DJrInvUV_DU(The, Omg);
+    SE3Hp.block<3, 3>(3, 0) = myQp.S1 + mySE3GPMixer.DJrInvUV_DU(The, Nuy);
     SE3Hp.block<3, 3>(3, 3) = myQp.S2;
 
     Matrix<double, 6, 6> JrXi = GPMixer::Jr(Xi);
@@ -1108,11 +1115,6 @@ int main(int argc, char **argv)
     testUnifiedJacobians();
     // exit(0);
 
-    double Dt = 0.1102;
-    Mat3 CovROSJerk = Vec3(9.4, 4.7, 3.1).asDiagonal();
-    Mat3 CovPVAJerk = Vec3(6.3, 6.5, 0.7).asDiagonal();
-    GPMixer mygpm(0.1102, CovROSJerk, CovPVAJerk);
-
     GPState Xa(0.213,
         SO3d::exp(Vec3(5.7, 4.3, 9.1)),
         Vec3(9.6489, 1.5761, 9.7059),
@@ -1136,11 +1138,11 @@ int main(int argc, char **argv)
 
     // Interpolate and find Jacobian
     TicToc tt_split;
-    mygpm.ComputeXtAndJacobiansSO3xR3(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
+    mySE3GPMixer.ComputeXtAndJacobiansSO3xR3(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
     tt_split.Toc();
 
     TicToc tt_se3;
-    mygpm.ComputeXtAndJacobiansSE3(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
+    mySE3GPMixer.ComputeXtAndJacobiansSE3(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
     tt_se3.Toc();
 
     printf("tt_se3   : %f ms\n", tt_se3.GetLastStop());

@@ -12,7 +12,7 @@ void SE3Q<T>::ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed)
     Matrix<T, 1, 3> Ubtp = Ub.transpose();
     Matrix<T, 3, 3> JUb = (Mat3T::Identity(3, 3) - Ub*Ubtp) / Un;
 
-    if (Un < T(SE3_EPSILON))
+    if (Un < T(lie_epsilon))
     {
         Ub.setZero();
         Ubtp.setZero();
@@ -27,7 +27,7 @@ void SE3Q<T>::ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed)
 
     /* #region Calculating the derivatives of g -----------------------------------------------------------------*/
 
-    if(Un < T(SE3_EPSILON))
+    if(Un < T(lie_epsilon))
     {
         gdrv(0, 0) = T(1.0/2.0); gdrv(1, 0) = T(1.0/6.0); gdrv(2, 0) = T(1.0/2.4E+1); gdrv(3, 0) = T(1.0/1.2E+2);
     }
@@ -124,7 +124,7 @@ void SE3Q<T>::ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, 
     Matrix<T, 1, 3> Ubtp = Ub.transpose();
     Matrix<T, 3, 3> JUb = (Mat3T::Identity(3, 3) - Ub*Ubtp) / Un;
 
-    if (Un < T(SE3_EPSILON))
+    if (Un < T(lie_epsilon))
     {
         Ub.setZero();
         Ubtp.setZero();
@@ -139,7 +139,7 @@ void SE3Q<T>::ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, 
 
     /* #region Calculating the derivatives of g -----------------------------------------------------------------*/
 
-    if(Un < T(SE3_EPSILON))
+    if(Un < T(lie_epsilon))
     {
         gdrv(0, 0) = T(1.0/2.0); gdrv(1, 0) = T(1.0/6.0); gdrv(1, 2) = T(-1.0/6.0E+1); gdrv(2, 0) = T(1.0/2.4E+1); gdrv(2, 2) = T(-1.0/3.6E+2); gdrv(3, 0) = T(1.0/1.2E+2); gdrv(3, 2) = T(-7.936507936507937E-4);
     }
@@ -330,7 +330,7 @@ void SE3Qp<T>::ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Omg)
     Matrix<T, 1, 3> Ubtp = Ub.transpose();
     Matrix<T, 3, 3> JUb = (Mat3T::Identity(3, 3) - Ub*Ubtp) / Un;
 
-    if (Un < T(SE3_EPSILON))
+    if (Un < T(lie_epsilon))
     {
         Ub.setZero();
         Ubtp.setZero();
@@ -345,7 +345,7 @@ void SE3Qp<T>::ComputeS(const Vec3T &The, const Vec3T &Rho, const Vec3T &Omg)
 
     /* #region Calculating the derivatives of g -----------------------------------------------------------------*/
 
-    if(Un < T(SE3_EPSILON))
+    if(Un < T(lie_epsilon))
     {
         gdrv(0, 0) = T(1.0/2.0); gdrv(1, 0) = T(1.0/6.0); gdrv(2, 0) = T(1.0/2.4E+1); gdrv(3, 0) = T(1.0/1.2E+2); gdrv(4, 0) = T(1.0/4.0); gdrv(5, 0) = T(1.0/1.2E+1); gdrv(6, 0) = T(1.0/4.8E+1); gdrv(7, 0) = T(1.0/2.4E+2); gdrv(8, 0) = T(1.0/2.4E+1); gdrv(9, 0) = T(1.0/7.2E+1);
         gdrv(10, 0) = T(1.0/2.88E+2); gdrv(11, 0) = T(6.944444444444444E-4); gdrv(12, 0) = T(1.0/4.0); gdrv(13, 0) = T(1.0/1.2E+1); gdrv(14, 0) = T(1.0/4.8E+1); gdrv(15, 0) = T(1.0/2.4E+2); gdrv(16, 0) = T(1.0/8.0); gdrv(17, 0) = T(1.0/2.4E+1); gdrv(18, 0) = T(1.0/9.6E+1);
@@ -828,7 +828,7 @@ void SE3Qp<T>::ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed,
     Matrix<T, 1, 3> Ubtp = Ub.transpose();
     Matrix<T, 3, 3> JUb = (Mat3T::Identity(3, 3) - Ub*Ubtp) / Un;
 
-    if (Un < T(SE3_EPSILON))
+    if (Un < T(lie_epsilon))
     {
         Ub.setZero();
         Ubtp.setZero();
@@ -843,7 +843,7 @@ void SE3Qp<T>::ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed,
 
     /* #region Calculating the derivatives of g -----------------------------------------------------------------*/
 
-    if(Un < T(SE3_EPSILON))
+    if(Un < T(lie_epsilon))
     {
         gdrv(0, 0) = T(1.0/2.0); gdrv(1, 0) = T(1.0/6.0); gdrv(1, 2) = T(-1.0/6.0E+1); gdrv(2, 0) = T(1.0/2.4E+1); gdrv(2, 2) = T(-1.0/3.6E+2); gdrv(3, 0) = T(1.0/1.2E+2); gdrv(3, 2) = T(-7.936507936507937E-4); gdrv(4, 0) = T(1.0/4.0); gdrv(5, 0) = T(1.0/1.2E+1); gdrv(5, 2) = T(-1.0/1.2E+2);
         gdrv(6, 0) = T(1.0/4.8E+1); gdrv(6, 2) = T(-1.0/7.2E+2); gdrv(7, 0) = T(1.0/2.4E+2); gdrv(7, 2) = T(-3.968253968253968E-4); gdrv(8, 0) = T(1.0/2.4E+1); gdrv(8, 2) = T(1.0/7.2E+2); gdrv(9, 0) = T(1.0/7.2E+1); gdrv(9, 2) = T(-9.259259259259259E-4); gdrv(10, 0) = T(1.0/2.88E+2);

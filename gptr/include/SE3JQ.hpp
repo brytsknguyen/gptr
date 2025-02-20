@@ -27,7 +27,7 @@ private:
 
 public:
     // Constructor
-    SE3Q(T SE3_EPSILON_ = T(1e-3)) : SE3_EPSILON(SE3_EPSILON_)
+    SE3Q(T lie_epsilon_ = T(1e-3)) : lie_epsilon(lie_epsilon_)
     {
         // ResetQSC();
     }
@@ -45,7 +45,7 @@ public:
 
     void ComputeQSC(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, const Vec3T &Rhod);
 
-    T SE3_EPSILON = T(1e-3);
+    T lie_epsilon = T(1e-3);
 
     Mat3T Q;
     Mat3T S1;
@@ -80,7 +80,7 @@ private:
 public:
 
     // Constructor
-    SE3Qp(T SE3_EPSILON_ = T(1e-3)) : SE3_EPSILON(SE3_EPSILON_)
+    SE3Qp(T lie_epsilon_ = T(1e-3)) : lie_epsilon(lie_epsilon_)
     {
         // ResetQSC();
     }
@@ -135,7 +135,7 @@ public:
     Matrix<T, 3, 27> f35(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, const Vec3T &Rhod, const Vec3T &Omg);
     Matrix<T, 3, 27> f36(const Vec3T &The, const Vec3T &Rho, const Vec3T &Thed, const Vec3T &Rhod, const Vec3T &Omg);
 
-    T SE3_EPSILON = T(1e-3);
+    T lie_epsilon = T(1e-3);
 
     Mat3T Q;
     Mat3T S1;

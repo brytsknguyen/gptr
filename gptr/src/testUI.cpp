@@ -392,8 +392,8 @@ void TestAnalyticJacobian(ceres::Problem &problem, GaussianProcessPtr &swTraj, v
         VectorXd resdiff = residual_autodiff_ - residual_analytic_;
         MatrixXd jcbdiff = Jacobian_autodiff_ - Jacobian_analytic_;
         // cout << KRED "residual diff:\n" RESET << resdiff.transpose() << endl;
-        cout << KRED "jacobian diff Xa:\n" RESET << jcbdiff.block(0, 0,  18, 18) << endl;
-        cout << KRED "jacobian diff Xb:\n" RESET << jcbdiff.block(0, 18, 18, 18) << endl;
+        // cout << KRED "jacobian diff Xa:\n" RESET << jcbdiff.block(0, 0,  18, 18) << endl;
+        // cout << KRED "jacobian diff Xb:\n" RESET << jcbdiff.block(0, 18, 18, 18) << endl;
         // if (maxCoef < jcbdiff.cwiseAbs().maxCoeff() && cidx != 0)
         //     maxCoef = jcbdiff.cwiseAbs().maxCoeff();
         printf(KGRN "CIDX: %d. MotionPrior 2K Jacobian max error: %.4f. Time: %.3f, %.3f. Ratio: %.0f\%\n\n" RESET,
@@ -560,7 +560,7 @@ int main(int argc, char **argv)
     }
 
 
-    // Check the factor jacobian
+    // Check the SO3xR3 jacobian
     {
         cout << "Testing Jacobians of SO3xR3" << endl;
 
@@ -597,7 +597,7 @@ int main(int argc, char **argv)
         TestAnalyticJacobian(problem, traj, imu_data, 0);
     }
 
-    // Check the factor jacobian
+    // Check the SE3 jacobian
     {
         cout << "Testing Jacobians of SE3" << endl;
 

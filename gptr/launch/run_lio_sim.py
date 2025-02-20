@@ -75,7 +75,8 @@ def generate_launch_description():
             {'mpCovROSJerk'    : 1.0},
             {'mpCovPVAJerk'    : 1.0},
             {"pose_type"       : "SE3"}, # Choose 'SE3' or 'SO3xR3'
-            {"se3_epsilon"     : 1e-2},
+            {"lie_epsilon"     : 1e-2},
+            {"use_closed_form" : 1},
 
             {'lidar_ds_rate'   : 1},
             {'lidar_weight'    : 10.0},

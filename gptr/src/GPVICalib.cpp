@@ -406,8 +406,10 @@ int main(int argc, char **argv)
     pose_type = pose_type_ == "SE3" ? POSE_GROUP::SE3 : POSE_GROUP::SO3xR3;
     RINFO("Pose representation: %s. Num: %d\n", pose_type_.c_str(), pose_type);
 
-    double se3_epsilon = 1e-3;
-    Util::GetParam(nh_ptr, "se3_epsilon", se3_epsilon);
+    double lie_epsilon = 1e-3;
+    Util::GetParam(nh_ptr, "lie_epsilon", lie_epsilon);
+
+    bool use_closed_form =  Util::GetBoolParam(nh_ptr, "use_closed_form", true);
 
     // Find the path to data
     string data_path;
@@ -456,7 +458,7 @@ int main(int argc, char **argv)
     Util::GetParam(nh_ptr, "traj_save_path", traj_save_path);
 
     // Create the trajectory
-    traj = GaussianProcessPtr(new GaussianProcess(gpDt, gpQr, gpQc, true, pose_type, se3_epsilon));
+    traj = GaussianProcessPtr(new GaussianProcess(gpDt, gpQr, gpQc, true, pose_type, lie_epsilon, use_closed_form));
     GPMVICalibPtr gpmui(new GPMVICalib(nh_ptr));
 
     // double t0 = CIBuf.minTime();
