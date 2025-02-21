@@ -272,6 +272,7 @@ public:
     double     getDt()                 const { return Dt;                  }
     POSE_GROUP getPoseRepresentation() const { return pose_representation; }
     double     getEps()                const { return lie_epsilon;         }
+    bool       getClosedForm()         const { return use_closed_form;     }
 
     template <typename MatrixType1, typename MatrixType2>
     MatrixXd kron(const MatrixType1& A, const MatrixType2& B) const
@@ -2447,6 +2448,8 @@ public:
                              << getCovPVAJerk()(1, 0) << "," << getCovPVAJerk()(1, 1) << "," << getCovPVAJerk()(1, 2) << ","
                              << getCovPVAJerk()(2, 0) << "," << getCovPVAJerk()(2, 1) << "," << getCovPVAJerk()(2, 2)
                 << ";keepCov:" << getKeepCov()
+                << ";poseType:" << int(getPoseRepresentation())
+                << ";closedform:" << getGPMixerPtr()->getClosedForm()
                 << endl;
 
         for(int kidx = 0; kidx < getNumKnots(); kidx++)

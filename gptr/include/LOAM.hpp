@@ -84,6 +84,7 @@ public:
         Util::GetParam(nh_ptr, "lie_epsilon", lie_epsilon);
 
         bool use_closed_form =  Util::GetBoolParam(nh_ptr, "use_closed_form", true);
+        RINFO("use_closed_form set to %d\n", use_closed_form);
 
         // Association params
         Util::GetParam(nh_ptr, "min_planarity", min_planarity);

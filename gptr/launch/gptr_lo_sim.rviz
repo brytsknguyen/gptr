@@ -11,7 +11,7 @@ Panels:
         - /Lidar11/Odometry1/Shape1
         - /Marker1
       Splitter Ratio: 0.22324159741401672
-    Tree Height: 363
+    Tree Height: 540
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -447,7 +447,7 @@ Visualization Manager:
       Enabled: true
       Name: ExtrinsicMarker
       Namespaces:
-        {}
+        lines: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -457,7 +457,7 @@ Visualization Manager:
         Value: /lidar_1/extr_marker
       Value: true
     - Class: rviz_default_plugins/Marker
-      Enabled: true
+      Enabled: false
       Name: Marker
       Namespaces:
         {}
@@ -468,7 +468,7 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /cartinbot_marker
-      Value: true
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -522,9 +522,9 @@ Visualization Manager:
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.5917739272117615
-        Y: 0.9854165315628052
-        Z: 0.8265068531036377
+        X: -0.7617084980010986
+        Y: 0.1709090620279312
+        Z: 0.7772644758224487
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
@@ -533,7 +533,7 @@ Visualization Manager:
       Pitch: 0.5197939276695251
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 2.0241003036499023
+      Yaw: 2.449101686477661
     Saved: ~
 Window Geometry:
   Displays:

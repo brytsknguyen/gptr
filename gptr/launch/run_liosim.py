@@ -1,23 +1,38 @@
 # my_node_launch.py
 from launch import LaunchDescription
+from launch.event_handlers import OnProcessExit
+from launch.actions import RegisterEventHandler, LogInfo, EmitEvent, DeclareLaunchArgument, Shutdown
+from launch.substitutions import LaunchConfiguration
+
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 # Sequence
-sequence = 'cloud_avia_mid_dynamic_extrinsics'
+sequence_ = 'cloud_avia_mid_dynamic_extrinsics'
 
 # Bag file
-lidar_bag_file = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence}'
+lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence_}'
+
+# Direction to log the exp
+log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/sim_{sequence_}_gptr_two_lidar/'
+
+# Type of pose
+pose_type_ = 'SE3'
+
+# Type of pose
+use_closed_form_ = '1'
 
 # Initial pose in each sequence
 xyzypr_W_L0 =[ 0,    0,   0.70,  43,  48, 0,
               -0.3, -0.3, 0.55, -134, 0,  0 ]
 
-# Direction to log the exp
-log_dir = f'/media/tmn/mySataSSD1/Experiments/gptr/logs/lio/sim_exp/sim_{sequence}_gptr_two_lidar/'
-
 def generate_launch_description():
     
+    lidar_bag_file  = DeclareLaunchArgument('lidar_bag_file', default_value=lidar_bag_file_, description='')   # Bag file
+    log_dir         = DeclareLaunchArgument('log_dir', default_value=log_dir_, description='')                 # Direction to log the exp
+    pose_type       = DeclareLaunchArgument('pose_type', default_value=pose_type_, description='')             # Variant of kinematics
+    use_closed_form = DeclareLaunchArgument('use_closed_form', default_value=use_closed_form_, description='') # Variant of approximation
+
     # GPTR LO node
     gptr_lo_node = Node(
         package     = 'gptr',
@@ -29,10 +44,10 @@ def generate_launch_description():
         parameters  =
         [
             # Location of the prior map
-            {"priormap_file"  : "/media/tmn/mySataSSD1/Experiments/gptr/sim_priormap.pcd"},
+            {"priormap_file"   : "/media/tmn/mySataSSD1/Experiments/gptr/sim_priormap.pcd"},
             
             # Location of bag file
-            {"lidar_bag_file" : lidar_bag_file},
+            {"lidar_bag_file"  : LaunchConfiguration('lidar_bag_file')},
             
             # Total number of clouds loaded
             {'MAX_CLOUDS'      : 300},
@@ -70,20 +85,20 @@ def generate_launch_description():
             {'cloud_ds'        : [0.1, 0.1]},
 
             # GN MAP optimization params
-            {'deltaT'          : 0.05743},
+            {'deltaT'          : 0.02204},
             # Motion prior factors
             {'mpCovROSJerk'    : 1.0},
             {'mpCovPVAJerk'    : 1.0},
-            {"pose_type"       : "SE3"}, # Choose 'SE3' or 'SO3xR3'
+            {"pose_type"       : LaunchConfiguration('pose_type')}, # Choose 'SE3' or 'SO3xR3'
+            {"use_closed_form" : LaunchConfiguration('use_closed_form')},
             {"lie_epsilon"     : 1e-2},
-            {"use_closed_form" : 1},
 
             {'lidar_ds_rate'   : 1},
             {'lidar_weight'    : 10.0},
 
             # Extrinsic factors
-            {'xtCovROSJerk'         : 200.0},
-            {'xtCovPVAJerk'         : 200.0},
+            {'xtCovROSJerk'    : 200.0},
+            {'xtCovPVAJerk'    : 200.0},
 
             # Loss function threshold
             {'ld_loss_thres'   : -1.0},
@@ -97,9 +112,9 @@ def generate_launch_description():
             {'max_acc'         : -5.0},
 
             # Extrinsic estimation
-            {'SW_CLOUDNUM'     : 10},
+            {'SW_CLOUDNUM'     : 20},
             {'SW_CLOUDSTEP'    : 1},
-            {'max_lidarcoefs'  : 4000},
+            {'max_lidarcoefs'  : 2000},
             {'XTRZ_DENSITY'    : 1},
             {'min_planarity'   : 0.5},
             {'max_plane_dis'   : 0.5},
@@ -114,16 +129,16 @@ def generate_launch_description():
             {'dJ_conv_thres'   : 10.0},
             {'conv_dX_thres'   : [-0.05, -0.5, -1.0, -0.05, -0.5, -1.0 ]},
             {'change_thres'    : [-15.0, -0.5, -1.0, -15.0, -8.0, -2.0 ]},
-            {'fix_time_begin'  : 0.025},
-            {'fix_time_end'    : 0.0},
+            {'fix_time_begin'  : -0.025},
+            {'fix_time_end'    : -0.0},
             {'fuse_marg'       : 1},
-            {'compute_cost'    : 1},
+            {'compute_cost'    : 0},
             {'lambda'          : 1.0},
             {'dXM'             : 0.02},
 
             # Log dir
             {'log_period'      : 5.0},
-            {'log_dir'         : log_dir},
+            {'log_dir'         : LaunchConfiguration('log_dir')},
         ]  # Optional: pass parameters if needed
     )
     
@@ -145,6 +160,13 @@ def generate_launch_description():
         arguments   = ['-d', get_package_share_directory('gptr') + '/launch/gptr_lo_sim.rviz']
     )
 
+    on_exit_action = RegisterEventHandler(event_handler=OnProcessExit(
+                                          target_action=gptr_lo_node,
+                                          on_exit=[Shutdown()])
+                                         )
+    
     # launch_arg = DeclareLaunchArgument('cartinbot_viz', required=True, description='Testing')
 
-    return LaunchDescription([gptr_lo_node, cartinbot_viz, rviz_node])
+    return LaunchDescription([lidar_bag_file, log_dir, pose_type, use_closed_form,
+                              gptr_lo_node, cartinbot_viz, rviz_node,
+                              on_exit_action])

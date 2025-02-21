@@ -1158,7 +1158,7 @@ int main(int argc, char **argv)
                 {
                     SE3d se3 = gpmlc->GetExtrinsics(lidx);
                     RosPoseStampedMsg pose;
-                    pose.header.stamp = rclcpp::Time(tmax);
+                    pose.header.stamp = toRosTime(tmax);
                     pose.header.frame_id = "lidar_0";
                     pose.pose.position.x = se3.translation().x();
                     pose.pose.position.y = se3.translation().y();
@@ -1196,7 +1196,7 @@ int main(int argc, char **argv)
                                 gtrPose.push_back(pose);
 
                         if (gtrPose.size() > 0)
-                            Util::publishCloud(gdntrPub[lidx], gtrPose, rclcpp::Time(gtrPose.points.back().t), "world");
+                            Util::publishCloud(gdntrPub[lidx], gtrPose, toRosTime(gtrPose.points.back().t), "world");
 
                         // Publish an odom topic for each lidar
                         if (odomPub[lidx] == nullptr)
@@ -1204,7 +1204,7 @@ int main(int argc, char **argv)
 
                         double ts = tmax - trajs[lidx]->getDt()/2;
                         SE3d pose = trajs[lidx]->pose(tmax);    
-                        odomMsg[lidx].header.stamp = rclcpp::Time(tmax);
+                        odomMsg[lidx].header.stamp = toRosTime(tmax);
                         odomMsg[lidx].header.frame_id = "world";
                         odomMsg[lidx].child_frame_id = myprintf( "lidar_%d_body", lidx);
                         odomMsg[lidx].pose.pose.position.x = pose.translation().x();
@@ -1222,7 +1222,7 @@ int main(int argc, char **argv)
                         
                         // // Populate the transform message
                         // static double last_tmax = -1;
-                        // transformStamped.header.stamp    = rclcpp::Time(tmax);
+                        // transformStamped.header.stamp    = toRosTime(tmax);
                         // transformStamped.header.frame_id = "world";
                         // transformStamped.child_frame_id  = myprintf( "lidar_%d", lidx);
 
@@ -1455,7 +1455,29 @@ int main(int argc, char **argv)
                                      lidx, tf_L0_Li.yaw(),   tf_L0_Li.pitch(), tf_L0_Li.roll(),
                                            tf_L0_Li.pos.x(), tf_L0_Li.pos.y(), tf_L0_Li.pos.z(), T_err);
                     }
-                    RINFO((report_opt + report_state + report_xtrs + "\n").c_str());
+
+                    // Combined Message
+                    string fullreport = report_opt + report_state + report_xtrs + "\n";
+                    RINFO(fullreport.c_str());
+                    
+                    // Log the report for later analysis
+                    {
+                        static bool first_shot = true;
+                        static string report_log = log_dir + "/report.txt";
+                        if (first_shot)
+                        {
+                            first_shot = false;
+                            if (fs::exists(report_log))
+                            {
+                                fs::remove(report_log);
+                                cout << "Removed: " << report_log << endl;
+                            }
+                        }
+
+                        std::ofstream report_logfile(report_log, std::ios::app);
+                        report_logfile << fullreport;
+                        report_logfile.close();
+                    }
                 }
 
                 // // Save the pointclouds
@@ -1507,7 +1529,7 @@ int main(int argc, char **argv)
                     xts_logfile << "t, x, y, z, qx, qy, qz, qw" << endl;
                     for(auto &pose : extrinsic_poses[1])
                     {
-                        xts_logfile << rclcpp::Time(pose.header.stamp).seconds() << ","
+                        xts_logfile << toNSec(pose.header.stamp) << ","
                                     << pose.pose.position.x << ","
                                     << pose.pose.position.y << ","
                                     << pose.pose.position.z << ","

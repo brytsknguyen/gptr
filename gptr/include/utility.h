@@ -1830,4 +1830,22 @@ inline string zeroPaddedString(int num, int max)
     return (num_str + std::to_string(num));
 }
 
+inline uint64_t toNSec(const builtin_interfaces::msg::Time &stamp)
+{
+    return static_cast<uint64_t>(stamp.sec) * 1e9 + stamp.nanosec;
+}
+
+inline double toSec(const builtin_interfaces::msg::Time &stamp)
+{
+    return stamp.sec + stamp.nanosec * 1e-9;
+}
+
+inline rclcpp::Time toRosTime(double &time)
+{
+    int32_t sec = static_cast<int32_t>(time);
+    uint32_t nanosec = static_cast<uint32_t>((time - sec) * 1e9);
+
+    return rclcpp::Time(sec, nanosec);
+}
+
 #endif

@@ -28,9 +28,9 @@ def generate_launch_description():
             {"gpDt"              : 0.01},
             {"gpQr"              : 1.00},
             {"gpQc"              : 1.00},
-            {"pose_type"         : "SE3"}, # Choose 'SE3' or 'SO3xR3'
+            {"pose_type"         : "SO3xR3"}, # Choose 'SE3' or 'SO3xR3'
             {"lie_epsilon"       : 1e-2},
-            {"use_closed_form"   : 1},
+            {"use_closed_form"   : 0},
 
             # Parameters for the solver
             {"SLIDE_SIZE"        : 2},
