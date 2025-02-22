@@ -17,7 +17,7 @@ lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence_}'
 log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/cathhs_{sequence_}_gptr_two_lidar/'
 
 # Type of pose
-pose_type_ = 'SE3'
+pose_type_ = 'SO3xR3'
 
 # Type of pose
 use_closed_form_ = '1'
@@ -77,8 +77,8 @@ def generate_launch_description():
             {'xyzypr_W_L0'     : xyzypr_W_L0},
 
             # Groundtruth for evaluation
-            {'xtrz_gndtr'      : [ 0, 0, 0, 0, 0, 0,
-                                   0, 0, 0, 0, 0, 0 ]},
+            {'xtrz_gndtr'      : [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                   0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ]},
             
             {'T_E_G'           : [ -0.00037886633842519943, -0.011824967458688653, -0.6445255757936823, 177.41697100832081, -0.8380643201341046, -0.4324815049625096,
                                     0.018040371221108277,   -0.005781886649251375, -0.6659410499572929, 177.8095334058065,  -0.6988913250237251, -0.4278818562418 ]},
@@ -117,7 +117,7 @@ def generate_launch_description():
             # Extrinsic estimation
             {'SW_CLOUDNUM'     : 40},
             {'SW_CLOUDSTEP'    : 1},
-            {'max_lidarcoefs'  : 2000},
+            {'max_lidarcoefs'  : 8000},
             {'XTRZ_DENSITY'    : 1},
             {'min_planarity'   : 0.5},
             {'max_plane_dis'   : 0.5},
@@ -132,8 +132,8 @@ def generate_launch_description():
             {'dJ_conv_thres'   : 10.0},
             {'conv_dX_thres'   : [-0.05, -0.5, -1.0, -0.05, -0.5, -1.0 ]},
             {'change_thres'    : [-15.0, -0.5, -1.0, -15.0, -8.0, -2.0 ]},
-            {'fix_time_begin'  : -0.025},
-            {'fix_time_end'    : -0.0},
+            {'fix_time_begin'  : 0.025},
+            {'fix_time_end'    : 0.0},
             {'fuse_marg'       : 1},
             {'compute_cost'    : 0},
             {'lambda'          : 1.0},
