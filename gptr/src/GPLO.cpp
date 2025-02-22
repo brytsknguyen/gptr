@@ -1017,6 +1017,19 @@ int main(int argc, char **argv)
     for(auto &lo : gpmaplo)
         trajs.push_back(lo->GetTraj());
 
+    // Confirm the variant 
+    string variant = "";
+
+    if(trajs[0]->getGPMixerPtr()->getPoseRepresentation() == POSE_GROUP::SO3xR3)
+        variant += "SO3xR3";
+    else
+        variant += "SE3";
+
+    if (trajs[0]->getGPMixerPtr()->getClosedForm())
+        variant += "_1";
+    else
+        variant += "_0";
+
     vector<deque<RosPoseStampedMsg>> extrinsic_poses(Nlidar);
 
     /* #endregion Create the LOAM modules ---------------------------------------------------------------------------*/
@@ -1396,7 +1409,7 @@ int main(int argc, char **argv)
                         myprintf( "%s"
                                  "GPXOpt# %4d.%2d.%2d: CeresIter: %d. Tfs: %3.0f. Tbd: %3.0f. Tslv: %.0f. Tinner: %.3f. Conv: %d, %d, %d, %d, %d, %d. Count %d. dJ%: %f,\n"
                                  "TSTART: %.3f. TFIN: + %.3f. Tmin-Tmid-Tmax: +[%.3f, %.3f, %.3f]. Trun: %.3f. FASTCHG: %d, %d, %d, %d, %d, %d. Slide: %d, %d.\n"
-                                 "Factor: MP2K: %3d, Cross: %4d. Ldr: %4d. MPri: %2d.\n"
+                                 "Factor: MP2K: %3d, Cross: %4d. Ldr: %4d. MPri: %2d. Combo: %s.\n"
                                  "J0: %12.3f. MP2k: %9.3f. Xtrs: %9.3f. LDR: %9.3f. MPri: %9.3f\n"
                                  "Jk: %12.3f. MP2k: %9.3f. Xtrs: %9.3f. LDR: %9.3f. MPri: %9.3f\n"
                                  RESET,
@@ -1407,6 +1420,7 @@ int main(int argc, char **argv)
                                  TSTART, TFINAL - TSTART, tmin - TSTART, tmid - TSTART, tmax - TSTART, (rclcpp::Clock().now() - programstart).seconds(),
                                  fastR, fastO, fastS, fastP, fastV, fastA, SW_CLOUDSTEP_NOW, SW_CLOUDSTEP_NXT,
                                  report.factors["MP2K"], report.factors["GPXTRZ"], report.factors["LIDAR"], report.factors["PRIOR"],
+                                 variant.c_str(),
                                  report.costs["J0"], report.costs["MP2K0"], report.costs["GPXTRZ0"], report.costs["LIDAR0"], report.costs["PRIOR0"],
                                  report.costs["JK"], report.costs["MP2KK"], report.costs["GPXTRZK"], report.costs["LIDARK"], report.costs["PRIORK"]);
                     
