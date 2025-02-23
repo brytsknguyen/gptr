@@ -83,8 +83,8 @@ public:
         double lie_epsilon = 1e-3;
         Util::GetParam(nh_ptr, "lie_epsilon", lie_epsilon);
 
-        bool use_closed_form =  Util::GetBoolParam(nh_ptr, "use_closed_form", true);
-        RINFO("use_closed_form set to %d\n", use_closed_form);
+        bool use_approx_drv =  Util::GetBoolParam(nh_ptr, "use_approx_drv", true);
+        RINFO("use_approx_drv set to %d\n", use_approx_drv);
 
         // Association params
         Util::GetParam(nh_ptr, "min_planarity", min_planarity);
@@ -98,7 +98,7 @@ public:
 
         Matrix3d CovROSJerk = Vector3d(mpCovROSJerk, mpCovROSJerk, mpCovROSJerk).asDiagonal();
         Matrix3d CovPVAJerk = Vector3d(mpCovPVAJerk, mpCovPVAJerk, mpCovPVAJerk).asDiagonal();
-        traj = GaussianProcessPtr(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, pose_type, lie_epsilon, use_closed_form));
+        traj = GaussianProcessPtr(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, pose_type, lie_epsilon, use_approx_drv));
         traj->setStartTime(t0);
         traj->setKnot(0, GPState(t0, T_W_Li0));
     }

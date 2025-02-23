@@ -226,7 +226,7 @@ private:
     double lie_epsilon = 1e-3;
 
     // Use / not use closed form derivatives
-    bool use_closed_form = true;
+    bool use_approx_drv = false;
 
 public:
 
@@ -236,10 +236,10 @@ public:
     // Constructor
     GPMixer(double Dt_, const Mat3 CovROSJerk_, const Mat3 CovPVAJerk_,
             const POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3,
-            double lie_epsilon_ = 1e-3, bool use_closed_form_ = true)
+            double lie_epsilon_ = 1e-3, bool use_approx_drv_ = false)
         : Dt(Dt_), CovROSJerk(CovROSJerk_), CovPVAJerk(CovPVAJerk_),
           pose_representation(pose_representation_),
-          lie_epsilon(lie_epsilon_), use_closed_form(use_closed_form_)
+          lie_epsilon(lie_epsilon_), use_approx_drv(use_approx_drv_)
     {
         CovTTWJerk.block<3, 3>(0, 0) = CovROSJerk;
         CovTTWJerk.block<3, 3>(3, 3) = CovPVAJerk;
@@ -272,7 +272,7 @@ public:
     double     getDt()                 const { return Dt;                  }
     POSE_GROUP getPoseRepresentation() const { return pose_representation; }
     double     getEps()                const { return lie_epsilon;         }
-    bool       getClosedForm()         const { return use_closed_form;     }
+    bool       getJacobianForm()       const { return use_approx_drv;     }
 
     template <typename MatrixType1, typename MatrixType2>
     MatrixXd kron(const MatrixType1& A, const MatrixType2& B) const
@@ -510,8 +510,11 @@ public:
         using Vec3T = Eigen::Matrix<T, 3, 1>;
         using Mat3T = Eigen::Matrix<T, 3, 3>;
 
-        if(!use_closed_form)
+        if(use_approx_drv)
+        {
+            // cout << "approx form" << endl;
             return 0.5*SO3T::hat(V);
+        }
 
         T Un = U.norm();
 
@@ -551,8 +554,11 @@ public:
 
         T Un = U.norm();
 
-        if(!use_closed_form)
+        if(use_approx_drv)
+        {
+            // cout << "approx form" << endl;
             return Mat3T::Zero(3, 3);
+        }
 
         if(Un < DOUBLE_EPSILON)
             return Fuu(U, V, W)/6.0;
@@ -610,8 +616,11 @@ public:
 
         T Un = U.norm();
 
-        if(!use_closed_form)
+        if(use_approx_drv)
+        {
+            // cout << "approx form" << endl;
             return -0.5*SO3T::hat(W);
+        }
 
         if(Un < DOUBLE_EPSILON)
             return -0.5*SO3T::hat(W) + Fuv(U, V, W)/6.0;
@@ -655,8 +664,11 @@ public:
 
         T Un = U.norm();
 
-        if(!use_closed_form)
+        if(use_approx_drv)
+        {
+            // cout << "approx form" << endl;
             return -0.5*SO3T::hat(V);
+        }
 
         if(Un < DOUBLE_EPSILON)
             return -0.5*SO3T::hat(V) + Fu(U, V)/12.0;
@@ -690,8 +702,11 @@ public:
 
         T Un = U.norm();
 
-        if(!use_closed_form)
+        if(use_approx_drv)
+        {
+            // cout << "approx form" << endl;
             return Mat3T::Zero();
+        }
 
         if(Un < DOUBLE_EPSILON)
             return Fuu(U, V, W)/12.0;
@@ -742,8 +757,11 @@ public:
 
         T Un = U.norm();
 
-        if(!use_closed_form)
+        if(use_approx_drv)
+        {
+            // cout << "approx form" << endl;
             return 0.5*SO3T::hat(W);
+        }
 
         if(Un < DOUBLE_EPSILON)
             return 0.5*SO3T::hat(W) + Fuv(U, V, W)/12.0;
@@ -963,7 +981,7 @@ public:
 
         Jr_Xi = Jr(Xi);
 
-        if (The.norm() < lie_epsilon || !use_closed_form)
+        if (The.norm() < lie_epsilon || use_approx_drv)
         {
             // cout << "approx form " << The.transpose() << endl;
 
@@ -1062,7 +1080,7 @@ public:
         Vec3T Thed = Xid.template head(3);
         Vec3T Rhod = Xid.template tail(3);
 
-        if (The.norm() < lie_epsilon || !use_closed_form)
+        if (The.norm() < lie_epsilon || use_approx_drv)
         {
             // cout << "approxed form " << The.transpose() << endl;
 
@@ -2035,7 +2053,7 @@ public:
         this->sqrtW = other.sqrtW;
         this->pose_representation = other.pose_representation;
         this->lie_epsilon = other.lie_epsilon;
-        this->use_closed_form = other.use_closed_form;
+        this->use_approx_drv = other.use_approx_drv;
 
         return *this;
     }
@@ -2091,9 +2109,9 @@ public:
 
     // Constructor
     GaussianProcess(double Dt_, Mat3 CovROSJerk_, Mat3 CovPVAJerk_, bool keepCov_ = false,
-                    POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3, double lie_epsilon_ = 1e-3, bool use_closed_form_ = true)
+                    POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3, double lie_epsilon_ = 1e-3, bool use_approx_drv_ = true)
         : Dt(Dt_), keepCov(keepCov_),
-          gpm(GPMixerPtr(new GPMixer(Dt_, CovROSJerk_, CovPVAJerk_, pose_representation_, lie_epsilon_, use_closed_form_))) {};
+          gpm(GPMixerPtr(new GPMixer(Dt_, CovROSJerk_, CovPVAJerk_, pose_representation_, lie_epsilon_, use_approx_drv_))) {};
 
           // Constructor
     GaussianProcess(const GPMixerPtr &gpm_)
@@ -2429,7 +2447,7 @@ public:
     {
         this->t0 = other.getMinTime();
         this->Dt = other.getDt();
-        
+
         *(this->gpm) = (*other.getGPMixerPtr());
 
         this->keepCov = other.keepCov;
@@ -2461,7 +2479,7 @@ public:
                              << getCovPVAJerk()(2, 0) << "," << getCovPVAJerk()(2, 1) << "," << getCovPVAJerk()(2, 2)
                 << ";keepCov:" << getKeepCov()
                 << ";poseType:" << int(getPoseRepresentation())
-                << ";closedform:" << getGPMixerPtr()->getClosedForm()
+                << ";closedform:" << getGPMixerPtr()->getJacobianForm()
                 << endl;
 
         for(int kidx = 0; kidx < getNumKnots(); kidx++)

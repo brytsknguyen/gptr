@@ -30,7 +30,7 @@ def generate_launch_description():
             {"gpQc"              : 1.00},
             {"pose_type"         : "SO3xR3"}, # Choose 'SE3' or 'SO3xR3'
             {"lie_epsilon"       : 1e-2},
-            {"use_closed_form"   : 0},
+            {"use_approx_drv"    : 0},
 
             # Parameters for the solver
             {"SLIDE_SIZE"        : 2},

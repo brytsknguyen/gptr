@@ -409,7 +409,7 @@ int main(int argc, char **argv)
     double lie_epsilon = 1e-3;
     Util::GetParam(nh_ptr, "lie_epsilon", lie_epsilon);
 
-    bool use_closed_form =  Util::GetBoolParam(nh_ptr, "use_closed_form", true);
+    bool use_approx_drv =  Util::GetBoolParam(nh_ptr, "use_approx_drv", true);
 
     // Find the path to data
     string data_path;
@@ -458,7 +458,7 @@ int main(int argc, char **argv)
     Util::GetParam(nh_ptr, "traj_save_path", traj_save_path);
 
     // Create the trajectory
-    traj = GaussianProcessPtr(new GaussianProcess(gpDt, gpQr, gpQc, true, pose_type, lie_epsilon, use_closed_form));
+    traj = GaussianProcessPtr(new GaussianProcess(gpDt, gpQr, gpQc, true, pose_type, lie_epsilon, use_approx_drv));
     GPMVICalibPtr gpmui(new GPMVICalib(nh_ptr));
 
     // double t0 = CIBuf.minTime();

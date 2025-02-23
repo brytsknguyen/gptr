@@ -1026,10 +1026,10 @@ int main(int argc, char **argv)
     else
         variant += "SE3";
 
-    if (trajs[0]->getGPMixerPtr()->getClosedForm())
-        variant += "_1";
+    if (trajs[0]->getGPMixerPtr()->getJacobianForm())
+        variant += "_Approximation";
     else
-        variant += "_0";
+        variant += "_ClosedForm";
 
     vector<deque<RosPoseStampedMsg>> extrinsic_poses(Nlidar);
 
