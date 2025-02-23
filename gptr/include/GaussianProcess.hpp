@@ -2030,6 +2030,14 @@ public:
         this->Dt = other.Dt;
         this->CovROSJerk = other.CovROSJerk;
         this->CovPVAJerk = other.CovPVAJerk;
+        this->CovTTWJerk = other.CovTTWJerk;
+        this->Fmat = other.Fmat;
+        this->sqrtW = other.sqrtW;
+        this->pose_representation = other.pose_representation;
+        this->lie_epsilon = other.lie_epsilon;
+        this->use_closed_form = other.use_closed_form;
+
+        return *this;
     }
 };
 
@@ -2086,6 +2094,10 @@ public:
                     POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3, double lie_epsilon_ = 1e-3, bool use_closed_form_ = true)
         : Dt(Dt_), keepCov(keepCov_),
           gpm(GPMixerPtr(new GPMixer(Dt_, CovROSJerk_, CovPVAJerk_, pose_representation_, lie_epsilon_, use_closed_form_))) {};
+
+          // Constructor
+    GaussianProcess(const GPMixerPtr &gpm_)
+            : Dt(gpm_->getDt()), keepCov(false), gpm(gpm_) {};
 
     Mat3 getCovROSJerk() const { return gpm->getCovROSJerk(); }
     Mat3 getCovPVAJerk() const { return gpm->getCovPVAJerk(); }
@@ -2433,7 +2445,7 @@ public:
         return *this;
     }
 
-    bool saveTrajectory(string log_dir, int lidx, vector<double> ts)
+    bool saveTrajectory(string log_dir, int lidx)
     {
         string log_ = log_dir + "/gptraj_" + std::to_string(lidx) + ".csv";
         std::ofstream logfile;

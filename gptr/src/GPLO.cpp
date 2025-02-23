@@ -116,6 +116,7 @@ typedef std::shared_ptr<GaussianProcess> GaussianProcessPtr;
 
 // vector<i2EKFLOPtr> i2EKFLO;
 vector<LOAMPtr> gpmaplo;
+vector<GaussianProcessPtr> gpodom;
 
 template <typename Scalar = double, int RowSize = Dynamic, int ColSize = Dynamic>
 Matrix<Scalar, RowSize, ColSize> load_dlm(const std::string &path, string dlm, int r_start = 0, int col_start = 0)
@@ -1036,6 +1037,16 @@ int main(int argc, char **argv)
  
     /* #region Do optimization with inter-trajectory factors --------------------------------------------------------*/
 
+    // Create a copy of gpmaplo to log odom
+    gpodom = vector<GaussianProcessPtr>(Nlidar);
+    for(int lidx = 0; lidx < Nlidar; lidx++)
+    {
+        GaussianProcessPtr &traj = gpmaplo[lidx]->GetTraj();
+        const GPMixerPtr &gpm = traj->getGPMixerPtr();
+        gpodom[lidx] = GaussianProcessPtr(new GaussianProcess(gpm));
+        *gpodom[lidx] = *(traj);
+    }
+
     for(int outer_iter = 0; outer_iter < max_outer_iter; outer_iter++)
     {
         // Last time that was logged
@@ -1129,6 +1140,7 @@ int main(int argc, char **argv)
                     // Associate
                     gpmaplo->Associate(traj, ikdTreeMap, priormap, cloudRaw, cloudUndi, cloudUndiInW, cloudCoeff);
                 };
+
                 for(int lidx = 0; lidx < Nlidar; lidx++)
                 {
                     for(int idx = SW_BEG; idx < SW_END; idx++)
@@ -1156,6 +1168,22 @@ int main(int argc, char **argv)
                 gpmlc->Evaluate(inner_iter, outer_iter, trajs, tmin, tmax, tmid, swCloudCoef,
                                 featuresSelected, inner_iter >= max_inner_iter - 1 || converged,
                                 report);
+
+
+                // Check the lengths of the trajs and copy the extended part to the odom
+                for(int lidx = 0; lidx < Nlidar; lidx++)
+                {
+                    const GaussianProcessPtr &traj = gpmaplo[lidx]->GetTraj();
+                    if(gpodom[lidx]->getNumKnots() < traj->getNumKnots())
+                    {
+                        int kidx_start = gpodom[lidx]->getNumKnots();
+                        for(int kidx = kidx_start; kidx < traj->getNumKnots(); kidx++)
+                        {
+                            gpodom[lidx]->extendOneKnot();
+                            gpodom[lidx]->setKnot(kidx, traj->getKnot(kidx));
+                        }
+                    }
+                }
 
 
                 // Exit if divergent
@@ -1513,7 +1541,7 @@ int main(int argc, char **argv)
                     break;
             }
 
-            // Log the result every 10 seconds
+            // Log the result every 5 seconds
             if((int(floor(tcloudStart(cidx) - TSTART)) % int(log_period) == 0
                 && tcloudStart(cidx) - last_logged_time >= 0.9*log_period)
                 || last_logged_time == -1
@@ -1523,14 +1551,21 @@ int main(int argc, char **argv)
 
                 // Create directories if they do not exist
                 string output_dir = log_dir + myprintf( "/run_%02d/time_%04.0f/", outer_iter, tcloudStart(cidx)-TSTART);
+                string odom_dir = log_dir + myprintf( "/odom/run_%02d/time_%04.0f/", outer_iter, tcloudStart(cidx)-TSTART);
+
                 std::filesystem::create_directories(output_dir);
+                std::filesystem::create_directories(odom_dir);
 
                 // Save the trajectory and estimation result
                 for(int lidx = 0; lidx < Nlidar; lidx++)
                 {
                     // string log_file = log_dir + myprintf( "/gptraj_%d.csv", lidx);
                     RINFO("Exporting trajectory logs to %s.\n", output_dir.c_str());
-                    gpmaplo[lidx]->GetTraj()->saveTrajectory(output_dir, lidx, gndtr_ts[lidx]);
+                    gpmaplo[lidx]->GetTraj()->saveTrajectory(output_dir, lidx);
+
+                    // string log_file = log_dir + myprintf( "/gptraj_%d.csv", lidx);
+                    RINFO("Exporting oodometry logs to %s.\n", odom_dir.c_str());
+                    gpodom[lidx]->saveTrajectory(odom_dir, lidx);
                 }
 
                 if (Nlidar > 1)

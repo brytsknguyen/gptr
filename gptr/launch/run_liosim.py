@@ -10,7 +10,7 @@ from ament_index_python.packages import get_package_share_directory
 # Sequence
 # sequence_ = 'cloud_avia_mid_dynamic_extrinsics'
 # sequence_ = 'cloud_avia_mid_dynxts_fast'
-sequence_ = 'cloud_avia_mid_fast'
+sequence_ = 'cloud_avia_mid_w75'
 
 # Bag file
 lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence_}'
