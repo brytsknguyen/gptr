@@ -13,7 +13,7 @@ runexp()
     pose_type=SO3xR3
     use_approx_drv=0
     # Run the experiement
-    for n in {2..2}; do
+    for n in {3..3}; do
         # Directory to log the exp
         log_dir=${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar/try_$n
 
@@ -25,7 +25,7 @@ runexp()
     pose_type=SO3xR3
     use_approx_drv=1
     # Run the experiement
-    for n in {2..2}; do
+    for n in {3..3}; do
         # Directory to log the exp
         log_dir=${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar/try_$n
 
@@ -37,7 +37,7 @@ runexp()
     pose_type=SE3
     use_approx_drv=0
     # Run the experiement
-    for n in {2..2}; do
+    for n in {3..3}; do
         # Directory to log the exp
         log_dir=${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar/try_$n
 
@@ -49,7 +49,7 @@ runexp()
     pose_type=SE3
     use_approx_drv=1
     # Run the experiement
-    for n in {2..2}; do
+    for n in {3..3}; do
         # Directory to log the exp
         log_dir=${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar/try_$n
 
