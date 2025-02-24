@@ -8,6 +8,8 @@ Panels:
         - /Status1
         - /Lidar01/Odometry1/Shape1
         - /Lidar01/Odometry1/Covariance1
+        - /Lidar11
+        - /Lidar11/AssocCloud1
         - /Lidar11/Odometry1/Shape1
         - /Marker1
       Splitter Ratio: 0.22324159741401672
@@ -276,12 +278,12 @@ Visualization Manager:
           Channel Name: intensity
           Class: rviz_default_plugins/PointCloud2
           Color: 255; 255; 255
-          Color Transformer: Intensity
+          Color Transformer: FlatColor
           Decay Time: 0
-          Enabled: false
+          Enabled: true
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 39
+          Max Intensity: 9
           Min Color: 0; 0; 0
           Min Intensity: 0
           Name: AssocCloud
@@ -289,7 +291,7 @@ Visualization Manager:
           Selectable: true
           Size (Pixels): 3
           Size (m): 0.05000000074505806
-          Style: Flat Squares
+          Style: Points
           Topic:
             Depth: 5
             Durability Policy: Volatile
@@ -299,7 +301,7 @@ Visualization Manager:
             Value: /lidar_1/assoc_cloud
           Use Fixed Frame: true
           Use rainbow: true
-          Value: false
+          Value: true
         - Alpha: 1
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
@@ -515,25 +517,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 0.5325793027877808
+      Distance: 2.038093328475952
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.7617084980010986
-        Y: 0.1709090620279312
-        Z: 0.7772644758224487
+        X: -2.3385164737701416
+        Y: -0.36135903000831604
+        Z: 1.0303595066070557
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5197939276695251
+      Pitch: -0.08460152894258499
       Target Frame: <Fixed Frame>
-      Value: Orbit (rviz)
-      Yaw: 2.449101686477661
+      Value: Orbit (rviz_default_plugins)
+      Yaw: 3.6203980445861816
     Saved: ~
 Window Geometry:
   Displays:

@@ -13,7 +13,7 @@ runexp()
     pose_type=SO3xR3
     use_approx_drv=0
     # Run the experiement
-    for n in {3..3}; do
+    for n in {1..5}; do
         # Directory to log the exp
         log_dir=${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar/try_$n
 
@@ -25,7 +25,7 @@ runexp()
     pose_type=SO3xR3
     use_approx_drv=1
     # Run the experiement
-    for n in {3..3}; do
+    for n in {1..5}; do
         # Directory to log the exp
         log_dir=${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar/try_$n
 
@@ -37,7 +37,7 @@ runexp()
     pose_type=SE3
     use_approx_drv=0
     # Run the experiement
-    for n in {3..3}; do
+    for n in {1..5}; do
         # Directory to log the exp
         log_dir=${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar/try_$n
 
@@ -49,7 +49,7 @@ runexp()
     pose_type=SE3
     use_approx_drv=1
     # Run the experiement
-    for n in {3..3}; do
+    for n in {1..5}; do
         # Directory to log the exp
         log_dir=${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar/try_$n
 
@@ -58,7 +58,7 @@ runexp()
     done
 }
 
-runexp cloud_avia_mid_w75 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_23022025/lio/
-# runexp cloud_avia_mid_w50
-# runexp cloud_avia_mid_w25
-# runexp cloud_avia_mid_dynamic_extrinsics
+runexp cloud_avia_mid_w75 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_24022025/lio/
+runexp cloud_avia_mid_w50 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_24022025/lio/
+runexp cloud_avia_mid_w25 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_24022025/lio/
+runexp cloud_avia_mid_dynamic_extrinsics /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_24022025/lio/

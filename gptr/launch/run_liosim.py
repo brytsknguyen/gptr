@@ -8,9 +8,7 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 # Sequence
-# sequence_ = 'cloud_avia_mid_dynamic_extrinsics'
-# sequence_ = 'cloud_avia_mid_dynxts_fast'
-sequence_ = 'cloud_avia_mid_w75'
+sequence_ = 'cloud_avia_mid_w50'
 
 # Bag file
 lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence_}'
@@ -19,7 +17,8 @@ lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence_}'
 log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/sim_{sequence_}_gptr_two_lidar/'
 
 # Type of pose
-pose_type_ = 'SE3'
+# pose_type_ = 'SE3'
+pose_type_ = 'SO3xR3'
 
 # Type of pose
 use_approx_drv_ = '0'
@@ -55,7 +54,7 @@ def generate_launch_description():
             {'MAX_CLOUDS'      : 300},
 
             # Time since first pointcloud to skip MAP Opt
-            {'SKIPPED_TIME'    : 4.5},
+            {'SKIPPED_TIME'    : 9.7},
             {'RECURRENT_SKIP'  : 0},
 
             # Set to '1' to skip optimization
@@ -73,7 +72,7 @@ def generate_launch_description():
             {'runkf'           : 1},
 
             # Set to 1 to load the search for previous logs and redo
-            {'resume_from_log' : [0, 0]},
+            {'resume_from_log' : [1, 1]},
 
             # Initial pose of each lidars
             {'xyzypr_W_L0'     : xyzypr_W_L0},
@@ -84,13 +83,13 @@ def generate_launch_description():
 
             # Leaf size to downsample priormap
             {'pmap_leaf_size'  : 0.15},
-            {'cloud_ds'        : [0.1, 0.1]},
+            {'cloud_ds'        : [0.05, 0.8]},
 
             # GN MAP optimization params
             {'deltaT'          : 0.05743},
             # Motion prior factors
-            {'mpCovROSJerk'    : 1.0},
-            {'mpCovPVAJerk'    : 1.0},
+            {'mpCovROSJerk'    : 0.1},
+            {'mpCovPVAJerk'    : 0.1},
             {"pose_type"       : LaunchConfiguration('pose_type')}, # Choose 'SE3' or 'SO3xR3'
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
             {"lie_epsilon"     : 1e-2},
@@ -99,8 +98,8 @@ def generate_launch_description():
             {'lidar_weight'    : 10.0},
 
             # Extrinsic factors
-            {'xtCovROSJerk'    : 200.0},
-            {'xtCovPVAJerk'    : 200.0},
+            {'xtCovROSJerk'    : 50.0},
+            {'xtCovPVAJerk'    : 50.0},
 
             # Loss function threshold
             {'ld_loss_thres'   : -1.0},
@@ -116,16 +115,16 @@ def generate_launch_description():
             # Extrinsic estimation
             {'SW_CLOUDNUM'     : 10},
             {'SW_CLOUDSTEP'    : 1},
-            {'max_lidarcoefs'  : 2000},
+            {'max_lidarcoefs'  : 8000},
             {'XTRZ_DENSITY'    : 1},
-            {'min_planarity'   : 0.5},
+            {'min_planarity'   : 0.2},
             {'max_plane_dis'   : 0.5},
-            {'knnsize'         : 6},
+            {'knnsize'         : 8},
             
             {'use_ceres'       : 1},
             {'max_ceres_iter'  : 50},
             {'max_outer_iter'  : 1},
-            {'max_inner_iter'  : 3},
+            {'max_inner_iter'  : 5},
             {'min_inner_iter'  : 3},
             {'conv_thres'      : 3},
             {'dJ_conv_thres'   : 10.0},
