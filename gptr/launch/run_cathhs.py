@@ -17,10 +17,11 @@ lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence_}'
 log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/cathhs_{sequence_}_gptr_two_lidar/'
 
 # Type of pose
+# pose_type_ = 'SE3'
 pose_type_ = 'SO3xR3'
 
 # Type of pose
-use_approx_drv_ = '1'
+use_approx_drv_ = '0'
 
 # Initial pose in each sequence
 xyzypr_W_L0 =[ 0,   0,  0,   0, 0,  0,
@@ -31,7 +32,7 @@ def generate_launch_description():
     lidar_bag_file  = DeclareLaunchArgument('lidar_bag_file', default_value=lidar_bag_file_, description='')   # Bag file
     log_dir         = DeclareLaunchArgument('log_dir', default_value=log_dir_, description='')                 # Direction to log the exp
     pose_type       = DeclareLaunchArgument('pose_type', default_value=pose_type_, description='')             # Variant of kinematics
-    use_approx_drv = DeclareLaunchArgument('use_approx_drv', default_value=use_approx_drv_, description='') # Variant of approximation
+    use_approx_drv  = DeclareLaunchArgument('use_approx_drv', default_value=use_approx_drv_, description='') # Variant of approximation
 
     # GPTR LO node
     gptr_lo_node = Node(
@@ -160,7 +161,7 @@ def generate_launch_description():
         executable  = 'rviz2',
         name        = 'rviz2',
         output      = 'screen',
-        arguments   = ['-d', get_package_share_directory('gptr') + '/launch/gptr_lo_sim.rviz']
+        arguments   = ['-d', get_package_share_directory('gptr') + '/launch/gptr_cathhs.rviz']
     )
 
     on_exit_action = RegisterEventHandler(event_handler=OnProcessExit(

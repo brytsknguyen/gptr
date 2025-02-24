@@ -8,10 +8,10 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 # Sequence
-sequence_ = 'cloud_avia_mid_w5743'
+sequence_ = 'cloud_avia_mid_w50_sparse'
 
 # Bag file
-lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence_}'
+lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/{sequence_}'
 
 # Direction to log the exp
 log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/sim_{sequence_}_gptr_two_lidar/'
@@ -32,7 +32,7 @@ def generate_launch_description():
     lidar_bag_file  = DeclareLaunchArgument('lidar_bag_file', default_value=lidar_bag_file_, description='')   # Bag file
     log_dir         = DeclareLaunchArgument('log_dir', default_value=log_dir_, description='')                 # Direction to log the exp
     pose_type       = DeclareLaunchArgument('pose_type', default_value=pose_type_, description='')             # Variant of kinematics
-    use_approx_drv = DeclareLaunchArgument('use_approx_drv', default_value=use_approx_drv_, description='') # Variant of approximation
+    use_approx_drv  = DeclareLaunchArgument('use_approx_drv', default_value=use_approx_drv_, description='') # Variant of approximation
 
     # GPTR LO node
     gptr_lo_node = Node(
@@ -83,7 +83,7 @@ def generate_launch_description():
 
             # Leaf size to downsample priormap
             {'pmap_leaf_size'  : 0.15},
-            {'cloud_ds'        : [0.1, 0.6]},
+            {'cloud_ds'        : [0.1, 0.1]},
 
             # GN MAP optimization params
             {'deltaT'          : 0.05743},
@@ -124,9 +124,9 @@ def generate_launch_description():
             {'use_ceres'       : 1},
             {'max_ceres_iter'  : 50},
             {'max_outer_iter'  : 1},
-            {'max_inner_iter'  : 2},
-            {'min_inner_iter'  : 2},
-            {'conv_thres'      : 2},
+            {'max_inner_iter'  : 3},
+            {'min_inner_iter'  : 1},
+            {'conv_thres'      : 1},
             {'dJ_conv_thres'   : 10.0},
             {'conv_dX_thres'   : [-0.05, -0.5, -1.0, -0.05, -0.5, -1.0 ]},
             {'change_thres'    : [-15.0, -0.5, -1.0, -15.0, -8.0, -2.0 ]},
