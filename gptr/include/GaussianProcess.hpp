@@ -2336,8 +2336,8 @@ public:
         Vec3 Vc = V.back();
         Vec3 Ac = A.back();
 
-        SO3d Rn = Rc*SO3d::exp(Dt*Oc);
-        Vec3 On = Oc;
+        SO3d Rn = Rc*SO3d::exp(Dt*Oc + 0.5*Dt*Dt*Sc);
+        Vec3 On = Oc + Dt*Sc;
         Vec3 Sn = Sc;
         Vec3 Pn = Pc + Dt*Vc + 0.5*Dt*Dt*Ac;
         Vec3 Vn = Vc + Dt*Ac;
