@@ -38,7 +38,7 @@ using namespace Eigen;
 #define RESET "\033[0m"
 
 // Threshold to use approximation to avoid numerical issues
-#define DOUBLE_EPSILON 1e-4
+#define DOUBLE_EPSILON 1e-2
 
 template <typename Derived>
 Eigen::MatrixXd CastJetToDouble(const MatrixBase<Derived> &M_)
@@ -472,7 +472,7 @@ public:
     static Eigen::Matrix<T, 3, 3> Jr(const Eigen::Matrix<T, 3, 1> &The)
     {
         if (The.norm() < DOUBLE_EPSILON)
-            return Eigen::Matrix<T, 3, 3>::Identity() - 0.5*Sophus::SO3<T>::hat(The) + (1.0/6.0)*hatSquare<T>(The);
+            return Eigen::Matrix<T, 3, 3>::Identity() - 0.5*Sophus::SO3<T>::hat(The);
 
         return Sophus::SO3<T>::leftJacobian(-The);
     }
@@ -482,7 +482,7 @@ public:
     static Eigen::Matrix<T, 3, 3> JrInv(const Eigen::Matrix<T, 3, 1> &The)
     {
         if (The.norm() < DOUBLE_EPSILON)
-            return Eigen::Matrix<T, 3, 3>::Identity() + 0.5*Sophus::SO3<T>::hat(The) + (1.0/12.0)*hatSquare(The);
+            return Eigen::Matrix<T, 3, 3>::Identity() + 0.5*Sophus::SO3<T>::hat(The);
 
         return Sophus::SO3<T>::leftJacobianInverse(-The);
     }
@@ -510,16 +510,18 @@ public:
         using Vec3T = Eigen::Matrix<T, 3, 1>;
         using Mat3T = Eigen::Matrix<T, 3, 3>;
 
-        if(use_approx_drv)
+        T Un = U.norm();
+
+        if(use_approx_drv || Un < lie_epsilon)
         {
             // cout << "approx form" << endl;
             return 0.5*SO3T::hat(V);
         }
 
-        T Un = U.norm();
+        // if(Un < DOUBLE_EPSILON)
+        //     return 0.5*SO3T::hat(V) + Fu(U, V)/6.0;
 
-        if(Un < DOUBLE_EPSILON)
-            return 0.5*SO3T::hat(V) + Fu(U, V)/6.0;
+        // cout << "closed form DJrUV_DU" << endl;
 
         T Unp2 = Un*Un;
         T Unp3 = Unp2*Un;
@@ -554,14 +556,16 @@ public:
 
         T Un = U.norm();
 
-        if(use_approx_drv)
+        if(use_approx_drv || Un < lie_epsilon)
         {
             // cout << "approx form" << endl;
             return Mat3T::Zero(3, 3);
         }
 
-        if(Un < DOUBLE_EPSILON)
-            return Fuu(U, V, W)/6.0;
+        // if(Un < DOUBLE_EPSILON)
+        //     return Fuu(U, V, W)/6.0;
+
+        // cout << "closed form DDJrUVW_DUDU" << endl;
 
         T Unp2 = Un*Un;
         T Unp3 = Unp2*Un;
@@ -616,14 +620,16 @@ public:
 
         T Un = U.norm();
 
-        if(use_approx_drv)
+        if(use_approx_drv || Un < lie_epsilon)
         {
             // cout << "approx form" << endl;
             return -0.5*SO3T::hat(W);
         }
 
-        if(Un < DOUBLE_EPSILON)
-            return -0.5*SO3T::hat(W) + Fuv(U, V, W)/6.0;
+        // if(Un < DOUBLE_EPSILON)
+        //     return -0.5*SO3T::hat(W) + Fuv(U, V, W)/6.0;
+
+        // cout << "closed form DDJrUVW_DUDV" << endl;
 
         T Unp2 = Un*Un;
         T Unp3 = Unp2*Un;
@@ -664,14 +670,16 @@ public:
 
         T Un = U.norm();
 
-        if(use_approx_drv)
+        if(use_approx_drv || Un < lie_epsilon)
         {
             // cout << "approx form" << endl;
             return -0.5*SO3T::hat(V);
         }
 
-        if(Un < DOUBLE_EPSILON)
-            return -0.5*SO3T::hat(V) + Fu(U, V)/12.0;
+        // if(Un < DOUBLE_EPSILON)
+        //     return -0.5*SO3T::hat(V) + Fu(U, V)/12.0;
+
+        // cout << "closed form DJrInvUV_DU" << endl;
 
         T Unp2 = Un*Un;
         T Unp3 = Unp2*Un;
@@ -702,14 +710,16 @@ public:
 
         T Un = U.norm();
 
-        if(use_approx_drv)
+        if(use_approx_drv || Un < lie_epsilon)
         {
             // cout << "approx form" << endl;
             return Mat3T::Zero();
         }
 
-        if(Un < DOUBLE_EPSILON)
-            return Fuu(U, V, W)/12.0;
+        // if(Un < DOUBLE_EPSILON)
+        //     return Fuu(U, V, W)/12.0;
+
+        // cout << "closed form DDJrInvUVW_DUDU" << endl;
 
         T Unp2 = Un*Un;
         T Unp3 = Unp2*Un;
@@ -757,14 +767,16 @@ public:
 
         T Un = U.norm();
 
-        if(use_approx_drv)
+        if(use_approx_drv || Un < lie_epsilon)
         {
             // cout << "approx form" << endl;
             return 0.5*SO3T::hat(W);
         }
 
-        if(Un < DOUBLE_EPSILON)
-            return 0.5*SO3T::hat(W) + Fuv(U, V, W)/12.0;
+        // if(Un < DOUBLE_EPSILON)
+        //     return 0.5*SO3T::hat(W) + Fuv(U, V, W)/12.0;
+
+        // cout << "closed form DDJrInvUVW_DUDV" << endl;
 
         T Unp2 = Un*Un;
         T Unp3 = Unp2*Un;
@@ -882,7 +894,7 @@ public:
         Mat3T Exp_U = SO3T::exp(U).matrix();
 
         if(Un < DOUBLE_EPSILON)
-            return -(Exp_U*(0.5*SO3T::hat(V) + Fu(U, V)/6.0));
+            return -(Exp_U*(0.5*SO3T::hat(V)));
 
         T Unp2 = Un*Un;
         T Unp3 = Unp2*Un;
@@ -2232,11 +2244,11 @@ public:
         
         for(int k = 0; k < steps; k++)
         {
-            SO3d Rpred = Rc*SO3d::exp(Dt*Oc + 0.5*Dt*Dt*Sc);
-            Vec3 Opred = Oc + Dt*Sc;
+            SO3d Rpred = Rc*SO3d::exp(Dt*Oc);
+            Vec3 Opred = Oc;
             Vec3 Spred = Sc;
-            Vec3 Ppred = Pc + Dt*Vc + 0.5*Dt*Dt*Ac;
-            Vec3 Vpred = Vc + Dt*Ac;
+            Vec3 Ppred = Pc + Dt*Vc;
+            Vec3 Vpred = Vc;
             Vec3 Apred = Ac;
 
             Rc = Rpred;

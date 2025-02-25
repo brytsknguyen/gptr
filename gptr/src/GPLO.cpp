@@ -1085,7 +1085,6 @@ int main(int argc, char **argv)
             int SW_BEG = cidx;
             int SW_END = min(cidx + SW_CLOUDNUM, int(cloudsx[0].size())-1);
             int SW_MID = min(cidx + SW_CLOUDSTEP_NOW, int(cloudsx[0].size())-1);
-            static int SW_END_PREV = SW_END;
 
             // The effective length of the sliding window by the number of point clouds
             int SW_CLOUDNUM_EFF = SW_END - SW_BEG;
@@ -1100,8 +1099,14 @@ int main(int argc, char **argv)
             {
                 traj_curr_knots[lidx] = trajs[lidx]->getNumKnots();
                 while(trajs[lidx]->getMaxTime() < tmax)
-                    // trajs[lidx]->extendOneKnot();
-                    trajs[lidx]->extendOneKnot(trajs[lidx]->getKnot(trajs[lidx]->getNumKnots()-1));
+                {
+                    // Predict on step ahead
+                    GPState Xp = trajs[lidx]->predictState(1);
+                    // Extend the trajectory by the predicted state
+                    trajs[lidx]->extendOneKnot(Xp);
+
+                    // trajs[lidx]->extendOneKnot(trajs[lidx]->getKnot(trajs[lidx]->getNumKnots()-1));
+                }
             }
 
             // Estimation change
@@ -1598,7 +1603,6 @@ int main(int argc, char **argv)
             // Set the index for next step
             cidx+= int(SW_CLOUDSTEP_NOW);
             SW_CLOUDSTEP_NOW = SW_CLOUDSTEP_NXT;
-            SW_END_PREV = SW_END;
 
             if (SW_END == int(cloudsx[0].size())-1)
                 break;

@@ -8,7 +8,7 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 # Sequence
-sequence_ = 'cloud_avia_mid_w50_sparse'
+sequence_ = 'cloud_avia_mid_w65'
 
 # Bag file
 lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/{sequence_}'
@@ -51,7 +51,7 @@ def generate_launch_description():
             {"lidar_bag_file"  : LaunchConfiguration('lidar_bag_file')},
             
             # Total number of clouds loaded
-            {'MAX_CLOUDS'      : 300},
+            {'MAX_CLOUDS'      : 175},
 
             # Time since first pointcloud to skip MAP Opt
             {'SKIPPED_TIME'    : 4.7},
@@ -92,7 +92,7 @@ def generate_launch_description():
             {'mpCovPVAJerk'    : 1.0},
             {"pose_type"       : LaunchConfiguration('pose_type')}, # Choose 'SE3' or 'SO3xR3'
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
-            {"lie_epsilon"     : 1e-2},
+            {"lie_epsilon"     : 2e-1},
 
             {'lidar_ds_rate'   : 1},
             {'lidar_weight'    : 10.0},
@@ -113,20 +113,20 @@ def generate_launch_description():
             {'max_acc'         : -5.0},
 
             # Extrinsic estimation
-            {'SW_CLOUDNUM'     : 10},
+            {'SW_CLOUDNUM'     : 20},
             {'SW_CLOUDSTEP'    : 1},
             {'max_lidarcoefs'  : 2000},
             {'XTRZ_DENSITY'    : 1},
             {'min_planarity'   : 0.2},
             {'max_plane_dis'   : 0.5},
-            {'knnsize'         : 8},
+            {'knnsize'         : 6},
             
             {'use_ceres'       : 1},
             {'max_ceres_iter'  : 50},
             {'max_outer_iter'  : 1},
             {'max_inner_iter'  : 3},
-            {'min_inner_iter'  : 1},
-            {'conv_thres'      : 1},
+            {'min_inner_iter'  : 3},
+            {'conv_thres'      : 3},
             {'dJ_conv_thres'   : 10.0},
             {'conv_dX_thres'   : [-0.05, -0.5, -1.0, -0.05, -0.5, -1.0 ]},
             {'change_thres'    : [-15.0, -0.5, -1.0, -15.0, -8.0, -2.0 ]},
