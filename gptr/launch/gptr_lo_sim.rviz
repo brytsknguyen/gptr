@@ -6,14 +6,15 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /Lidar01
+        - /Lidar01/AssocCloud1/Status1
         - /Lidar01/Odometry1/Shape1
         - /Lidar01/Odometry1/Covariance1
         - /Lidar11
-        - /Lidar11/AssocCloud1
         - /Lidar11/Odometry1/Shape1
         - /Marker1
       Splitter Ratio: 0.22324159741401672
-    Tree Height: 363
+    Tree Height: 540
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -98,13 +99,13 @@ Visualization Manager:
           Axis: Z
           Channel Name: intensity
           Class: rviz_default_plugins/PointCloud2
-          Color: 255; 255; 255
-          Color Transformer: Intensity
+          Color: 220; 138; 221
+          Color Transformer: FlatColor
           Decay Time: 0
           Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 39
+          Max Intensity: 35
           Min Color: 0; 0; 0
           Min Intensity: 0
           Name: AssocCloud
@@ -526,7 +527,7 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Scale: 50.34060287475586
+      Scale: 46.39960479736328
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz_default_plugins)
       X: 0

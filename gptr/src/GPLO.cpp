@@ -1059,9 +1059,10 @@ int main(int argc, char **argv)
         int cidx = outer_iter;
         int SW_CLOUDSTEP_NOW = SW_CLOUDSTEP;
         int SW_CLOUDSTEP_NXT = SW_CLOUDSTEP;
-        while(cidx < cloudsx[0].size() - SW_CLOUDSTEP)
-        {
-            // Check the skipping condition
+
+        while(cidx < cloudsx[0].size() - SW_CLOUDSTEP && rclcpp::ok())
+        {            
+            // Check the manual skipping condition
             {
                 double tcloudNow = cloudsx.front()[cidx]->points.front().t;
                 double tcloudStart = cloudsx.front().front()->points.front().t;
@@ -1082,8 +1083,23 @@ int main(int argc, char **argv)
                 }
             }
 
+            // Limit the initial sliding window to 0.5s
+            static bool SW_INIT = true;
+            static int SW_CLOUDNUM_NOW = (SW_CLOUDNUM*deltaT > 0.5 ? floor(0.5/deltaT) : SW_CLOUDNUM);
+            if (SW_INIT && SW_CLOUDNUM_NOW < SW_CLOUDNUM)
+            {
+                SW_CLOUDNUM_NOW += 1;
+                // printf("SW_CLOUDNUM_NOW: %d. incrementing\n", SW_CLOUDNUM_NOW);
+            }
+            else
+            {
+                SW_INIT = false;
+                SW_CLOUDNUM_NOW = SW_CLOUDNUM;
+                // printf("SW_CLOUDNUM_NOW: %d\n", SW_CLOUDNUM_NOW);
+            }
+
             int SW_BEG = cidx;
-            int SW_END = min(cidx + SW_CLOUDNUM, int(cloudsx[0].size())-1);
+            int SW_END = min(cidx + SW_CLOUDNUM_NOW, int(cloudsx[0].size())-1);
             int SW_MID = min(cidx + SW_CLOUDSTEP_NOW, int(cloudsx[0].size())-1);
 
             // The effective length of the sliding window by the number of point clouds
@@ -1100,12 +1116,12 @@ int main(int argc, char **argv)
                 traj_curr_knots[lidx] = trajs[lidx]->getNumKnots();
                 while(trajs[lidx]->getMaxTime() < tmax)
                 {
-                    // Predict on step ahead
-                    GPState Xp = trajs[lidx]->predictState(1);
-                    // Extend the trajectory by the predicted state
-                    trajs[lidx]->extendOneKnot(Xp);
+                    // // Predict on step ahead
+                    // GPState Xp = trajs[lidx]->predictState(1);
+                    // // Extend the trajectory by the predicted state
+                    // trajs[lidx]->extendOneKnot(Xp);
 
-                    // trajs[lidx]->extendOneKnot(trajs[lidx]->getKnot(trajs[lidx]->getNumKnots()-1));
+                    trajs[lidx]->extendOneKnot(trajs[lidx]->getKnot(trajs[lidx]->getNumKnots()-1));
                 }
             }
 
@@ -1441,7 +1457,7 @@ int main(int argc, char **argv)
                     string report_opt =
                         myprintf( "%s"
                                  "GPXOpt# %4d.%2d.%2d: CeresIter: %d. Tfs: %3.0f. Tbd: %3.0f. Tslv: %.0f. Tinner: %.3f. Conv: %d, %d, %d, %d, %d, %d. Count %d. dJ%: %f,\n"
-                                 "TSTART: %.3f. TFIN: + %.3f. Tmin-Tmid-Tmax: +[%.3f, %.3f, %.3f]. Trun: %.3f. FASTCHG: %d, %d, %d, %d, %d, %d. Slide: %d, %d.\n"
+                                 "TSTART: %.3f. TFIN: + %.3f. Tmin-Tmid-Tmax: +[%.3f, %.3f, %.3f]. Trun: %.3f. FASTCHG: %d, %d, %d, %d, %d, %d. Slide: %d, %d, %d / %d.\n"
                                  "Factor: MP2K: %3d, Cross: %4d. Ldr: %4d. MPri: %2d. Combo: %s.\n"
                                  "J0: %12.3f. MP2k: %9.3f. Xtrs: %9.3f. LDR: %9.3f. MPri: %9.3f\n"
                                  "Jk: %12.3f. MP2k: %9.3f. Xtrs: %9.3f. LDR: %9.3f. MPri: %9.3f\n"
@@ -1451,7 +1467,7 @@ int main(int argc, char **argv)
                                  report.ceres_iterations, report.tictocs["t_select_feature"], report.tictocs["t_ceres_build"], report.tictocs["t_ceres_solve"], tt_inner_loop.Toc(),
                                  dRconv, dOconv, dSconv, dPconv, dVconv, dAconv, convergence_count, fabs(report.costs["J0"] - report.costs["JK"])/report.costs["J0"]*100,
                                  TSTART, TFINAL - TSTART, tmin - TSTART, tmid - TSTART, tmax - TSTART, (rclcpp::Clock().now() - programstart).seconds(),
-                                 fastR, fastO, fastS, fastP, fastV, fastA, SW_CLOUDSTEP_NOW, SW_CLOUDSTEP_NXT,
+                                 fastR, fastO, fastS, fastP, fastV, fastA, SW_CLOUDSTEP_NOW, SW_CLOUDSTEP_NXT, SW_CLOUDNUM_NOW, SW_CLOUDNUM,
                                  report.factors["MP2K"], report.factors["GPXTRZ"], report.factors["LIDAR"], report.factors["PRIOR"],
                                  variant.c_str(),
                                  report.costs["J0"], report.costs["MP2K0"], report.costs["GPXTRZ0"], report.costs["LIDAR0"], report.costs["PRIOR0"],
