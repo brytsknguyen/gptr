@@ -10,14 +10,14 @@ runexp()
     lidar_bag_file=/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/${sequence}
 
     # Copy the config
-    mkdir -p ${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar
-    cp -r /home/tmn/ros2_ws/src/gptr/gptr/launch ${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar
+    mkdir -p ${logroot}/${sequence}/
+    cp -r /home/tmn/ros2_ws/src/gptr/gptr/launch ${logroot}/${sequence}/
 
     # Kinematic type and use/unuse of closed form
     pose_type=SO3xR3
     use_approx_drv=0
     # Run the experiement
-    for n in {1..5}; do
+    for n in {1..2}; do
         # Directory to log the exp
         log_dir=${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar/try_$n
 
@@ -29,7 +29,7 @@ runexp()
     pose_type=SO3xR3
     use_approx_drv=1
     # Run the experiement
-    for n in {1..5}; do
+    for n in {1..2}; do
         # Directory to log the exp
         log_dir=${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar/try_$n
 
@@ -41,7 +41,7 @@ runexp()
     pose_type=SE3
     use_approx_drv=0
     # Run the experiement
-    for n in {1..5}; do
+    for n in {1..2}; do
         # Directory to log the exp
         log_dir=${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar/try_$n
 
@@ -53,7 +53,7 @@ runexp()
     pose_type=SE3
     use_approx_drv=1
     # Run the experiement
-    for n in {1..5}; do
+    for n in {1..2}; do
         # Directory to log the exp
         log_dir=${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar/try_$n
 
@@ -62,11 +62,15 @@ runexp()
     done
 }
 
-runexp cloud_avia_mid_w25 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_27022025/lio/
-runexp cloud_avia_mid_w35 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_27022025/lio/
-runexp cloud_avia_mid_w45 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_27022025/lio/
-runexp cloud_avia_mid_w55 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_27022025/lio/
-# runexp cloud_avia_mid_w65 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_27022025/lio/
-# runexp cloud_avia_mid_w75 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_27022025/lio/
-# runexp cloud_avia_mid_w85 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_26022025/lio/
-# runexp cloud_avia_mid_dynamic_extrinsics /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_25022025/lio/
+# runexp cloud_avia_mid_w55 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_30022025/lio/
+# runexp cloud_avia_mid_w45 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_30022025/lio/
+# runexp cloud_avia_mid_w35 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_30022025/lio/
+# runexp cloud_avia_mid_w25 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_30022025/lio/
+# runexp cloud_avia_mid_w15 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_30022025/lio/
+
+runexp cloud_avia_mid_w55_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_31022025/lio/
+runexp cloud_avia_mid_w45_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_31022025/lio/
+runexp cloud_avia_mid_w35_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_31022025/lio/
+runexp cloud_avia_mid_w25_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_31022025/lio/
+runexp cloud_avia_mid_w15_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_31022025/lio/
+

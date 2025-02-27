@@ -1116,12 +1116,12 @@ int main(int argc, char **argv)
                 traj_curr_knots[lidx] = trajs[lidx]->getNumKnots();
                 while(trajs[lidx]->getMaxTime() < tmax)
                 {
-                    // // Predict on step ahead
-                    // GPState Xp = trajs[lidx]->predictState(1);
-                    // // Extend the trajectory by the predicted state
-                    // trajs[lidx]->extendOneKnot(Xp);
+                    // Predict on step ahead
+                    GPState Xp = trajs[lidx]->predictState(1);
+                    // Extend the trajectory by the predicted state
+                    trajs[lidx]->extendOneKnot(Xp);
 
-                    trajs[lidx]->extendOneKnot(trajs[lidx]->getKnot(trajs[lidx]->getNumKnots()-1));
+                    // trajs[lidx]->extendOneKnot(trajs[lidx]->getKnot(trajs[lidx]->getNumKnots()-1));
                 }
             }
 

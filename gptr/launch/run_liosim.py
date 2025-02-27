@@ -8,7 +8,7 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 # Sequence
-sequence_ = 'cloud_avia_mid_w65'
+sequence_ = 'cloud_avia_mid_w25_e5'
 
 # Bag file
 lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/{sequence_}'
@@ -17,8 +17,8 @@ lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/{sequenc
 log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/sim_{sequence_}_gptr_two_lidar/'
 
 # Type of pose
-# pose_type_ = 'SE3'
-pose_type_ = 'SO3xR3'
+pose_type_ = 'SE3'
+# pose_type_ = 'SO3xR3'
 
 # Type of pose
 use_approx_drv_ = '0'
@@ -92,7 +92,7 @@ def generate_launch_description():
             {'mpCovPVAJerk'    : 1.0},
             {"pose_type"       : LaunchConfiguration('pose_type')}, # Choose 'SE3' or 'SO3xR3'
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
-            {"lie_epsilon"     : 2e-1},
+            {"lie_epsilon"     : 5e-2},
 
             {'lidar_ds_rate'   : 1},
             {'lidar_weight'    : 10.0},
@@ -124,9 +124,9 @@ def generate_launch_description():
             {'use_ceres'       : 1},
             {'max_ceres_iter'  : 50},
             {'max_outer_iter'  : 1},
-            {'max_inner_iter'  : 3},
-            {'min_inner_iter'  : 3},
-            {'conv_thres'      : 3},
+            {'max_inner_iter'  : 2},
+            {'min_inner_iter'  : 2},
+            {'conv_thres'      : 2},
             {'dJ_conv_thres'   : 10.0},
             {'conv_dX_thres'   : [-0.05, -0.5, -1.0, -0.05, -0.5, -1.0 ]},
             {'change_thres'    : [-15.0, -0.5, -1.0, -15.0, -8.0, -2.0 ]},

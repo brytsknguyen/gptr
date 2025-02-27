@@ -27,7 +27,7 @@ def generate_launch_description():
             {"gpDt"             : 0.04357},
             {"gpQr"             : 1.00},
             {"gpQc"             : 1.00},
-            {"pose_type"        : "SE3"}, # Choose 'SE3' or 'SO3xR3'
+            {"pose_type"        : "SO3xR3"}, # Choose 'SE3' or 'SO3xR3'
             {"lie_epsilon"      : 1e-2},
             {"use_approx_drv"   : 0},
 
@@ -42,7 +42,7 @@ def generate_launch_description():
             {"fuse_imu"         : 1},
 
             # Parameters for the solver
-            {"SLIDE_SIZE"       : 2},      # How many knots to slide
+            {"SLIDE_SIZE"       : 5},      # How many knots to slide
             {"WINDOW_SIZE"      : 20},     # How many knot length does the sliding window
             {"w_tdoa"           : 100.0},  # Coefficients for TDOA residuals
             {"GYR_N"            : 2000.0}, # Coefficients for IMU residuals

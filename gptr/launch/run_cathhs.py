@@ -21,7 +21,7 @@ log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/cathhs_{
 pose_type_ = 'SO3xR3'
 
 # Type of pose
-use_approx_drv_ = '0'
+use_approx_drv_ = '1'
 
 # Initial pose in each sequence
 xyzypr_W_L0 =[ 0,   0,  0,   0, 0,  0,
