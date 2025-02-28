@@ -85,6 +85,8 @@ protected:
     double lambda = 0.1;
     double dXM = 0.1;
 
+    vector<vector<std::mt19937>> mt19937gen;
+
 public:
 
     Eigen::MatrixXd CRSToEigenDense(ceres::CRSMatrix &J)
@@ -133,6 +135,13 @@ public:
         Util::GetParam(nh, "max_acc", max_alp);
         Util::GetParam(nh, "xtCovROSJerk", xtCovROSJerk);
         Util::GetParam(nh, "xtCovPVAJerk", xtCovPVAJerk);
+
+        int SW_CLOUDNUM;
+        Util::GetParam(nh, "SW_CLOUDNUM", SW_CLOUDNUM);
+        mt19937gen.resize(Nlidar);
+        for(int lidx = 0; lidx < Nlidar; lidx++)
+            for(int widx = 0; widx < SW_CLOUDNUM; widx++)
+                mt19937gen[lidx].push_back(std::mt19937(widx + 5743));
 
         use_ceres = Util::GetBoolParam(nh, "use_ceres", true);
         fuse_marg = Util::GetBoolParam(nh, "fuse_marg", false);
@@ -1162,16 +1171,15 @@ public:
             // If number of lidar feature remains large, randomly select a subset
             if (total_selected > max_coef_per_lidar)
             {
-                // Define Fisher-Yates shuffle lambda function
-                auto fisherYatesShuffle = [](std::vector<int>& array)
-                {
-                    std::random_device rd;
-                    std::mt19937 gen(rd());
 
+                // Define Fisher-Yates shuffle lambda function with fixed seed
+                auto fisherYatesShuffle = [](std::vector<int>& array, std::mt19937 &mt19937gen)
+                {
+                    // std::mt19937 gen(cidx); // Fixed seed for reproducibility
                     for (int i = array.size() - 1; i > 0; --i)
                     {
                         std::uniform_int_distribution<int> distribution(0, i);
-                        int j = distribution(gen);
+                        int j = distribution(mt19937gen);
                         std::swap(array[i], array[j]);
                     }
                 };
@@ -1188,11 +1196,11 @@ public:
                 {
                     shuffledIdx[cidx] = vector<int>(featureBySwStep[cidx].size());
                     std::iota(shuffledIdx[cidx].begin(), shuffledIdx[cidx].end(), 0);
-                    
+
                     // Shuffle the feature set a few times
-                    fisherYatesShuffle(shuffledIdx[cidx]);
-                    fisherYatesShuffle(shuffledIdx[cidx]);
-                    fisherYatesShuffle(shuffledIdx[cidx]);
+                    fisherYatesShuffle(shuffledIdx[cidx], mt19937gen[lidx][cidx]);
+                    fisherYatesShuffle(shuffledIdx[cidx], mt19937gen[lidx][cidx]);
+                    fisherYatesShuffle(shuffledIdx[cidx], mt19937gen[lidx][cidx]);
                 }
 
                 for(int cidx = 0; cidx < WINDOW_SIZE; cidx++)

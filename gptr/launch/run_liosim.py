@@ -51,7 +51,7 @@ def generate_launch_description():
             {"lidar_bag_file"  : LaunchConfiguration('lidar_bag_file')},
             
             # Total number of clouds loaded
-            {'MAX_CLOUDS'      : 175},
+            {'MAX_CLOUDS'      : 60},
 
             # Time since first pointcloud to skip MAP Opt
             {'SKIPPED_TIME'    : 4.7},
@@ -92,7 +92,7 @@ def generate_launch_description():
             {'mpCovPVAJerk'    : 1.0},
             {"pose_type"       : LaunchConfiguration('pose_type')}, # Choose 'SE3' or 'SO3xR3'
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
-            {"lie_epsilon"     : 5e-2},
+            {"lie_epsilon"     : 1e-2},
 
             {'lidar_ds_rate'   : 1},
             {'lidar_weight'    : 10.0},

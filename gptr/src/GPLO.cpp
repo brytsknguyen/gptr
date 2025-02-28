@@ -215,6 +215,7 @@ void getInitPose(int lidx,
     // Downsample the pointcloud
     pc0[lidx] = uniformDownsample<PointXYZI>(pc0[lidx], pmap_leaf_size);
     RINFO("Intial cloud of lidar %d, Points: %d -> %d\n", lidx, Norg, pc0[lidx]->size());
+
     // Find ICP alignment and refine
     CloudMatcher cm(0.1, 0.1);
     // Set the original position of the anchors
@@ -666,13 +667,13 @@ int main(int argc, char **argv)
             PointOuster pb = cloudRaw->points.front();
             PointOuster pf = cloudRaw->points.back();
 
-            // Downsample the pointcloud
-            Vector3d offset(offsetgen(gen), offsetgen(gen), offsetgen(gen));
+            // // Downsample the pointcloud
+            // Vector3d offset(offsetgen(gen), offsetgen(gen), offsetgen(gen));
             
-            // Transform all the points back to the original, downsample, then transform back
-            pcl::transformPointCloud(*cloudRaw, *cloudRaw, myTf<double>(Quaternf(1, 0, 0, 0),  offset).cast<float>().tfMat());
-            cloudRaw = uniformDownsample<PointOuster>(cloudRaw, cloud_ds[lidx]);
-            pcl::transformPointCloud(*cloudRaw, *cloudRaw, myTf<double>(Quaternf(1, 0, 0, 0), -offset).cast<float>().tfMat());
+            // // Transform all the points back to the original, downsample, then transform back
+            // pcl::transformPointCloud(*cloudRaw, *cloudRaw, myTf<double>(Quaternf(1, 0, 0, 0),  offset).cast<float>().tfMat());
+            // cloudRaw = uniformDownsample<PointOuster>(cloudRaw, cloud_ds[lidx]);
+            // pcl::transformPointCloud(*cloudRaw, *cloudRaw, myTf<double>(Quaternf(1, 0, 0, 0), -offset).cast<float>().tfMat());
 
             // Check if we should reinsert the first and last points
             if ( !(pb.x == cloudRaw->points.front().x
@@ -714,9 +715,9 @@ int main(int argc, char **argv)
             }
 
             if (cidx % 100 == 0)
-                RINFO("Loading file %s at time %f. CIDX: %05d. Read Time: %f. Time: %f -> %f.",
+                RINFO("Loading file %s at time %f. CIDX: %05d. Read Time: %f. Time: %f -> %f. Size: %d.",
                       filename.c_str(), timestamp.seconds(), cidx, tt_read.Toc(), 
-                      clouds[lidx][cidx]->points.front().t, clouds[lidx][cidx]->points.back().t);
+                      clouds[lidx][cidx]->points.front().t, clouds[lidx][cidx]->points.back().t, clouds[lidx][cidx]->size());
         }
     }
 
@@ -783,7 +784,7 @@ int main(int argc, char **argv)
                 }
             }
 
-            RINFO("GNDTR cloud size: %d point(s)\n");
+            RINFO("GNDTR cloud size: %d point(s)\n", gndtrCloud[lidx]->size());
         }
     }
 
@@ -806,7 +807,7 @@ int main(int argc, char **argv)
         vector<thread> poseInitThread(Nlidar);
         for(int lidx = 0; lidx < Nlidar; lidx++)
             poseInitThread[lidx] = thread(getInitPose, lidx, std::ref(clouds), std::ref(cloudstamp), std::ref(priormap),
-                                        std::ref(timestart), std::ref(xyzypr_W_L0), std::ref(pc0), std::ref(tf_W_Li0), std::ref(tf_W_Li0_refined));
+                                          std::ref(timestart), std::ref(xyzypr_W_L0), std::ref(pc0), std::ref(tf_W_Li0), std::ref(tf_W_Li0_refined));
 
         for(int lidx = 0; lidx < Nlidar; lidx++)
             poseInitThread[lidx].join();
@@ -831,7 +832,7 @@ int main(int argc, char **argv)
         return TSTART + cidx*deltaT + deltaT;
     };
 
-    auto splitCloud = [&tcloudStart, &tcloudFinal](double tstart, double tfinal, double dt, vector<CloudXYZITPtr> &cloudsIn, vector<CloudXYZITPtr> &cloudsOut) -> void
+    auto splitCloud = [&tcloudStart, &tcloudFinal](double tstart, double tfinal, double dt, const vector<CloudXYZITPtr> &cloudsIn, vector<CloudXYZITPtr> &cloudsOut) -> void
     {
         // Create clouds in cloudsOut
         cloudsOut.clear();
@@ -872,7 +873,8 @@ int main(int argc, char **argv)
     for(int lidx = 0; lidx < Nlidar; lidx++)
     {
         splitCloud(TSTART, TFINAL, deltaT, clouds[lidx], cloudsx[lidx]);
-        RINFO("Split cloud: %d -> %d", clouds[lidx].size(), cloudsx[lidx].size());
+        RINFO("Split cloud: %d -> %d. First sizes: %d, %d", clouds[lidx].size(), cloudsx[lidx].size(),
+               clouds[lidx].front()->size(), cloudsx[lidx].front()->size());
     }
 
     // Check for empty cloud and fill in place holders
@@ -1161,7 +1163,7 @@ int main(int argc, char **argv)
                     // Associate
                     gpmaplo->Associate(traj, ikdTreeMap, priormap, cloudRaw, cloudUndi, cloudUndiInW, cloudCoeff);
                 };
-
+                
                 for(int lidx = 0; lidx < Nlidar; lidx++)
                 {
                     for(int idx = SW_BEG; idx < SW_END; idx++)
@@ -1170,9 +1172,7 @@ int main(int argc, char **argv)
                         swCloud[lidx][swIdx] = uniformDownsample<PointXYZIT>(cloudsx[lidx][idx], cloud_ds[lidx]);
                         ProcessCloud(gpmaplo[lidx], swCloud[lidx][swIdx], swCloudUndi[lidx][swIdx], swCloudUndiInW[lidx][swIdx], swCloudCoef[lidx][swIdx]);
 
-                        // RINFO("%f, %d, %d, %d, %d.", lidarWeightUpScale, idx, SW_END, SW_CLOUDSTEP, SW_CLOUDNUM);
-                        // for(auto &coef : swCloudCoef[lidx][swIdx])
-                        //     coef.plnrty *= (swIdx + 1);
+                        // RINFO("lidx %d. idx %d. cloudsx: %d. swCloud: %d. coef: %d\n", lidx, idx, cloudsx[lidx][idx]->size(), swCloud[lidx][swIdx]->size(), swCloudCoef[lidx][swIdx].size());
                     }
                 }
 
@@ -1189,7 +1189,6 @@ int main(int argc, char **argv)
                 gpmlc->Evaluate(inner_iter, outer_iter, trajs, tmin, tmax, tmid, swCloudCoef,
                                 featuresSelected, inner_iter >= max_inner_iter - 1 || converged,
                                 report);
-
 
                 // Check the lengths of the trajs and copy the extended part to the odom
                 for(int lidx = 0; lidx < Nlidar; lidx++)
