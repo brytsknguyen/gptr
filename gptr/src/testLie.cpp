@@ -680,7 +680,7 @@ int main(int argc, char **argv)
     double Dt = 0.1102;
     Mat3 CovROSJerk = Vec3(9.4, 4.7, 3.1).asDiagonal();
     Mat3 CovPVAJerk = Vec3(6.3, 6.5, 0.7).asDiagonal();
-    GPMixer mySE3GPMixer(Dt, CovROSJerk, CovPVAJerk, POSE_GROUP::SE3, 1e-3, true);
+    GPMixer mySE3GPMixer(Dt, CovROSJerk, CovPVAJerk, POSE_GROUP::SE3, 1e-3, false);
 
     Vec3 X(4.3, 5.7, 91.0);
     Vec3 Xd(11, 2, 19);

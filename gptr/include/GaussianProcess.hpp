@@ -2121,9 +2121,8 @@ public:
 
     // Constructor
     GaussianProcess(double Dt_, Mat3 CovROSJerk_, Mat3 CovPVAJerk_, bool keepCov_ = false,
-                    POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3, double lie_epsilon_ = 1e-3, bool use_approx_drv_ = true)
-        : Dt(Dt_), keepCov(keepCov_),
-          gpm(GPMixerPtr(new GPMixer(Dt_, CovROSJerk_, CovPVAJerk_, pose_representation_, lie_epsilon_, use_approx_drv_))) {};
+                    POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3, double lie_epsilon_ = 1e-3, bool use_approx_drv_ = false)
+        : Dt(Dt_), keepCov(keepCov_), gpm(GPMixerPtr(new GPMixer(Dt_, CovROSJerk_, CovPVAJerk_, pose_representation_, lie_epsilon_, use_approx_drv_))) {};
 
           // Constructor
     GaussianProcess(const GPMixerPtr &gpm_)

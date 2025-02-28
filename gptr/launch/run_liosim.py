@@ -51,7 +51,7 @@ def generate_launch_description():
             {"lidar_bag_file"  : LaunchConfiguration('lidar_bag_file')},
             
             # Total number of clouds loaded
-            {'MAX_CLOUDS'      : 60},
+            {'MAX_CLOUDS'      : 170},
 
             # Time since first pointcloud to skip MAP Opt
             {'SKIPPED_TIME'    : 4.7},
@@ -86,13 +86,13 @@ def generate_launch_description():
             {'cloud_ds'        : [0.1, 0.1]},
 
             # GN MAP optimization params
-            {'deltaT'          : 0.05743},
+            {'deltaT'          : 0.1},
             # Motion prior factors
             {'mpCovROSJerk'    : 1.0},
             {'mpCovPVAJerk'    : 1.0},
             {"pose_type"       : LaunchConfiguration('pose_type')}, # Choose 'SE3' or 'SO3xR3'
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
-            {"lie_epsilon"     : 1e-2},
+            {"lie_epsilon"     : 1e-1},
 
             {'lidar_ds_rate'   : 1},
             {'lidar_weight'    : 10.0},
@@ -113,7 +113,7 @@ def generate_launch_description():
             {'max_acc'         : -5.0},
 
             # Extrinsic estimation
-            {'SW_CLOUDNUM'     : 20},
+            {'SW_CLOUDNUM'     : 8},
             {'SW_CLOUDSTEP'    : 1},
             {'max_lidarcoefs'  : 2000},
             {'XTRZ_DENSITY'    : 1},
