@@ -38,7 +38,7 @@ using namespace Eigen;
 #define RESET "\033[0m"
 
 // Threshold to use approximation to avoid numerical issues
-#define DOUBLE_EPSILON 1e-2
+#define DOUBLE_EPSILON 1e-3
 
 template <typename Derived>
 Eigen::MatrixXd CastJetToDouble(const MatrixBase<Derived> &M_)
@@ -471,8 +471,8 @@ public:
     template <class T = double>
     static Eigen::Matrix<T, 3, 3> Jr(const Eigen::Matrix<T, 3, 1> &The)
     {
-        if (The.norm() < DOUBLE_EPSILON)
-            return Eigen::Matrix<T, 3, 3>::Identity() - 0.5*Sophus::SO3<T>::hat(The);
+        // if (The.norm() < DOUBLE_EPSILON)
+        //     return Eigen::Matrix<T, 3, 3>::Identity() - 0.5*Sophus::SO3<T>::hat(The);
 
         return Sophus::SO3<T>::leftJacobian(-The);
     }
@@ -481,12 +481,11 @@ public:
     template <class T = double>
     static Eigen::Matrix<T, 3, 3> JrInv(const Eigen::Matrix<T, 3, 1> &The)
     {
-        if (The.norm() < DOUBLE_EPSILON)
-            return Eigen::Matrix<T, 3, 3>::Identity() + 0.5*Sophus::SO3<T>::hat(The);
+        // if (The.norm() < DOUBLE_EPSILON)
+        //     return Eigen::Matrix<T, 3, 3>::Identity() + 0.5*Sophus::SO3<T>::hat(The);
 
         return Sophus::SO3<T>::leftJacobianInverse(-The);
     }
-
 
     // left Jacobian for SO3
     template <class T = double>
