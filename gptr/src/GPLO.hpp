@@ -1265,6 +1265,17 @@ public:
                         problem.AddParameterBlock(P_Lx_Ly[lidx].data(), 3);
                         paramInfoMap.insert(R_Lx_Ly[lidx].data(), ParamInfo(R_Lx_Ly[lidx].data(), getEigenPtr(R_Lx_Ly[lidx]), ParamType::SO3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 0));
                         paramInfoMap.insert(P_Lx_Ly[lidx].data(), ParamInfo(P_Lx_Ly[lidx].data(), getEigenPtr(P_Lx_Ly[lidx]), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
+
+                        // // Add constraint to xt 
+                        // problem.SetParameterUpperBound(P_Lx_Ly[lidx].data(), 0, -0.12);
+                        // problem.SetParameterLowerBound(P_Lx_Ly[lidx].data(), 0, -0.22);
+
+                        // problem.SetParameterUpperBound(P_Lx_Ly[lidx].data(), 1,  0.05);
+                        // problem.SetParameterLowerBound(P_Lx_Ly[lidx].data(), 1, -0.05);
+
+                        // problem.SetParameterUpperBound(P_Lx_Ly[lidx].data(), 2, -0.45);
+                        // problem.SetParameterLowerBound(P_Lx_Ly[lidx].data(), 2, -0.65);
+
                     }
 
             // Sanity check

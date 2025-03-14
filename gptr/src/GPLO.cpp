@@ -243,7 +243,7 @@ void getInitPose(int lidx,
     ioaOpt.text = myprintf( "T_W_L(%d,0)_refined_%d", lidx, 10);
     IOASummary ioaSum;
     ioaSum.final_tf = ioaOpt.init_tf;
-    cm.IterateAssociateOptimize(ioaOpt, ioaSum, priormap, pc0[lidx]);
+    // cm.IterateAssociateOptimize(ioaOpt, ioaSum, priormap, pc0[lidx]);
     RINFO("Refined: \n");
     cout << ioaSum.final_tf.tfMat() << endl;
     

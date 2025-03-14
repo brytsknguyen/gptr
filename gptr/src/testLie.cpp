@@ -690,12 +690,12 @@ int main(int argc, char **argv)
     Mat3 Jr = GPMixer::Jr(X);
     Mat3 JrInv = GPMixer::JrInv(X);
 
-    Vec3 _X = -X;
-    Mat3 Jr_ = GPMixer::Jl(_X);
-    Mat3 JrInv_ = GPMixer::JlInv(_X);
+    // Vec3 _X = -X;
+    // Mat3 Jr_ = GPMixer::Jl(_X);
+    // Mat3 JrInv_ = GPMixer::JlInv(_X);
 
-    compare("Error Jr      : ", Jr, Jr_);
-    compare("Error JrInv   : ", JrInv, JrInv_);
+    // compare("Error Jr      : ", Jr, Jr_);
+    // compare("Error JrInv   : ", JrInv, JrInv_);
     compare("Error Jr*JrInv: ", Jr * JrInv, Mat3::Identity(3, 3));
 
     Vec3 O = GPMixer::Jr(X) * Xd;
@@ -1145,8 +1145,21 @@ int main(int argc, char **argv)
     mySE3GPMixer.ComputeXtAndJacobiansSE3(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
     tt_se3.Toc();
 
-    printf("tt_se3   : %f ms\n", tt_se3.GetLastStop());
-    printf("tt_split : %f ms\n", tt_split.GetLastStop());
+    GPMixer mySE3GPMixerApr(Dt, CovROSJerk, CovPVAJerk, POSE_GROUP::SE3, 1e-3, true);
+
+    // Interpolate and find Jacobian
+    TicToc tt_splitap;
+    mySE3GPMixerApr.ComputeXtAndJacobiansSO3xR3(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
+    tt_splitap.Toc();
+
+    TicToc tt_se3ap;
+    mySE3GPMixerApr.ComputeXtAndJacobiansSE3(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
+    tt_se3ap.Toc();
+
+    printf("tt_split   : %f ms\n", tt_split.GetLastStop());
+    printf("tt_split ap: %f ms\n", tt_splitap.GetLastStop());
+    printf("tt_se3     : %f ms\n", tt_se3.GetLastStop());
+    printf("tt_se3 ap  : %f ms\n", tt_se3ap.GetLastStop());
 
     // POSE_GROUP pr = POSE_GROUP::SO3xR3;
     POSE_GROUP pr = POSE_GROUP::SE3;
@@ -1271,4 +1284,5 @@ int main(int argc, char **argv)
         cout << KBLU "Jacobian Xb_autodiff:\n" RESET << Jacobian_autodiff.block(0, 18, 18, 18) << endl;
         cout << KYEL "Jacobian Xb diff:\n" RESET << thresholdMatrix(Jacobian_autodiff.block(0, 18, 18, 18) - Jacobian_analytic.block(0, 18, 18, 18), 1e-9) << endl;
     }
+
 }
