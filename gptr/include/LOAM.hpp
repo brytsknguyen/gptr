@@ -146,7 +146,7 @@ public:
                     continue;
                     
                 // Fit the plane
-                if(Util::fitPlane(nbrPoints, 0.5, 0.2, Coef_[pidx].n, Coef_[pidx].plnrty))
+                if(Util::fitPlane(nbrPoints, min_planarity, max_plane_dis, Coef_[pidx].n, Coef_[pidx].plnrty))
                 {
                     // assert(tpoint >= 0);
                     Coef_[pidx].t = tpoint;
