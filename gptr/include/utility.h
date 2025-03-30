@@ -377,9 +377,9 @@ struct myTf
     myTf(const nav_msgs::msg::Odometry &odom)
     {
         this->rot = Quaternion<T>(odom.pose.pose.orientation.w,
-                                    odom.pose.pose.orientation.x,
-                                    odom.pose.pose.orientation.y,
-                                    odom.pose.pose.orientation.z);
+                                  odom.pose.pose.orientation.x,
+                                  odom.pose.pose.orientation.y,
+                                  odom.pose.pose.orientation.z);
                                     
         this->pos << odom.pose.pose.position.x,
                      odom.pose.pose.position.y,
@@ -477,6 +477,19 @@ struct myTf
         p.intensity = -1;
 
         return p;
+    }
+
+    RosOdomMsg rosOdom()
+    {
+        RosOdomMsg msg;
+        msg.pose.pose.position.x = pos.x();
+        msg.pose.pose.position.y = pos.y();
+        msg.pose.pose.position.z = pos.z();
+        msg.pose.pose.orientation.x = rot.x();
+        msg.pose.pose.orientation.y = rot.y();
+        msg.pose.pose.orientation.z = rot.z();
+        msg.pose.pose.orientation.w = rot.w();
+        return msg;
     }
 
     myTf<T> slerp(double s, myTf<T> tfend)

@@ -8,27 +8,26 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 # Sequence
-sequence_ = 'cathhs_07'
+sequence_ = 'cloud_mid_ouster_w55_e5'
 
 # Bag file
-lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence_}'
+lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/{sequence_}'
 
 # Direction to log the exp
-log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/cathhs_{sequence_}_gptr_two_lidar/'
+log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/sim_{sequence_}_gptr_two_lidar/'
 
 # Type of pose
 # pose_type_ = 'SE3'
 pose_type_ = 'SO3xR3'
 
 # Type of pose
-use_approx_drv_ = '0'
+use_approx_drv_ = '1'
 
 # Knot length
-deltaT_ = '0.1'
+deltaT_ = '0.3'
 
 # Initial pose in each sequence
-xyzypr_W_L0 =[ 0,   0,  0,   0, 0,  0,
-               0.2, 0, -0.2, 0, 90, 0 ]
+xyzypr_W_L0 =[ -0.35, -0.35, 0.5, -135, 0,  0 ]
 
 def generate_launch_description():
     
@@ -49,7 +48,7 @@ def generate_launch_description():
         parameters  =
         [
             # Location of the prior map
-            {"priormap_file"   : "/media/tmn/mySataSSD1/Experiments/gptr/cathhs_iot_prior_2cm.pcd"},
+            {"priormap_file"   : "/media/tmn/mySataSSD1/Experiments/gptr/sim_priormap.pcd"},
             
             # Location of bag file
             {"lidar_bag_file"  : LaunchConfiguration('lidar_bag_file')},
@@ -58,15 +57,15 @@ def generate_launch_description():
             {'MAX_CLOUDS'      : -1},
 
             # Time since first pointcloud to skip MAP Opt
-            {'SKIPPED_TIME'    : 2.0},
+            {'SKIPPED_TIME'    : 4.7},
             {'RECURRENT_SKIP'  : 0},
 
             # Set to '1' to skip optimization
             {'VIZ_ONLY'        : 0},
 
             # Lidar topics and their settings
-            {'lidar_topic'     : ['/livox/lidar_0/points', '/livox/lidar_1/points']},
-            {'lidar_type'      : ['ouster', 'ouster']},
+            {'lidar_topic'     : ['/lidar_1/points']},
+            {'lidar_type'      : ['livox', 'livox']},
             {'stamp_time'      : ['start', 'start']},
 
             # Imu topics and their settings
@@ -76,37 +75,33 @@ def generate_launch_description():
             {'runkf'           : 1},
 
             # Set to 1 to load the search for previous logs and redo
-            {'resume_from_log' : [0, 0]},
+            {'resume_from_log' : [1, 1]},
 
             # Initial pose of each lidars
             {'xyzypr_W_L0'     : xyzypr_W_L0},
 
             # Groundtruth for evaluation
-            {'xtrz_gndtr'      : [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                   0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ]},
-            
-            {'T_E_G'           : [ -0.00037886633842519943, -0.011824967458688653, -0.6445255757936823, 177.41697100832081, -0.8380643201341046, -0.4324815049625096,
-                                    0.018040371221108277,   -0.005781886649251375, -0.6659410499572929, 177.8095334058065,  -0.6988913250237251, -0.4278818562418 ]},
+            {'xtrz_gndtr'      : [ -0.1767767, 0, -0.53033009, 180, 45, 0 ]},
 
             # Leaf size to downsample priormap
-            {'pmap_leaf_size'  : 0.1},
-            {'cloud_ds'        : [0.2, 0.2]},
+            {'pmap_leaf_size'  : 0.15},
+            {'cloud_ds'        : [0.1, 0.1]},
 
             # GN MAP optimization params
             {'deltaT'          : LaunchConfiguration('deltaT')},
             # Motion prior factors
-            {'mpCovROSJerk'    : 100.0},
-            {'mpCovPVAJerk'    : 100.0},
+            {'mpCovROSJerk'    : 1.0},
+            {'mpCovPVAJerk'    : 1.0},
             {"pose_type"       : LaunchConfiguration('pose_type')}, # Choose 'SE3' or 'SO3xR3'
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
-            {"lie_epsilon"     : 1e-2},
+            {"lie_epsilon"     : 1e-1},
 
             {'lidar_ds_rate'   : 1},
-            {'lidar_weight'    : 50.0},
+            {'lidar_weight'    : 10.0},
 
             # Extrinsic factors
-            {'xtCovROSJerk'    : 200.0},
-            {'xtCovPVAJerk'    : 200.0},
+            {'xtCovROSJerk'    : 0.1},
+            {'xtCovPVAJerk'    : 0.1},
 
             # Loss function threshold
             {'ld_loss_thres'   : -1.0},
@@ -120,9 +115,9 @@ def generate_launch_description():
             {'max_acc'         : -5.0},
 
             # Extrinsic estimation
-            {'SW_CLOUDNUM'     : PythonExpression(['int(30.0/', LaunchConfiguration('deltaT'), ')'])},
+            {'SW_CLOUDNUM'     : PythonExpression(['int(1.2/', LaunchConfiguration('deltaT'), ' + 0.5)'])},
             {'SW_CLOUDSTEP'    : 1},
-            {'max_lidarcoefs'  : 8000},
+            {'max_lidarcoefs'  : 1000},
             {'XTRZ_DENSITY'    : 1},
             {'min_planarity'   : 0.5},
             {'max_plane_dis'   : 0.5},
@@ -130,10 +125,10 @@ def generate_launch_description():
             
             {'use_ceres'       : 1},
             {'max_ceres_iter'  : 50},
-            {'max_outer_iter'  : 2},
-            {'max_inner_iter'  : 5},
-            {'min_inner_iter'  : 5},
-            {'conv_thres'      : 5},
+            {'max_outer_iter'  : 1},
+            {'max_inner_iter'  : 2},
+            {'min_inner_iter'  : 2},
+            {'conv_thres'      : 2},
             {'dJ_conv_thres'   : 10.0},
             {'conv_dX_thres'   : [-0.05, -0.5, -1.0, -0.05, -0.5, -1.0 ]},
             {'change_thres'    : [-15.0, -0.5, -1.0, -15.0, -8.0, -2.0 ]},
@@ -165,7 +160,7 @@ def generate_launch_description():
         executable  = 'rviz2',
         name        = 'rviz2',
         output      = 'screen',
-        arguments   = ['-d', get_package_share_directory('gptr') + '/launch/gptr_cathhs.rviz']
+        arguments   = ['-d', get_package_share_directory('gptr') + '/launch/gptr_lo_sim.rviz']
     )
 
     on_exit_action = RegisterEventHandler(event_handler=OnProcessExit(

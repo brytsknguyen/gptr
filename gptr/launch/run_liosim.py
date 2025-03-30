@@ -2,13 +2,13 @@
 from launch import LaunchDescription
 from launch.event_handlers import OnProcessExit
 from launch.actions import RegisterEventHandler, LogInfo, EmitEvent, DeclareLaunchArgument, Shutdown
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 # Sequence
-sequence_ = 'cloud_avia_mid_w25_e5'
+sequence_ = 'cloud_avia_mid_w75_e5'
 
 # Bag file
 lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/{sequence_}'
@@ -17,22 +17,26 @@ lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/{sequenc
 log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/sim_{sequence_}_gptr_two_lidar/'
 
 # Type of pose
-pose_type_ = 'SE3'
-# pose_type_ = 'SO3xR3'
+# pose_type_ = 'SE3'
+pose_type_ = 'SO3xR3'
 
 # Type of pose
-use_approx_drv_ = '0'
+use_approx_drv_ = '1'
+
+# Knot length
+deltaT_ = '0.3'
 
 # Initial pose in each sequence
 xyzypr_W_L0 =[ 0,    0,   0.70,  43,  48, 0,
-              -0.3, -0.3, 0.55, -134, 0,  0 ]
+              -0.35, -0.35, 0.5, -135, 0,  0 ]
 
 def generate_launch_description():
     
     lidar_bag_file  = DeclareLaunchArgument('lidar_bag_file', default_value=lidar_bag_file_, description='')   # Bag file
     log_dir         = DeclareLaunchArgument('log_dir', default_value=log_dir_, description='')                 # Direction to log the exp
     pose_type       = DeclareLaunchArgument('pose_type', default_value=pose_type_, description='')             # Variant of kinematics
-    use_approx_drv  = DeclareLaunchArgument('use_approx_drv', default_value=use_approx_drv_, description='') # Variant of approximation
+    use_approx_drv  = DeclareLaunchArgument('use_approx_drv', default_value=use_approx_drv_, description='')   # Variant of approximation
+    deltaT          = DeclareLaunchArgument('deltaT', default_value=deltaT_, description='')                   # Variant of approximation
 
     # GPTR LO node
     gptr_lo_node = Node(
@@ -51,7 +55,7 @@ def generate_launch_description():
             {"lidar_bag_file"  : LaunchConfiguration('lidar_bag_file')},
             
             # Total number of clouds loaded
-            {'MAX_CLOUDS'      : 170},
+            {'MAX_CLOUDS'      : -1},
 
             # Time since first pointcloud to skip MAP Opt
             {'SKIPPED_TIME'    : 4.7},
@@ -86,10 +90,10 @@ def generate_launch_description():
             {'cloud_ds'        : [0.1, 0.1]},
 
             # GN MAP optimization params
-            {'deltaT'          : 0.1},
+            {'deltaT'          : LaunchConfiguration('deltaT')},
             # Motion prior factors
-            {'mpCovROSJerk'    : 1.0},
-            {'mpCovPVAJerk'    : 1.0},
+            {'mpCovROSJerk'    : 0.5},
+            {'mpCovPVAJerk'    : 0.5},
             {"pose_type"       : LaunchConfiguration('pose_type')}, # Choose 'SE3' or 'SO3xR3'
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
             {"lie_epsilon"     : 1e-1},
@@ -98,8 +102,8 @@ def generate_launch_description():
             {'lidar_weight'    : 10.0},
 
             # Extrinsic factors
-            {'xtCovROSJerk'    : 200.0},
-            {'xtCovPVAJerk'    : 200.0},
+            {'xtCovROSJerk'    : 0.1},
+            {'xtCovPVAJerk'    : 0.1},
 
             # Loss function threshold
             {'ld_loss_thres'   : -1.0},
@@ -113,11 +117,11 @@ def generate_launch_description():
             {'max_acc'         : -5.0},
 
             # Extrinsic estimation
-            {'SW_CLOUDNUM'     : 8},
+            {'SW_CLOUDNUM'     : PythonExpression(['int(1.2/', LaunchConfiguration('deltaT'), ' + 0.5)'])},
             {'SW_CLOUDSTEP'    : 1},
-            {'max_lidarcoefs'  : 2000},
+            {'max_lidarcoefs'  : 4000},
             {'XTRZ_DENSITY'    : 1},
-            {'min_planarity'   : 0.2},
+            {'min_planarity'   : 0.5},
             {'max_plane_dis'   : 0.5},
             {'knnsize'         : 6},
             
@@ -168,6 +172,6 @@ def generate_launch_description():
     
     # launch_arg = DeclareLaunchArgument('cartinbot_viz', required=True, description='Testing')
 
-    return LaunchDescription([lidar_bag_file, log_dir, pose_type, use_approx_drv,
+    return LaunchDescription([lidar_bag_file, log_dir, deltaT, pose_type, use_approx_drv,
                               gptr_lo_node, cartinbot_viz, rviz_node,
                               on_exit_action])

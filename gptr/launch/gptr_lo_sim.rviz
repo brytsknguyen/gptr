@@ -7,14 +7,13 @@ Panels:
         - /Global Options1
         - /Status1
         - /Lidar01
-        - /Lidar01/AssocCloud1/Status1
         - /Lidar01/Odometry1/Shape1
         - /Lidar01/Odometry1/Covariance1
         - /Lidar11
         - /Lidar11/Odometry1/Shape1
         - /Marker1
       Splitter Ratio: 0.22324159741401672
-    Tree Height: 540
+    Tree Height: 363
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -527,7 +526,7 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Scale: 46.39960479736328
+      Scale: 110.45857238769531
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz_default_plugins)
       X: 0

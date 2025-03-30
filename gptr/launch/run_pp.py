@@ -27,7 +27,7 @@ pose_type_ = 'SO3xR3'
 use_approx_drv_ = '0'
 
 # Knot length
-deltaT_ = '0.05'
+deltaT_ = '0.1'
 
 # Initial pose in each sequence
 xyzypr_W_L0 =[ 0,   0,  0,   0, 0,  0,
@@ -52,18 +52,34 @@ def generate_launch_description():
         parameters  =
         [
             # Gtr traj params
-            {"wq"              : 5.0},
-            {"wp"              : 0.15},
-            {"rq1"             : M_PI*0.5},
-            {"rq2"             : M_PI*sqrt(3)*0.5},
-            {"rp"              : 5.0},
+            # SO3xR3 trajectory
+            {"wqx1"            : 3*5.0},
+            {"wqy1"            : 3*5.0},
+            {"wqz1"            : 1*5.0},
+            {"wpx1"            : 3*0.15},
+            {"wpy1"            : 3*0.15},
+            {"wpz1"            : 1*0.15},
+            {"rqx1"            : M_PI*0.5},
+            {"rqy1"            : M_PI*0.5},
+            {"rqz1"            : M_PI*sqrt(3)/2},
+            {"rpx1"            : 5.0},
+            {"rpy1"            : 5.0},
+            {"rpz1"            : 5.0},
+            
+            # SE3 trajectory
+            {"wpx2"            : 3*1.5},
+            {"wpy2"            : 3*1.5},
+            {"wpz2"            : 1*1.5},
+            {"rpx2"            : 5.0},
+            {"rpy2"            : 5.0},
+            {"rpz2"            : 5.0},
             
             
             # GN MAP optimization params
             {"maxTime"         : 69.0/3},
             {'deltaT'          : LaunchConfiguration('deltaT')},
-            {'mpCovROSJerk'    : 1.0},
-            {'mpCovPVAJerk'    : 1.0},
+            {'mpCovROSJerk'    : 10.0},
+            {'mpCovPVAJerk'    : 10.0},
             {"pose_type"       : LaunchConfiguration('pose_type')}, # Choose 'SE3' or 'SO3xR3'
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
             {"lie_epsilon"     : 1e-2},
@@ -72,6 +88,7 @@ def generate_launch_description():
             
             # UWB param config
             {"uwb_rate"        : 50.0},
+            {"uwb_noise"       : 0.0},
 
         ]  # Optional: pass parameters if needed
     )

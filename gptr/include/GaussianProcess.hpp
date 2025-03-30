@@ -233,6 +233,8 @@ public:
 //     // Destructor
 //    ~GPMixer() {};
 
+    GPMixer() {};
+
     // Constructor
     GPMixer(double Dt_, const Mat3 CovROSJerk_, const Mat3 CovPVAJerk_,
             const POSE_GROUP pose_representation_ = POSE_GROUP::SO3xR3,
