@@ -15,14 +15,16 @@
 #include "utility.h"
 
 using namespace std;
+namespace fs = std::filesystem;
 
 NodeHandlePtr nh_ptr;
+string log_dir;
 
 // Ground truth trajectory
 
-double wqx1 = 3*5.0;
-double wqy1 = 3*5.0;
-double wqz1 = 1*5.0;
+double wqx1 = 3*0.1;
+double wqy1 = 3*0.1;
+double wqz1 = 1*0.1;
 double wpx1 = 3*0.15;
 double wpy1 = 3*0.15;
 double wpz1 = 1*0.15;
@@ -55,11 +57,21 @@ public:
    ~GtTrajSO3xR3() {};
     GtTrajSO3xR3() {};
 
+    void setn(int n_) { n = n_; }
+
+    double getwqx() { return wqx1*n; }
+    double getwqy() { return wqy1*n; }
+    double getwqz() { return wqz1*n; }
+
+    double getwpx() { return wpx1*n; }
+    double getwpy() { return wpy1*n; }
+    double getwpz() { return wpz1*n; }
+
     myTf<double> pose(double t) const
     {
-        Quaternd Q = SO3d::exp(Vector3d(rqx1*cos(wqx1*t + 57),
-                                        rqy1*sin(wqy1*t + 57),
-                                        rqz1*sin(wqz1*t + 43))).unit_quaternion();
+        Quaternd Q = SO3d::exp(Vector3d(rqx1*cos(wqx1*n*t + 57),
+                                        rqy1*sin(wqy1*n*t + 57),
+                                        rqz1*sin(wqz1*n*t + 43))).unit_quaternion();
         Vector3d P( rpx1*sin(wpx1*t + 43),
                     rpy1*cos(wpy1*t + 43),
                     rpz1*cos(wpz1*t + 57));
@@ -67,6 +79,9 @@ public:
     }
 
 private:
+    
+    int n = 1;
+
     // double r1 = M_PI*0.5;
     // double r2 = M_PI*sqrt(3)/2;
     // double wr = 1.0;
@@ -78,20 +93,26 @@ class GtTrajSE3
 public:
 
    ~GtTrajSE3() {};
-    GtTrajSE3()
-        : gpm(GPMixer())
-    {};
+    GtTrajSE3() {};
 
-    GPMixer gpm;
+    void setn(int n_) { n = n_; }
+
+    double getwqx() { return wqx1*n; }
+    double getwqy() { return wqy1*n; }
+    double getwqz() { return wqz1*n; }
+
+    double getwpx() { return wpx2*n; }
+    double getwpy() { return wpy2*n; }
+    double getwpz() { return wpz2*n; }
             
     myTf<double> pose(double t) const
     {
-        Vector3d P( rpx2*sin(wpx2*t + 43),
-                    rpy2*cos(wpy2*t + 43),
-                    rpz2*cos(wpz2*t + 57));
-        Vector3d V( rpx2*wpx2*cos(wpx2*t + 43),
-                   -rpy2*wpy2*sin(wpy2*t + 43),
-                   -rpz2*wpz2*sin(wpz2*t + 57));
+        Vector3d P( rpx2*sin(wpx2*n*t + 43),
+                    rpy2*cos(wpy2*n*t + 43),
+                    rpz2*cos(wpz2*n*t + 57));
+        Vector3d V( rpx2*wpx2*n*cos(wpx2*n*t + 43),
+                   -rpy2*wpy2*n*sin(wpy2*n*t + 43),
+                   -rpz2*wpz2*n*sin(wpz2*n*t + 57));
         Vector3d ex = V/V.norm();
         Vector3d rn = P/P.norm();
         Vector3d ez = SO3d::hat(rn)*ex; ez = ez/ez.norm();
@@ -104,6 +125,9 @@ public:
     }
 
 private:
+
+    int n = 1;
+    
     // double r1 = M_PI*0.5;
     // double r2 = M_PI*sqrt(3)/2;
     // double wr = 1.0;
@@ -291,7 +315,7 @@ void InitializeTrajEst(GaussianProcessPtr &traj, const T &gtTraj)
     // Fixed seed for reproducibility
     std::mt19937 rng(43); 
     // Define a uniform distribution (e.g., integers between 1 and 100)
-    std::normal_distribution<double> rdist(0.0, 0.1);
+    std::normal_distribution<double> rdist(0.0, 0.2);
     std::normal_distribution<double> pdist(0.0, 0.2);
 
     // Initialize the pose with erred ground truth
@@ -308,9 +332,8 @@ void InitializeTrajEst(GaussianProcessPtr &traj, const T &gtTraj)
     }
 }
 
-
 template <typename T>
-string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr)
+string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double> &report)
 {
     paramInfoMap.clear();
 
@@ -359,7 +382,7 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr)
     // Calculate the pose errors
     vector<Vector3d> pos_err;
     vector<Vector3d> se3_err;
-    for(double ts = traj->getMinTime() + traj->getDt()/0.5; ts < traj->getMaxTime(); ts += traj->getDt())
+    for(double ts = traj->getMinTime(); ts < traj->getMaxTime(); ts += traj->getDt()/2.0)
     {
         myTf poseEst = myTf(traj->pose(ts));
         myTf poseGtr = trajGtr.pose(ts);
@@ -377,9 +400,9 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr)
     for (auto &err : se3_err)
         se3_rmse += err.dot(err);
     se3_rmse /= se3_err.size();
-    se3_rmse = sqrt(se3_rmse);    
+    se3_rmse = sqrt(se3_rmse);
     
-    string report = myprintf(
+    string report_ = myprintf(
         "Pose group: %s. Method: %s. Dt: %.3f."
         "Tslv: %.0f. Iterations: %d.\n"
         "Factors: MP2K: %05d, UWB: %05d.\n"
@@ -397,60 +420,55 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr)
         pos_rmse, se3_rmse
     );
 
-    return report;
+    report["iter"]    = summary.iterations.size();
+    report["tslv"]    = summary.total_time_in_seconds;
+    report["rmse"]    = pos_rmse;
+    report["J0"]      = summary.initial_cost;
+    report["JK"]      = summary.final_cost;
+    report["MP2KJ0"]  = cost_mp2k_init;
+    report["UWBJ0"]   = cost_uwb_init;
+    report["MP2KJK"]  = cost_mp2k_final;
+    report["UWBJK"]   = cost_uwb_final;
+    
+    return report_;
 }
 
 
 
 int main(int argc, char **argv)
 {
+
+    
     // Initalize ros nodes
     rclcpp::init(argc, argv);
     nh_ptr = rclcpp::Node::make_shared("GPTRPP");
 
-
+    // Log direction
+    Util::GetParam(nh_ptr, "log_dir", log_dir);   RINFO("Log dir: %s", log_dir.c_str());
+    fs::create_directories(log_dir);
 
     // Get the params for ground truth
 
-    Util::GetParam(nh_ptr, "wqx1", wqx1);
-    Util::GetParam(nh_ptr, "wqy1", wqy1);
-    Util::GetParam(nh_ptr, "wqz1", wqz1);
-    Util::GetParam(nh_ptr, "wpx1", wpx1);
-    Util::GetParam(nh_ptr, "wpy1", wpy1);
-    Util::GetParam(nh_ptr, "wpz1", wpz1);
-    Util::GetParam(nh_ptr, "rqx1", rqx1);
-    Util::GetParam(nh_ptr, "rqy1", rqy1);
-    Util::GetParam(nh_ptr, "rqz1", rqz1);
-    Util::GetParam(nh_ptr, "rpx1", rpx1);
-    Util::GetParam(nh_ptr, "rpy1", rpy1);
-    Util::GetParam(nh_ptr, "rpz1", rpz1);
+    Util::GetParam(nh_ptr, "wqx1", wqx1);   RINFO("Found param wqx1: %f", wqx1);
+    Util::GetParam(nh_ptr, "wqy1", wqy1);   RINFO("Found param wqy1: %f", wqy1);
+    Util::GetParam(nh_ptr, "wqz1", wqz1);   RINFO("Found param wqz1: %f", wqz1);
+    Util::GetParam(nh_ptr, "rqx1", rqx1);   RINFO("Found param rqx1: %f", rqx1);
+    Util::GetParam(nh_ptr, "rqy1", rqy1);   RINFO("Found param rqy1: %f", rqy1);
+    Util::GetParam(nh_ptr, "rqz1", rqz1);   RINFO("Found param rqz1: %f", rqz1);
 
-    Util::GetParam(nh_ptr, "wpx2", wpx2);
-    Util::GetParam(nh_ptr, "wpy2", wpy2);
-    Util::GetParam(nh_ptr, "wpz2", wpz2);
-    Util::GetParam(nh_ptr, "rpx2", rpx2);
-    Util::GetParam(nh_ptr, "rpy2", rpy2);
-    Util::GetParam(nh_ptr, "rpz2", rpz2);
+    Util::GetParam(nh_ptr, "wpx1", wpx1);   RINFO("Found param wpx1: %f", wpx1);
+    Util::GetParam(nh_ptr, "wpy1", wpy1);   RINFO("Found param wpy1: %f", wpy1);
+    Util::GetParam(nh_ptr, "wpz1", wpz1);   RINFO("Found param wpz1: %f", wpz1);
+    Util::GetParam(nh_ptr, "rpx1", rpx1);   RINFO("Found param rpx1: %f", rpx1);
+    Util::GetParam(nh_ptr, "rpy1", rpy1);   RINFO("Found param rpy1: %f", rpy1);
+    Util::GetParam(nh_ptr, "rpz1", rpz1);   RINFO("Found param rpz1: %f", rpz1);
 
-    RINFO("Found param wqx1: %f", wqx1);
-    RINFO("Found param wqy1: %f", wqy1);
-    RINFO("Found param wqz1: %f", wqz1);
-    RINFO("Found param wpx1: %f", wpx1);
-    RINFO("Found param wpy1: %f", wpy1);
-    RINFO("Found param wpz1: %f", wpz1);
-    RINFO("Found param rqx1: %f", rqx1);
-    RINFO("Found param rqy1: %f", rqy1);
-    RINFO("Found param rqz1: %f", rqz1);
-    RINFO("Found param rpx1: %f", rpx1);
-    RINFO("Found param rpy1: %f", rpy1);
-    RINFO("Found param rpz1: %f", rpz1);
-
-    RINFO("Found param wpx2: %f", wpx2);
-    RINFO("Found param wpy2: %f", wpy2);
-    RINFO("Found param wpz2: %f", wpz2);
-    RINFO("Found param rpx2: %f", rpx2);
-    RINFO("Found param rpy2: %f", rpy2);
-    RINFO("Found param rpz2: %f", rpz2);
+    Util::GetParam(nh_ptr, "wpx2", wpx2);   RINFO("Found param wpx2: %f", wpx2);
+    Util::GetParam(nh_ptr, "wpy2", wpy2);   RINFO("Found param wpy2: %f", wpy2);
+    Util::GetParam(nh_ptr, "wpz2", wpz2);   RINFO("Found param wpz2: %f", wpz2);
+    Util::GetParam(nh_ptr, "rpx2", rpx2);   RINFO("Found param rpx2: %f", rpx2);
+    Util::GetParam(nh_ptr, "rpy2", rpy2);   RINFO("Found param rpy2: %f", rpy2);
+    Util::GetParam(nh_ptr, "rpz2", rpz2);   RINFO("Found param rpz2: %f", rpz2);
 
 
 
@@ -491,127 +509,296 @@ int main(int argc, char **argv)
 
 
 
-
-
-    // Creating the trajectory and assess
-
-    GaussianProcessPtr trajSO3xR3AP(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, true));
-    GaussianProcessPtr trajSO3xR3CF(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, false));
-    GaussianProcessPtr trajSE3AP(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, true));
-    GaussianProcessPtr trajSE3CF(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, false));
-
-    InitializeTrajEst(trajSO3xR3AP, gtTrajSO3xR3);
-    InitializeTrajEst(trajSO3xR3CF, gtTrajSO3xR3);
-    InitializeTrajEst(trajSE3AP, gtTrajSO3xR3);
-    InitializeTrajEst(trajSE3CF, gtTrajSO3xR3);
-
-    // Confirm that the trajectories have the same control points
-    for(int kidx = 0; kidx < trajSO3xR3AP->getNumKnots(); kidx++)
+    auto Experiment = [&](string logname, auto gtrTraj, int M, int N)
     {
-        SO3d dR = (trajSO3xR3AP->getKnotSO3(kidx).inverse() * trajSO3xR3CF->getKnotSO3(kidx));
-        ROS_ASSERT_MSG(dR.log().norm() < 1.0e-9, "%f", dR.log().norm());
+        std::ofstream logfile(logname, std::ios::out);
+        logfile << std::fixed << std::setprecision(6);
+        logfile << "wqx1,wqy1,wqz1,"
+                   "wpx1,wpy1,wpz1,"
+                   "dt,"
+                   "so3xr3ap_tslv,so3xr3cf_tslv,se3ap_tslv,se3cf_tslv,"
+                   "so3xr3ap_JK,so3xr3cf_JK,se3ap_JK,se3cf_JK,"
+                   "so3xr3ap_rmse,so3xr3cf_rmse,se3ap_rmse,se3cf_rmse\n";
 
-        assert((trajSO3xR3AP->getKnotOmg(kidx) - trajSO3xR3CF->getKnotOmg(kidx)).norm() == 0.0);
-        assert((trajSO3xR3AP->getKnotAlp(kidx) - trajSO3xR3CF->getKnotAlp(kidx)).norm() == 0.0);
-        assert((trajSO3xR3AP->getKnotPos(kidx) - trajSO3xR3CF->getKnotPos(kidx)).norm() == 0.0);
-        assert((trajSO3xR3AP->getKnotVel(kidx) - trajSO3xR3CF->getKnotVel(kidx)).norm() == 0.0);
-        assert((trajSO3xR3AP->getKnotAcc(kidx) - trajSO3xR3CF->getKnotAcc(kidx)).norm() == 0.0);
-    }
-    
-    // Assess with the SO3xR3 trajectory
-    string report_SO3xR3_by_SO3xR3AP = AssessTraj(trajSO3xR3AP, gtTrajSO3xR3);
-    string report_SO3xR3_by_SO3xR3CF = AssessTraj(trajSO3xR3CF, gtTrajSO3xR3);
-    string report_SO3xR3_by_SE3AP___ = AssessTraj(trajSE3AP,    gtTrajSO3xR3);
-    string report_SO3xR3_by_SE3CF___ = AssessTraj(trajSE3CF,    gtTrajSO3xR3);
+        for (int m = 1; m <= M; m++)
+        {
+            deltaT = 0.025*m;
 
-    RINFO("SO3xR3Traj %s", report_SO3xR3_by_SO3xR3AP.c_str());
-    RINFO("SO3xR3Traj %s", report_SO3xR3_by_SO3xR3CF.c_str());
-    RINFO("SO3xR3Traj %s", report_SO3xR3_by_SE3AP___.c_str());
-    RINFO("SO3xR3Traj %s", report_SO3xR3_by_SE3CF___.c_str());
+            map<string, double> so3xr3ap_report;
+            map<string, double> so3xr3cf_report;
+            map<string, double> se3ap_report;
+            map<string, double> se3cf_report;
 
-    InitializeTrajEst(trajSO3xR3AP, gtTrajSE3);
-    InitializeTrajEst(trajSO3xR3CF, gtTrajSE3);
-    InitializeTrajEst(trajSE3AP, gtTrajSE3);
-    InitializeTrajEst(trajSE3CF, gtTrajSE3);
+            for (int n = 1; n <= N; n++)
+            {
+                GaussianProcessPtr trajSO3xR3AP(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, true));
+                GaussianProcessPtr trajSO3xR3CF(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, false));
+                GaussianProcessPtr trajSE3AP(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, true));
+                GaussianProcessPtr trajSE3CF(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, false));
 
-    // Assess with the SE3 trajectory
-    string report_SE3_by_SO3xR3AP = AssessTraj(trajSO3xR3AP, gtTrajSE3);
-    string report_SE3_by_SO3xR3CF = AssessTraj(trajSO3xR3CF, gtTrajSE3);
-    string report_SE3_by_SE3AP___ = AssessTraj(trajSE3AP,    gtTrajSE3);
-    string report_SE3_by_SE3CF___ = AssessTraj(trajSE3CF,    gtTrajSE3);
+                gtrTraj.setn(n);
 
-    RINFO("SE3Traj %s", report_SE3_by_SO3xR3AP.c_str());
-    RINFO("SE3Traj %s", report_SE3_by_SO3xR3CF.c_str());
-    RINFO("SE3Traj %s", report_SE3_by_SE3AP___.c_str());
-    RINFO("SE3Traj %s", report_SE3_by_SE3CF___.c_str());
+                InitializeTrajEst(trajSO3xR3AP, gtrTraj);
+                InitializeTrajEst(trajSO3xR3CF, gtrTraj);
+                InitializeTrajEst(trajSE3AP, gtrTraj);
+                InitializeTrajEst(trajSE3CF, gtrTraj);
+
+                double rmse = -1;
+                // Assess with the SO3xR3 trajectory
+                string report_SO3xR3_by_SO3xR3AP = AssessTraj(trajSO3xR3AP, gtrTraj, so3xr3ap_report);
+                string report_SO3xR3_by_SO3xR3CF = AssessTraj(trajSO3xR3CF, gtrTraj, so3xr3cf_report);
+                string report_SO3xR3_by_SE3AP___ = AssessTraj(trajSE3AP,    gtrTraj, se3ap_report);
+                string report_SO3xR3_by_SE3CF___ = AssessTraj(trajSE3CF,    gtrTraj, se3cf_report);
+
+                RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SO3xR3AP.c_str());
+                RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SO3xR3CF.c_str());
+                RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SE3AP___.c_str());
+                RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SE3CF___.c_str());
+
+                // Save the rmse result to the log
+                logfile << gtrTraj.getwqx() << ","
+                        << gtrTraj.getwqy() << ","
+                        << gtrTraj.getwqz() << ","
+                        << gtrTraj.getwpx() << ","
+                        << gtrTraj.getwpy() << ","
+                        << gtrTraj.getwpz() << ","
+                        << deltaT << ","
+                        << so3xr3ap_report["tslv"] << ","
+                        << so3xr3cf_report["tslv"] << ","
+                        << se3ap_report["tslv"] << ","
+                        << se3cf_report["tslv"] << ","
+                        << so3xr3ap_report["JK"] << ","
+                        << so3xr3cf_report["JK"] << ","
+                        << se3ap_report["JK"] << ","
+                        << se3cf_report["JK"] << ","
+                        << so3xr3ap_report["rmse"] << ","
+                        << so3xr3cf_report["rmse"] << ","
+                        << se3ap_report["rmse"] << ","
+                        << se3cf_report["rmse"]
+                        << endl;
+            }
+        }
+        logfile.close();
+    };
 
 
+    Experiment(log_dir + "/trajso3xr3.csv", gtTrajSO3xR3, 10, 50);
+    Experiment(log_dir + "/trajse3.csv",    gtTrajSE3,    10, 50);
+
+    // // Creating the trajectory and assess
+    // std::ofstream so3xr3_logfile(log_dir + "/trajso3xr3.csv", std::ios::out); // Open in append mode
+    // so3xr3_logfile << std::fixed << std::setprecision(6);
+    // so3xr3_logfile << "wqx1,wqy1,wqz1,dt,so3xr3ap_JK,so3xr3cf_JK,se3ap_JK,se3cf_JK,so3xr3ap_rmse,so3xr3cf_rmse,se3ap_rmse,se3cf_rmse\n";
+    // for (int m = 1; m <= 20; m++)
+    // {
+    //     deltaT = 0.025*m;
+
+    //     map<string, double> so3xr3ap_report;
+    //     map<string, double> so3xr3cf_report;
+    //     map<string, double> se3ap_report;
+    //     map<string, double> se3cf_report;
+
+    //     for (int n = 1; n <= 30; n++)
+    //     {
+    //         GaussianProcessPtr trajSO3xR3AP(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, true));
+    //         GaussianProcessPtr trajSO3xR3CF(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, false));
+    //         GaussianProcessPtr trajSE3AP(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, true));
+    //         GaussianProcessPtr trajSE3CF(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, false));
+
+    //         wqx1 = 3*0.1*n;
+    //         wqy1 = 3*0.1*n;
+    //         wqz1 = 1*0.1*n;
+
+    //         // wq1.push_back(Vector3d(wqx1, wqy1, wqz1));
+
+    //         InitializeTrajEst(trajSO3xR3AP, gtTrajSO3xR3);
+    //         InitializeTrajEst(trajSO3xR3CF, gtTrajSO3xR3);
+    //         InitializeTrajEst(trajSE3AP, gtTrajSO3xR3);
+    //         InitializeTrajEst(trajSE3CF, gtTrajSO3xR3);
+
+    //         double rmse = -1;
+    //         // Assess with the SO3xR3 trajectory
+    //         string report_SO3xR3_by_SO3xR3AP = AssessTraj(trajSO3xR3AP, gtTrajSO3xR3, so3xr3ap_report);
+    //         string report_SO3xR3_by_SO3xR3CF = AssessTraj(trajSO3xR3CF, gtTrajSO3xR3, so3xr3cf_report);
+    //         string report_SO3xR3_by_SE3AP___ = AssessTraj(trajSE3AP,    gtTrajSO3xR3, se3ap_report);
+    //         string report_SO3xR3_by_SE3CF___ = AssessTraj(trajSE3CF,    gtTrajSO3xR3, se3cf_report);
+
+    //         RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SO3xR3AP.c_str());
+    //         RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SO3xR3CF.c_str());
+    //         RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SE3AP___.c_str());
+    //         RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SE3CF___.c_str());
+
+    //         // Save the rmse result to the log
+    //         so3xr3_logfile << wqx1 << ","
+    //                        << wqy1 << ","
+    //                        << wqz1 << ","
+    //                        << deltaT << ","
+    //                        << so3xr3ap_report["JK"] << ","
+    //                        << so3xr3cf_report["JK"] << ","
+    //                        << se3ap_report["JK"] << ","
+    //                        << se3cf_report["JK"] << ","
+    //                        << so3xr3ap_report["rmse"] << ","
+    //                        << so3xr3cf_report["rmse"] << ","
+    //                        << se3ap_report["rmse"] << ","
+    //                        << se3cf_report["rmse"]
+    //                        << endl;
+    //     }
+    // }
+    // so3xr3_logfile.close();
+
+    // // Creating the trajectory and assess
+    // std::ofstream se3_logfile(log_dir + "/trajse3.csv", std::ios::out); // Open in append mode
+    // se3_logfile << std::fixed << std::setprecision(6);
+    // so3xr3_logfile << "wqx1,wqy1,wqz1,dt,so3xr3ap_JK,so3xr3cf_JK,se3ap_JK,se3cf_JK,so3xr3ap_rmse,so3xr3cf_rmse,se3ap_rmse,se3cf_rmse\n";
+    // for (int m = 1; m <= 12; m++)
+    // {
+    //     deltaT = 0.025*m;
+
+    //     map<string, double> so3xr3ap_report;
+    //     map<string, double> so3xr3cf_report;
+    //     map<string, double> se3ap_report;
+    //     map<string, double> se3cf_report;
+
+    //     for (int n = 0; n < 10; n++)
+    //     {
+    //         GaussianProcessPtr trajSO3xR3AP(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, true));
+    //         GaussianProcessPtr trajSO3xR3CF(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, false));
+    //         GaussianProcessPtr trajSE3AP(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, true));
+    //         GaussianProcessPtr trajSE3CF(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, false));
+
+    //         wqx1 = 3*0.1*n;
+    //         wqy1 = 3*0.1*n;
+    //         wqz1 = 1*0.1*n;
+
+    //         // wq1.push_back(Vector3d(wqx1, wqy1, wqz1));
+
+    //         InitializeTrajEst(trajSO3xR3AP, gtTrajSO3xR3);
+    //         InitializeTrajEst(trajSO3xR3CF, gtTrajSO3xR3);
+    //         InitializeTrajEst(trajSE3AP, gtTrajSO3xR3);
+    //         InitializeTrajEst(trajSE3CF, gtTrajSO3xR3);
+
+    //         double rmse = -1;
+    //         // Assess with the SO3xR3 trajectory
+    //         string report_SE3_by_SO3xR3AP = AssessTraj(trajSO3xR3AP, gtTrajSO3xR3, so3xr3ap_report);
+    //         string report_SE3_by_SO3xR3CF = AssessTraj(trajSO3xR3CF, gtTrajSO3xR3, so3xr3cf_report);
+    //         string report_SE3_by_SE3AP___ = AssessTraj(trajSE3AP,    gtTrajSO3xR3, se3ap_report);
+    //         string report_SE3_by_SE3CF___ = AssessTraj(trajSE3CF,    gtTrajSO3xR3, se3cf_report);
+
+    //         RINFO("SE3Traj %2dx%2d %s", m, n, report_SE3_by_SO3xR3AP.c_str());
+    //         RINFO("SE3Traj %2dx%2d %s", m, n, report_SE3_by_SO3xR3CF.c_str());
+    //         RINFO("SE3Traj %2dx%2d %s", m, n, report_SE3_by_SE3AP___.c_str());
+    //         RINFO("SE3Traj %2dx%2d %s", m, n, report_SE3_by_SE3CF___.c_str());
+
+    //         // Save the rmse result to the log
+    //         se3_logfile << wqx1 << ","
+    //                     << wqy1 << ","
+    //                     << wqz1 << ","
+    //                     << deltaT << ","
+    //                     << so3xr3ap_report["JK"] << ","
+    //                     << so3xr3cf_report["JK"] << ","
+    //                     << se3ap_report["JK"] << ","
+    //                     << se3cf_report["JK"] << ","
+    //                     << so3xr3ap_report["rmse"] << ","
+    //                     << so3xr3cf_report["rmse"] << ","
+    //                     << se3ap_report["rmse"] << ","
+    //                     << se3cf_report["rmse"]
+    //                     << endl;
+    //     }
+    // }
+    // se3_logfile.close();
+
+
+    // trajSO3xR3AP->saveTrajectory(log_dir + "/traj_so3x3_so3xr3ap.csv");
+    // trajSO3xR3CF->saveTrajectory(log_dir + "/traj_so3x3_so3xr3cf.csv");
+    // trajSE3AP->saveTrajectory(log_dir + "/traj_so3x3_se3ap.csv");
+    // trajSE3CF->saveTrajectory(log_dir + "/traj_so3x3_se3cf.csv");
+
+    // InitializeTrajEst(trajSO3xR3AP, gtTrajSE3);
+    // InitializeTrajEst(trajSO3xR3CF, gtTrajSE3);
+    // InitializeTrajEst(trajSE3AP, gtTrajSE3);
+    // InitializeTrajEst(trajSE3CF, gtTrajSE3);
+
+    // // Assess with the SE3 trajectory
+    // string report_SE3_by_SO3xR3AP = AssessTraj(trajSO3xR3AP, gtTrajSE3);
+    // string report_SE3_by_SO3xR3CF = AssessTraj(trajSO3xR3CF, gtTrajSE3);
+    // string report_SE3_by_SE3AP___ = AssessTraj(trajSE3AP,    gtTrajSE3);
+    // string report_SE3_by_SE3CF___ = AssessTraj(trajSE3CF,    gtTrajSE3);
+
+    // RINFO("SE3Traj %s", report_SE3_by_SO3xR3AP.c_str());
+    // RINFO("SE3Traj %s", report_SE3_by_SO3xR3CF.c_str());
+    // RINFO("SE3Traj %s", report_SE3_by_SE3AP___.c_str());
+    // RINFO("SE3Traj %s", report_SE3_by_SE3CF___.c_str());
+
+    // trajSO3xR3AP->saveTrajectory(log_dir + "/traj_se3_so3xr3ap.csv");
+    // trajSO3xR3CF->saveTrajectory(log_dir + "/traj_se3_so3xr3cf.csv");
+    // trajSE3AP->saveTrajectory(log_dir + "/traj_se3_se3ap.csv");
+    // trajSE3CF->saveTrajectory(log_dir + "/traj_se3_se3cf.csv");
 
     // Visualizing the result
 
-    rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajEstSO3xR3APPub = nh_ptr->create_publisher<RosPc2Msg>("/gp_traj_est_so3xr3_cf", 1);
-    rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajEstSO3xR3CFPub = nh_ptr->create_publisher<RosPc2Msg>("/gp_traj_est_so3xr3_ap", 1);
-    rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajEstSE3APPub = nh_ptr->create_publisher<RosPc2Msg>("/gp_traj_est_se3_cf", 1);
-    rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajEstSE3CFPub = nh_ptr->create_publisher<RosPc2Msg>("/gp_traj_est_se3_ap", 1);
+    // rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajEstSO3xR3APPub = nh_ptr->create_publisher<RosPc2Msg>("/gp_traj_est_so3xr3_cf", 1);
+    // rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajEstSO3xR3CFPub = nh_ptr->create_publisher<RosPc2Msg>("/gp_traj_est_so3xr3_ap", 1);
+    // rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajEstSE3APPub = nh_ptr->create_publisher<RosPc2Msg>("/gp_traj_est_se3_cf", 1);
+    // rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajEstSE3CFPub = nh_ptr->create_publisher<RosPc2Msg>("/gp_traj_est_se3_ap", 1);
 
-    rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajGtrSO3xR3Pub = nh_ptr->create_publisher<RosPc2Msg>("/gp_trajso3xr3_gtr", 1);
-    rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajGtrSE3Pub = nh_ptr->create_publisher<RosPc2Msg>("/gp_trajse3_gtr", 1);
+    // rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajGtrSO3xR3Pub = nh_ptr->create_publisher<RosPc2Msg>("/gp_trajso3xr3_gtr", 1);
+    // rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajGtrSE3Pub = nh_ptr->create_publisher<RosPc2Msg>("/gp_trajse3_gtr", 1);
     
-    rclcpp::Publisher<RosOdomMsg>::SharedPtr odomTrajGtrSO3xR3Pub = nh_ptr->create_publisher<RosOdomMsg>("/gp_trajso3xr3_gtr_odom", 1);
-    rclcpp::Publisher<RosOdomMsg>::SharedPtr odomTrajGtrSE3Pub = nh_ptr->create_publisher<RosOdomMsg>("/gp_trajse3_gtr_odom", 1);
+    // rclcpp::Publisher<RosOdomMsg>::SharedPtr odomTrajGtrSO3xR3Pub = nh_ptr->create_publisher<RosOdomMsg>("/gp_trajso3xr3_gtr_odom", 1);
+    // rclcpp::Publisher<RosOdomMsg>::SharedPtr odomTrajGtrSE3Pub = nh_ptr->create_publisher<RosOdomMsg>("/gp_trajse3_gtr_odom", 1);
 
-    CloudPosePtr cloudTrajEstSO3xR3AP = CloudPosePtr(new CloudPose());
-    CloudPosePtr cloudTrajEstSO3xR3CF = CloudPosePtr(new CloudPose());
-    CloudPosePtr cloudTrajEstSE3AP = CloudPosePtr(new CloudPose());
-    CloudPosePtr cloudTrajEstSE3CF = CloudPosePtr(new CloudPose());
+    // CloudPosePtr cloudTrajEstSO3xR3AP = CloudPosePtr(new CloudPose());
+    // CloudPosePtr cloudTrajEstSO3xR3CF = CloudPosePtr(new CloudPose());
+    // CloudPosePtr cloudTrajEstSE3AP = CloudPosePtr(new CloudPose());
+    // CloudPosePtr cloudTrajEstSE3CF = CloudPosePtr(new CloudPose());
 
-    CloudPosePtr cloudTrajGtrSO3xR3 = CloudPosePtr(new CloudPose());
-    CloudPosePtr cloudTrajGtrSE3 = CloudPosePtr(new CloudPose());
+    // CloudPosePtr cloudTrajGtrSO3xR3 = CloudPosePtr(new CloudPose());
+    // CloudPosePtr cloudTrajGtrSE3 = CloudPosePtr(new CloudPose());
 
-    for(int kidx = 0; kidx < trajSO3xR3AP->getNumKnots(); kidx++)
-    {
-        double knot_time = trajSO3xR3AP->getKnotTime(kidx);
-        ROS_ASSERT_MSG(trajSO3xR3AP->getKnotTime(kidx) == trajSO3xR3CF->getKnotTime(kidx),
-                       "Knot time not match: %f, %f",
-                       trajSO3xR3AP->getKnotTime(kidx), trajSO3xR3CF->getKnotTime(kidx));
-
-        cloudTrajEstSO3xR3AP->points.push_back(myTf(trajSO3xR3AP->getKnotPose(kidx)).Pose6D(knot_time));
-        cloudTrajEstSO3xR3CF->points.push_back(myTf(trajSO3xR3CF->getKnotPose(kidx)).Pose6D(knot_time));
-        cloudTrajEstSE3AP->points.push_back(myTf(trajSE3AP->getKnotPose(kidx)).Pose6D(knot_time));
-        cloudTrajEstSE3CF->points.push_back(myTf(trajSE3CF->getKnotPose(kidx)).Pose6D(knot_time));
-
-        cloudTrajGtrSO3xR3->points.push_back(gtTrajSO3xR3.pose(knot_time).Pose6D(knot_time));
-        cloudTrajGtrSE3->points.push_back(gtTrajSE3.pose(knot_time).Pose6D(knot_time));
-    }
-
-    int kidx = 0;
-    while(rclcpp::ok())
-    {
-        // Publish global trajectory
-        Util::publishCloud(cloudTrajEstSO3xR3APPub, *cloudTrajEstSO3xR3AP, rclcpp::Clock().now(), "world");
-        Util::publishCloud(cloudTrajEstSO3xR3CFPub, *cloudTrajEstSO3xR3CF, rclcpp::Clock().now(), "world");
-        Util::publishCloud(cloudTrajEstSE3APPub, *cloudTrajEstSE3AP, rclcpp::Clock().now(), "world");
-        Util::publishCloud(cloudTrajEstSE3CFPub, *cloudTrajEstSE3CF, rclcpp::Clock().now(), "world");
+    // for(int kidx = 0; kidx < trajSO3xR3AP->getNumKnots(); kidx++)
+    // {
+    //     // ROS_ASSERT_MSG(trajSO3xR3AP->getKnotTime(kidx) == trajSO3xR3CF->getKnotTime(kidx),
+    //     //                "Knot time not match: %f, %f",
+    //     //                trajSO3xR3AP->getKnotTime(kidx), trajSO3xR3CF->getKnotTime(kidx));
         
-        Util::publishCloud(cloudTrajGtrSO3xR3Pub, *cloudTrajGtrSO3xR3, rclcpp::Clock().now(), "world");
-        Util::publishCloud(cloudTrajGtrSE3Pub, *cloudTrajGtrSE3, rclcpp::Clock().now(), "world");
+    //     double knot_time = trajSO3xR3AP->getKnotTime(kidx);
+    //     cloudTrajEstSO3xR3AP->points.push_back(myTf(trajSO3xR3AP->getKnotPose(kidx)).Pose6D(knot_time));
+    //     cloudTrajEstSO3xR3CF->points.push_back(myTf(trajSO3xR3CF->getKnotPose(kidx)).Pose6D(knot_time));
+    //     cloudTrajEstSE3AP->points.push_back(myTf(trajSE3AP->getKnotPose(kidx)).Pose6D(knot_time));
+    //     cloudTrajEstSE3CF->points.push_back(myTf(trajSE3CF->getKnotPose(kidx)).Pose6D(knot_time));
 
-        double tk = trajSO3xR3AP->getKnotTime(kidx);
+    //     cloudTrajGtrSO3xR3->points.push_back(gtTrajSO3xR3.pose(knot_time).Pose6D(knot_time));
+    //     cloudTrajGtrSE3->points.push_back(gtTrajSE3.pose(knot_time).Pose6D(knot_time));
+    // }
 
-        RosOdomMsg odom_so3xr3 = gtTrajSO3xR3.pose(tk).rosOdom();
-        odom_so3xr3.header.frame_id = "world";
-        odom_so3xr3.header.stamp = rclcpp::Clock().now();
-        odomTrajGtrSO3xR3Pub->publish(odom_so3xr3);
+    // int kidx = 0;
+    // while(rclcpp::ok())
+    // {
+    //     // Publish global trajectory
+    //     Util::publishCloud(cloudTrajEstSO3xR3APPub, *cloudTrajEstSO3xR3AP, rclcpp::Clock().now(), "world");
+    //     Util::publishCloud(cloudTrajEstSO3xR3CFPub, *cloudTrajEstSO3xR3CF, rclcpp::Clock().now(), "world");
+    //     Util::publishCloud(cloudTrajEstSE3APPub, *cloudTrajEstSE3AP, rclcpp::Clock().now(), "world");
+    //     Util::publishCloud(cloudTrajEstSE3CFPub, *cloudTrajEstSE3CF, rclcpp::Clock().now(), "world");
 
-        RosOdomMsg odom_se3 = gtTrajSE3.pose(tk).rosOdom();
-        odom_se3.header.frame_id = "world";
-        odom_se3.header.stamp = rclcpp::Clock().now();
-        odomTrajGtrSE3Pub->publish(odom_se3);
+    //     Util::publishCloud(cloudTrajGtrSO3xR3Pub, *cloudTrajGtrSO3xR3, rclcpp::Clock().now(), "world");
+    //     Util::publishCloud(cloudTrajGtrSE3Pub, *cloudTrajGtrSE3, rclcpp::Clock().now(), "world");
 
-        kidx = kidx >= trajSO3xR3AP->getNumKnots() - 1 ? 0 : kidx + 1;
+    //     double tk = trajSO3xR3AP->getKnotTime(kidx);
 
-        this_thread::sleep_for(chrono::milliseconds(int(deltaT*1000)));
-    }
+    //     RosOdomMsg odom_so3xr3 = gtTrajSO3xR3.pose(tk).rosOdom();
+    //     odom_so3xr3.header.frame_id = "world";
+    //     odom_so3xr3.header.stamp = rclcpp::Clock().now();
+    //     odomTrajGtrSO3xR3Pub->publish(odom_so3xr3);
+
+    //     RosOdomMsg odom_se3 = gtTrajSE3.pose(tk).rosOdom();
+    //     odom_se3.header.frame_id = "world";
+    //     odom_se3.header.stamp = rclcpp::Clock().now();
+    //     odomTrajGtrSE3Pub->publish(odom_se3);
+
+    //     kidx = kidx >= trajSO3xR3AP->getNumKnots() - 1 ? 0 : kidx + 1;
+
+    //     this_thread::sleep_for(chrono::milliseconds(int(deltaT*1000)));
+    // }
 
     return 0;
 }

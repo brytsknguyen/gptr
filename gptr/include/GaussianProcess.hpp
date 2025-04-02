@@ -2523,6 +2523,53 @@ public:
         return true;
     }
 
+    bool saveTrajectory(string logfile_)
+    {
+        std::ofstream logfile;
+        logfile.open(logfile_); // Open the file for writing
+        logfile.precision(std::numeric_limits<double>::digits10 + 1);
+
+        logfile << "Dt:" << Dt << ";Order:" << 3 << ";Knots:" << getNumKnots() << ";MinTime:" << t0 << ";MaxTime:" << getMaxTime()
+                << ";CovROSJerk:" << getCovROSJerk()(0, 0) << "," << getCovROSJerk()(0, 1) << "," << getCovROSJerk()(0, 2) << ","
+                             << getCovROSJerk()(1, 0) << "," << getCovROSJerk()(1, 1) << "," << getCovROSJerk()(1, 2) << ","
+                             << getCovROSJerk()(2, 0) << "," << getCovROSJerk()(2, 1) << "," << getCovROSJerk()(2, 2)
+                << ";CovPVAJerk:" << getCovPVAJerk()(0, 0) << "," << getCovPVAJerk()(0, 1) << "," << getCovPVAJerk()(0, 2) << ","
+                             << getCovPVAJerk()(1, 0) << "," << getCovPVAJerk()(1, 1) << "," << getCovPVAJerk()(1, 2) << ","
+                             << getCovPVAJerk()(2, 0) << "," << getCovPVAJerk()(2, 1) << "," << getCovPVAJerk()(2, 2)
+                << ";keepCov:" << getKeepCov()
+                << ";poseType:" << int(getPoseRepresentation())
+                << ";closedform:" << getGPMixerPtr()->getJacobianForm()
+                << endl;
+
+        for(int kidx = 0; kidx < getNumKnots(); kidx++)
+        {
+            logfile << kidx << ", "
+                    << getKnotTime(kidx) << ", "
+                    << getKnotSO3(kidx).unit_quaternion().x() << ", "
+                    << getKnotSO3(kidx).unit_quaternion().y() << ", "
+                    << getKnotSO3(kidx).unit_quaternion().z() << ", "
+                    << getKnotSO3(kidx).unit_quaternion().w() << ", "
+                    << getKnotOmg(kidx).x() << ", "
+                    << getKnotOmg(kidx).y() << ", "
+                    << getKnotOmg(kidx).z() << ", "
+                    << getKnotAlp(kidx).x() << ", "
+                    << getKnotAlp(kidx).y() << ", "
+                    << getKnotAlp(kidx).z() << ", "
+                    << getKnotPos(kidx).x() << ", "
+                    << getKnotPos(kidx).y() << ", "
+                    << getKnotPos(kidx).z() << ", "
+                    << getKnotVel(kidx).x() << ", "
+                    << getKnotVel(kidx).y() << ", "
+                    << getKnotVel(kidx).z() << ", "
+                    << getKnotAcc(kidx).x() << ", "
+                    << getKnotAcc(kidx).y() << ", "
+                    << getKnotAcc(kidx).z() << endl;
+        }
+
+        logfile.close();
+        return true;
+    }
+
     bool loadTrajectory(string log_file)
     {
         std::ifstream file(log_file);

@@ -17,7 +17,7 @@ from math import sqrt as sqrt
 # lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence_}'
 
 # # Direction to log the exp
-# log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/cathhs_{sequence_}_gptr_two_lidar/'
+log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/uwb_sim_2/'
 
 # Type of pose
 # pose_type_ = 'SE3'
@@ -36,7 +36,7 @@ xyzypr_W_L0 =[ 0,   0,  0,   0, 0,  0,
 def generate_launch_description():
     
     # lidar_bag_file  = DeclareLaunchArgument('lidar_bag_file', default_value=lidar_bag_file_, description='')   # Bag file
-    # log_dir         = DeclareLaunchArgument('log_dir', default_value=log_dir_, description='')                 # Direction to log the exp
+    log_dir         = DeclareLaunchArgument('log_dir', default_value=log_dir_, description='')                 # Direction to log the exp
     pose_type       = DeclareLaunchArgument('pose_type', default_value=pose_type_, description='')             # Variant of kinematics
     use_approx_drv  = DeclareLaunchArgument('use_approx_drv', default_value=use_approx_drv_, description='')   # Variant of approximation
     deltaT          = DeclareLaunchArgument('deltaT', default_value=deltaT_, description='')                   # Variant of approximation
@@ -51,25 +51,28 @@ def generate_launch_description():
         # prefix      = 'sleep 3;',
         parameters  =
         [
+            {"log_dir"         : LaunchConfiguration('log_dir')}, 
             # Gtr traj params
+            
             # SO3xR3 trajectory
-            {"wqx1"            : 3*5.0},
-            {"wqy1"            : 3*5.0},
-            {"wqz1"            : 1*5.0},
-            {"wpx1"            : 3*0.15},
-            {"wpy1"            : 3*0.15},
-            {"wpz1"            : 1*0.15},
+            {"wqx1"            : 3*0.1},
+            {"wqy1"            : 3*0.1},
+            {"wqz1"            : 1*0.1},
             {"rqx1"            : M_PI*0.5},
             {"rqy1"            : M_PI*0.5},
             {"rqz1"            : M_PI*sqrt(3)/2},
+            
+            {"wpx1"            : 3*0.15},
+            {"wpy1"            : 3*0.15},
+            {"wpz1"            : 1*0.15},
             {"rpx1"            : 5.0},
             {"rpy1"            : 5.0},
             {"rpz1"            : 5.0},
-            
+
             # SE3 trajectory
-            {"wpx2"            : 3*1.5},
-            {"wpy2"            : 3*1.5},
-            {"wpz2"            : 1*1.5},
+            {"wpx2"            : 3*0.1},
+            {"wpy2"            : 3*0.1},
+            {"wpz2"            : 1*0.1},
             {"rpx2"            : 5.0},
             {"rpy2"            : 5.0},
             {"rpz2"            : 5.0},
@@ -109,6 +112,6 @@ def generate_launch_description():
     
     # launch_arg = DeclareLaunchArgument('cartinbot_viz', required=True, description='Testing')
 
-    return LaunchDescription([deltaT, pose_type, use_approx_drv,
+    return LaunchDescription([log_dir, deltaT, pose_type, use_approx_drv,
                               gptr_lo_node, rviz_node,
                               on_exit_action])

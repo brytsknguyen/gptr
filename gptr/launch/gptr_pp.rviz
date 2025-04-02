@@ -6,6 +6,8 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /odomTrajSO3xR31
+        - /odomTrajSO3xR31/Shape1
         - /odomTrajSE31/Shape1
       Splitter Ratio: 0.4791666567325592
     Tree Height: 746
@@ -26,7 +28,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: TrajGtrSE3
+    SyncSource: TrajGtrSO3xR3
 Visualization Manager:
   Class: ""
   Displays:
@@ -60,7 +62,7 @@ Visualization Manager:
       Color: 53; 132; 228
       Color Transformer: FlatColor
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: -1
@@ -81,7 +83,7 @@ Visualization Manager:
         Value: /gp_traj_est_so3xr3_cf
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -94,7 +96,7 @@ Visualization Manager:
       Color: 0; 255; 0
       Color Transformer: FlatColor
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: -1
@@ -115,7 +117,7 @@ Visualization Manager:
         Value: /gp_traj_est_so3xr3_ap
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -128,7 +130,7 @@ Visualization Manager:
       Color: 226; 108; 255
       Color Transformer: FlatColor
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: -1
@@ -149,7 +151,7 @@ Visualization Manager:
         Value: /gp_traj_est_se3_cf
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -162,7 +164,7 @@ Visualization Manager:
       Color: 255; 186; 52
       Color Transformer: FlatColor
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: -1
@@ -183,7 +185,7 @@ Visualization Manager:
         Value: /gp_traj_est_se3_ap
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -230,7 +232,7 @@ Visualization Manager:
       Color: 255; 0; 0
       Color Transformer: FlatColor
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: -1
@@ -251,7 +253,7 @@ Visualization Manager:
         Value: /gp_trajse3_gtr
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Angle Tolerance: 0
       Class: rviz_default_plugins/Odometry
       Covariance:
@@ -270,7 +272,7 @@ Visualization Manager:
           Value: true
         Value: true
       Enabled: true
-      Keep: 1
+      Keep: 10
       Name: odomTrajSO3xR3
       Position Tolerance: 0
       Shape:
@@ -280,9 +282,9 @@ Visualization Manager:
         Color: 255; 25; 0
         Head Length: 0.30000001192092896
         Head Radius: 0.10000000149011612
-        Shaft Length: 1
+        Shaft Length: 0.25
         Shaft Radius: 0.05000000074505806
-        Value: Axes
+        Value: Arrow
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -308,7 +310,7 @@ Visualization Manager:
           Scale: 1
           Value: true
         Value: true
-      Enabled: true
+      Enabled: false
       Keep: 1
       Name: odomTrajSE3
       Position Tolerance: 0
@@ -329,7 +331,7 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /gp_trajse3_gtr_odom
-      Value: true
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -376,25 +378,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/ThirdPersonFollower
-      Distance: 21.639389038085938
+      Distance: 38.44501495361328
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.6026471853256226
-        Y: 1.9369854927062988
-        Z: -5
+        X: -4.523680686950684
+        Y: -8.866764068603516
+        Z: -9.999992370605469
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6903980374336243
+      Pitch: 0.2503986358642578
       Target Frame: <Fixed Frame>
       Value: ThirdPersonFollower (rviz_default_plugins)
-      Yaw: 0.9272218942642212
+      Yaw: 1.3935439586639404
     Saved: ~
 Window Geometry:
   Displays:
