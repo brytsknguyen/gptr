@@ -24,7 +24,7 @@ pose_type_ = 'SO3xR3'
 use_approx_drv_ = '0'
 
 # Knot length
-deltaT_ = '0.1'
+deltaT_ = '0.01'
 
 # Initial pose in each sequence
 xyzypr_W_L0 =[ 0,   0,  0,   0, 0,  0,
@@ -65,7 +65,7 @@ def generate_launch_description():
             {'VIZ_ONLY'        : 0},
 
             # Lidar topics and their settings
-            {'lidar_topic'     : ['/livox/lidar_0/points', '/livox/lidar_1/points']},
+            {'lidar_topic'     : ['/livox/lidar_0/points']},
             {'lidar_type'      : ['ouster', 'ouster']},
             {'stamp_time'      : ['start', 'start']},
 
@@ -90,13 +90,13 @@ def generate_launch_description():
 
             # Leaf size to downsample priormap
             {'pmap_leaf_size'  : 0.1},
-            {'cloud_ds'        : [0.2, 0.2]},
+            {'cloud_ds'        : [0.1, 0.1]},
 
             # GN MAP optimization params
             {'deltaT'          : LaunchConfiguration('deltaT')},
             # Motion prior factors
-            {'mpCovROSJerk'    : 100.0},
-            {'mpCovPVAJerk'    : 100.0},
+            {'mpCovROSJerk'    : 1.0},
+            {'mpCovPVAJerk'    : 1.0},
             {"pose_type"       : LaunchConfiguration('pose_type')}, # Choose 'SE3' or 'SO3xR3'
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
             {"lie_epsilon"     : 1e-2},
@@ -105,8 +105,8 @@ def generate_launch_description():
             {'lidar_weight'    : 50.0},
 
             # Extrinsic factors
-            {'xtCovROSJerk'    : 200.0},
-            {'xtCovPVAJerk'    : 200.0},
+            {'xtCovROSJerk'    : 50.0},
+            {'xtCovPVAJerk'    : 50.0},
 
             # Loss function threshold
             {'ld_loss_thres'   : -1.0},
@@ -120,25 +120,25 @@ def generate_launch_description():
             {'max_acc'         : -5.0},
 
             # Extrinsic estimation
-            {'SW_CLOUDNUM'     : PythonExpression(['int(30.0/', LaunchConfiguration('deltaT'), ')'])},
+            {'SW_CLOUDNUM'     : 40},
             {'SW_CLOUDSTEP'    : 1},
             {'max_lidarcoefs'  : 8000},
             {'XTRZ_DENSITY'    : 1},
             {'min_planarity'   : 0.5},
             {'max_plane_dis'   : 0.5},
-            {'knnsize'         : 6},
+            {'knnsize'         : 10},
             
             {'use_ceres'       : 1},
             {'max_ceres_iter'  : 50},
             {'max_outer_iter'  : 2},
-            {'max_inner_iter'  : 5},
+            {'max_inner_iter'  : 40},
             {'min_inner_iter'  : 5},
             {'conv_thres'      : 5},
             {'dJ_conv_thres'   : 10.0},
             {'conv_dX_thres'   : [-0.05, -0.5, -1.0, -0.05, -0.5, -1.0 ]},
             {'change_thres'    : [-15.0, -0.5, -1.0, -15.0, -8.0, -2.0 ]},
-            {'fix_time_begin'  : -0.025},
-            {'fix_time_end'    : -0.0},
+            {'fix_time_begin'  : 0.025},
+            {'fix_time_end'    : 0.0},
             {'fuse_marg'       : 1},
             {'compute_cost'    : 0},
             {'lambda'          : 1.0},

@@ -244,7 +244,8 @@ public:
         double tmin, double tmax, double tmid,
         GaussianProcessPtr &traj, Vector3d &XBIG, Vector3d &XBIA, Vector3d &g, CameraCalibration *cam_calib,
         const vector<IMUData> &imuData, const vector<CornerData> &corner_data_cam0, const vector<CornerData> &corner_data_cam1, std::map<int, Eigen::Vector3d> &corner_pos_3d,
-        double w_corner, double wGyro, double wAcce, double wBiasGyro, double wBiasAcce, double corner_loss_thres, double mp_loss_thres, bool do_marginalization)
+        double w_corner, double wGyro, double wAcce, double wBiasGyro, double wBiasAcce, double corner_loss_thres, double mp_loss_thres, bool do_marginalization,
+        CloudPosePtr &gtrPoseCloud, string &report_, map<string, double> &report)
     {
         static int cnt = 0;
         TicToc tt_build;
@@ -259,9 +260,8 @@ public:
         options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
         options.num_threads = MAX_THREADS;
         options.max_num_iterations = 100;
-        options.check_gradients = false;
-
-        options.gradient_check_relative_precision = 0.02;
+        // options.check_gradients = false;
+        // options.gradient_check_relative_precision = 0.02;
 
         // Documenting the parameter blocks
         paramInfoMap.clear();
@@ -364,23 +364,118 @@ public:
 
         // Find the initial cost
         Util::ComputeCeresCost(factorMetaMp2k.res, cost_mp2k_init, problem);
+        Util::ComputeCeresCost(factorMetaIMU.res, cost_imu_init, problem);
         Util::ComputeCeresCost(factorMetaProjCam0.res, cost_proj_init0, problem);
         Util::ComputeCeresCost(factorMetaProjCam1.res, cost_proj_init1, problem);
-        Util::ComputeCeresCost(factorMetaIMU.res, cost_imu_init, problem);
 
+        TicToc tt_solve;
         ceres::Solve(options, &problem, &summary);
+        tt_solve.Toc();
 
-        std::cout << summary.FullReport() << std::endl;
+        // std::cout << summary.FullReport() << std::endl;
 
         Util::ComputeCeresCost(factorMetaMp2k.res, cost_mp2k_final, problem);
+        Util::ComputeCeresCost(factorMetaIMU.res, cost_imu_final, problem);
         Util::ComputeCeresCost(factorMetaProjCam0.res, cost_proj_final0, problem);
         Util::ComputeCeresCost(factorMetaProjCam1.res, cost_proj_final1, problem);
-        Util::ComputeCeresCost(factorMetaIMU.res, cost_imu_final, problem);
 
-        RINFO("Factors: MP2K: %d, Proj0: %d, Proj1: %d, IMU: %d.",
-              factorMetaMp2k.size(), factorMetaProjCam0.size(), factorMetaProjCam1.size(), factorMetaIMU.size());
+        // RINFO("Factors: MP2K: %d, Proj0: %d, Proj1: %d, IMU: %d.",
+        //       factorMetaMp2k.size(), factorMetaProjCam0.size(), factorMetaProjCam1.size(), factorMetaIMU.size());
 
-        tt_slv.Toc();
+        auto umeyama_alignment = [](vector<Vector3d>& src, vector<Vector3d>& tgt) -> myTf<double>
+        {
+            if (src.size() != tgt.size() || src.empty()) {
+                throw std::runtime_error("Source and target must be same size and non-empty.");
+            }
+        
+            MatrixXd src_mat(3, src.size());
+            MatrixXd tgt_mat(3, tgt.size());
+            for (size_t i = 0; i < src.size(); ++i)
+            {
+                src_mat.col(i) = src[i];
+                tgt_mat.col(i) = tgt[i];
+            }
+        
+            Eigen::Matrix4d transformation = (Eigen::umeyama(src_mat, tgt_mat, false));
+            myTf<double> T_tgt_src(transformation);
+
+            for (size_t i = 0; i < src.size(); ++i)
+                src[i] = T_tgt_src*src[i];
+
+            return T_tgt_src;
+        };
+
+        // Sample the trajectories
+        vector<Vector3d> pos_est;
+        vector<Vector3d> pos_gtr;
+        for(auto &pose : gtrPoseCloud->points)
+        {
+            double ts = pose.t;
+
+            if (ts < traj->getMinTime() || ts > traj->getMaxTime())
+                continue;
+
+            myTf poseEst = myTf(traj->pose(ts));
+            myTf poseGtr = myTf(pose);
+
+            pos_est.push_back(poseEst.pos);
+            pos_gtr.push_back(poseGtr.pos);
+        }
+
+        // Align the estimate to the gtr
+        umeyama_alignment(pos_est, pos_gtr);
+
+        // Calculate the pose error
+        vector<Vector3d> pos_err;
+        for(int i = 0; i < pos_est.size(); i++)
+            pos_err.push_back(pos_est[i] - pos_gtr[i]);
+        vector<Vector3d> se3_err = pos_err;
+
+        double pos_rmse = 0;
+        for (auto &err : pos_err)
+            pos_rmse += err.dot(err);
+        pos_rmse /= pos_err.size();
+        pos_rmse = sqrt(pos_rmse);
+
+        double se3_rmse = 0;
+        for (auto &err : se3_err)
+            se3_rmse += err.dot(err);
+        se3_rmse /= se3_err.size();
+        se3_rmse = sqrt(se3_rmse);    
+
+        report_ = myprintf(
+            "Pose group: %s. Method: %s. Dt: %.3f. "
+            "Tslv: %.0f. Iterations: %d.\n"
+            "Factors: MP2K: %05d, IMU: %05d, Cam0Proj: %05d, Cam1Proj: %05d\n"
+            "J0: %16.3f, MP2K: %16.3f, IMU: %7.3f. Cam0Proj: %7.3f. Cam1Proj: %7.3f.\n"
+            "JK: %16.3f, MP2K: %16.3f, IMU: %7.3f. Cam0Proj: %7.3f. Cam1Proj: %7.3f.\n"
+            "RMSE: POS: %.12f. POSE: %.12f.\n"
+            ,
+            traj->getGPMixerPtr()->getPoseRepresentation() == POSE_GROUP::SO3xR3 ? "SO3xR3" : "SE3",
+            traj->getGPMixerPtr()->getJacobianForm() ? "AP" : "CF",
+            traj->getDt(),
+            tt_solve.GetLastStop(), summary.iterations.size(),
+            factorMetaMp2k.size(), factorMetaIMU.size(), factorMetaProjCam0.size(), factorMetaProjCam1.size(),
+            summary.initial_cost, cost_mp2k_init,  cost_imu_init,  cost_proj_init0,  cost_proj_init1,
+            summary.final_cost,   cost_mp2k_final, cost_imu_final, cost_proj_final0, cost_proj_final1,
+            pos_rmse, se3_rmse
+        );
+
+        // cout << "yolo " << report_ << endl;
+
+        report["iter"]    = summary.iterations.size();
+        report["tslv"]    = summary.total_time_in_seconds;
+        report["rmse"]    = pos_rmse;
+        report["J0"]      = summary.initial_cost;
+        report["JK"]      = summary.final_cost;
+        report["MP2KJ0"]  = cost_mp2k_init;
+        report["IMUJ0"]   = cost_imu_init;
+        report["CAM0J0"]  = cost_proj_init0;
+        report["CAM1J0"]  = cost_proj_init1;
+        report["MP2KJK"]  = cost_mp2k_final;
+        report["IMUJK"]   = cost_imu_final;
+        report["CAM0JK"]  = cost_proj_final0;
+        report["CAM1JK"]  = cost_proj_final1;
     }
 };
 

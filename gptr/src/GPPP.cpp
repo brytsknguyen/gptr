@@ -50,6 +50,9 @@ double rpx2 = 5.0;
 double rpy2 = 5.0;
 double rpz2 = 5.0;
 
+vector<long int> Dtstep = {1, 10};
+vector<long int> Wstep = {1, 50};
+
 class GtTrajSO3xR3
 {
 public:
@@ -316,7 +319,7 @@ void InitializeTrajEst(GaussianProcessPtr &traj, const T &gtTraj)
     std::mt19937 rng(43); 
     // Define a uniform distribution (e.g., integers between 1 and 100)
     std::normal_distribution<double> rdist(0.0, 0.2);
-    std::normal_distribution<double> pdist(0.0, 0.2);
+    std::normal_distribution<double> pdist(0.0, 0.5);
 
     // Initialize the pose with erred ground truth
     for(int kidx = 0; kidx < traj->getNumKnots(); kidx++)
@@ -508,8 +511,15 @@ int main(int argc, char **argv)
     RINFO("UWB noise: %f", uwb_noise);
 
 
+    // Get param for experiments
+    Util::GetParam(nh_ptr, "Dtstep", Dtstep);
+    Util::GetParam(nh_ptr, "Wstep",  Wstep);
+    
+    RINFO("Dtstep: %d -> %d", Dtstep.front(), Dtstep.back());
+    RINFO("Wstep: %d -> %d", Wstep.front(), Wstep.back());
 
-    auto Experiment = [&](string logname, auto gtrTraj, int M, int N)
+
+    auto Experiment = [&](string logname, auto gtrTraj, vector<long int> M, vector<long int> N)
     {
         std::ofstream logfile(logname, std::ios::out);
         logfile << std::fixed << std::setprecision(6);
@@ -520,21 +530,21 @@ int main(int argc, char **argv)
                    "so3xr3ap_JK,so3xr3cf_JK,se3ap_JK,se3cf_JK,"
                    "so3xr3ap_rmse,so3xr3cf_rmse,se3ap_rmse,se3cf_rmse\n";
 
-        for (int m = 1; m <= M; m++)
+        for (int m = M.front(); m <= M.back(); m++)
         {
-            deltaT = 0.025*m;
+            double deltaTm = deltaT*m;
 
             map<string, double> so3xr3ap_report;
             map<string, double> so3xr3cf_report;
             map<string, double> se3ap_report;
             map<string, double> se3cf_report;
 
-            for (int n = 1; n <= N; n++)
+            for (int n = N.front(); n <= N.back(); n++)
             {
-                GaussianProcessPtr trajSO3xR3AP(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, true));
-                GaussianProcessPtr trajSO3xR3CF(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, false));
-                GaussianProcessPtr trajSE3AP(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, true));
-                GaussianProcessPtr trajSE3CF(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, false));
+                GaussianProcessPtr trajSO3xR3AP(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, true));
+                GaussianProcessPtr trajSO3xR3CF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, false));
+                GaussianProcessPtr trajSE3AP(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, true));
+                GaussianProcessPtr trajSE3CF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, false));
 
                 gtrTraj.setn(n);
 
@@ -543,7 +553,7 @@ int main(int argc, char **argv)
                 InitializeTrajEst(trajSE3AP, gtrTraj);
                 InitializeTrajEst(trajSE3CF, gtrTraj);
 
-                double rmse = -1;
+                // double rmse = -1;
                 // Assess with the SO3xR3 trajectory
                 string report_SO3xR3_by_SO3xR3AP = AssessTraj(trajSO3xR3AP, gtrTraj, so3xr3ap_report);
                 string report_SO3xR3_by_SO3xR3CF = AssessTraj(trajSO3xR3CF, gtrTraj, so3xr3cf_report);
@@ -582,157 +592,8 @@ int main(int argc, char **argv)
     };
 
 
-    Experiment(log_dir + "/trajso3xr3.csv", gtTrajSO3xR3, 10, 50);
-    Experiment(log_dir + "/trajse3.csv",    gtTrajSE3,    10, 50);
-
-    // // Creating the trajectory and assess
-    // std::ofstream so3xr3_logfile(log_dir + "/trajso3xr3.csv", std::ios::out); // Open in append mode
-    // so3xr3_logfile << std::fixed << std::setprecision(6);
-    // so3xr3_logfile << "wqx1,wqy1,wqz1,dt,so3xr3ap_JK,so3xr3cf_JK,se3ap_JK,se3cf_JK,so3xr3ap_rmse,so3xr3cf_rmse,se3ap_rmse,se3cf_rmse\n";
-    // for (int m = 1; m <= 20; m++)
-    // {
-    //     deltaT = 0.025*m;
-
-    //     map<string, double> so3xr3ap_report;
-    //     map<string, double> so3xr3cf_report;
-    //     map<string, double> se3ap_report;
-    //     map<string, double> se3cf_report;
-
-    //     for (int n = 1; n <= 30; n++)
-    //     {
-    //         GaussianProcessPtr trajSO3xR3AP(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, true));
-    //         GaussianProcessPtr trajSO3xR3CF(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, false));
-    //         GaussianProcessPtr trajSE3AP(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, true));
-    //         GaussianProcessPtr trajSE3CF(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, false));
-
-    //         wqx1 = 3*0.1*n;
-    //         wqy1 = 3*0.1*n;
-    //         wqz1 = 1*0.1*n;
-
-    //         // wq1.push_back(Vector3d(wqx1, wqy1, wqz1));
-
-    //         InitializeTrajEst(trajSO3xR3AP, gtTrajSO3xR3);
-    //         InitializeTrajEst(trajSO3xR3CF, gtTrajSO3xR3);
-    //         InitializeTrajEst(trajSE3AP, gtTrajSO3xR3);
-    //         InitializeTrajEst(trajSE3CF, gtTrajSO3xR3);
-
-    //         double rmse = -1;
-    //         // Assess with the SO3xR3 trajectory
-    //         string report_SO3xR3_by_SO3xR3AP = AssessTraj(trajSO3xR3AP, gtTrajSO3xR3, so3xr3ap_report);
-    //         string report_SO3xR3_by_SO3xR3CF = AssessTraj(trajSO3xR3CF, gtTrajSO3xR3, so3xr3cf_report);
-    //         string report_SO3xR3_by_SE3AP___ = AssessTraj(trajSE3AP,    gtTrajSO3xR3, se3ap_report);
-    //         string report_SO3xR3_by_SE3CF___ = AssessTraj(trajSE3CF,    gtTrajSO3xR3, se3cf_report);
-
-    //         RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SO3xR3AP.c_str());
-    //         RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SO3xR3CF.c_str());
-    //         RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SE3AP___.c_str());
-    //         RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SE3CF___.c_str());
-
-    //         // Save the rmse result to the log
-    //         so3xr3_logfile << wqx1 << ","
-    //                        << wqy1 << ","
-    //                        << wqz1 << ","
-    //                        << deltaT << ","
-    //                        << so3xr3ap_report["JK"] << ","
-    //                        << so3xr3cf_report["JK"] << ","
-    //                        << se3ap_report["JK"] << ","
-    //                        << se3cf_report["JK"] << ","
-    //                        << so3xr3ap_report["rmse"] << ","
-    //                        << so3xr3cf_report["rmse"] << ","
-    //                        << se3ap_report["rmse"] << ","
-    //                        << se3cf_report["rmse"]
-    //                        << endl;
-    //     }
-    // }
-    // so3xr3_logfile.close();
-
-    // // Creating the trajectory and assess
-    // std::ofstream se3_logfile(log_dir + "/trajse3.csv", std::ios::out); // Open in append mode
-    // se3_logfile << std::fixed << std::setprecision(6);
-    // so3xr3_logfile << "wqx1,wqy1,wqz1,dt,so3xr3ap_JK,so3xr3cf_JK,se3ap_JK,se3cf_JK,so3xr3ap_rmse,so3xr3cf_rmse,se3ap_rmse,se3cf_rmse\n";
-    // for (int m = 1; m <= 12; m++)
-    // {
-    //     deltaT = 0.025*m;
-
-    //     map<string, double> so3xr3ap_report;
-    //     map<string, double> so3xr3cf_report;
-    //     map<string, double> se3ap_report;
-    //     map<string, double> se3cf_report;
-
-    //     for (int n = 0; n < 10; n++)
-    //     {
-    //         GaussianProcessPtr trajSO3xR3AP(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, true));
-    //         GaussianProcessPtr trajSO3xR3CF(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, false));
-    //         GaussianProcessPtr trajSE3AP(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, true));
-    //         GaussianProcessPtr trajSE3CF(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, false));
-
-    //         wqx1 = 3*0.1*n;
-    //         wqy1 = 3*0.1*n;
-    //         wqz1 = 1*0.1*n;
-
-    //         // wq1.push_back(Vector3d(wqx1, wqy1, wqz1));
-
-    //         InitializeTrajEst(trajSO3xR3AP, gtTrajSO3xR3);
-    //         InitializeTrajEst(trajSO3xR3CF, gtTrajSO3xR3);
-    //         InitializeTrajEst(trajSE3AP, gtTrajSO3xR3);
-    //         InitializeTrajEst(trajSE3CF, gtTrajSO3xR3);
-
-    //         double rmse = -1;
-    //         // Assess with the SO3xR3 trajectory
-    //         string report_SE3_by_SO3xR3AP = AssessTraj(trajSO3xR3AP, gtTrajSO3xR3, so3xr3ap_report);
-    //         string report_SE3_by_SO3xR3CF = AssessTraj(trajSO3xR3CF, gtTrajSO3xR3, so3xr3cf_report);
-    //         string report_SE3_by_SE3AP___ = AssessTraj(trajSE3AP,    gtTrajSO3xR3, se3ap_report);
-    //         string report_SE3_by_SE3CF___ = AssessTraj(trajSE3CF,    gtTrajSO3xR3, se3cf_report);
-
-    //         RINFO("SE3Traj %2dx%2d %s", m, n, report_SE3_by_SO3xR3AP.c_str());
-    //         RINFO("SE3Traj %2dx%2d %s", m, n, report_SE3_by_SO3xR3CF.c_str());
-    //         RINFO("SE3Traj %2dx%2d %s", m, n, report_SE3_by_SE3AP___.c_str());
-    //         RINFO("SE3Traj %2dx%2d %s", m, n, report_SE3_by_SE3CF___.c_str());
-
-    //         // Save the rmse result to the log
-    //         se3_logfile << wqx1 << ","
-    //                     << wqy1 << ","
-    //                     << wqz1 << ","
-    //                     << deltaT << ","
-    //                     << so3xr3ap_report["JK"] << ","
-    //                     << so3xr3cf_report["JK"] << ","
-    //                     << se3ap_report["JK"] << ","
-    //                     << se3cf_report["JK"] << ","
-    //                     << so3xr3ap_report["rmse"] << ","
-    //                     << so3xr3cf_report["rmse"] << ","
-    //                     << se3ap_report["rmse"] << ","
-    //                     << se3cf_report["rmse"]
-    //                     << endl;
-    //     }
-    // }
-    // se3_logfile.close();
-
-
-    // trajSO3xR3AP->saveTrajectory(log_dir + "/traj_so3x3_so3xr3ap.csv");
-    // trajSO3xR3CF->saveTrajectory(log_dir + "/traj_so3x3_so3xr3cf.csv");
-    // trajSE3AP->saveTrajectory(log_dir + "/traj_so3x3_se3ap.csv");
-    // trajSE3CF->saveTrajectory(log_dir + "/traj_so3x3_se3cf.csv");
-
-    // InitializeTrajEst(trajSO3xR3AP, gtTrajSE3);
-    // InitializeTrajEst(trajSO3xR3CF, gtTrajSE3);
-    // InitializeTrajEst(trajSE3AP, gtTrajSE3);
-    // InitializeTrajEst(trajSE3CF, gtTrajSE3);
-
-    // // Assess with the SE3 trajectory
-    // string report_SE3_by_SO3xR3AP = AssessTraj(trajSO3xR3AP, gtTrajSE3);
-    // string report_SE3_by_SO3xR3CF = AssessTraj(trajSO3xR3CF, gtTrajSE3);
-    // string report_SE3_by_SE3AP___ = AssessTraj(trajSE3AP,    gtTrajSE3);
-    // string report_SE3_by_SE3CF___ = AssessTraj(trajSE3CF,    gtTrajSE3);
-
-    // RINFO("SE3Traj %s", report_SE3_by_SO3xR3AP.c_str());
-    // RINFO("SE3Traj %s", report_SE3_by_SO3xR3CF.c_str());
-    // RINFO("SE3Traj %s", report_SE3_by_SE3AP___.c_str());
-    // RINFO("SE3Traj %s", report_SE3_by_SE3CF___.c_str());
-
-    // trajSO3xR3AP->saveTrajectory(log_dir + "/traj_se3_so3xr3ap.csv");
-    // trajSO3xR3CF->saveTrajectory(log_dir + "/traj_se3_so3xr3cf.csv");
-    // trajSE3AP->saveTrajectory(log_dir + "/traj_se3_se3ap.csv");
-    // trajSE3CF->saveTrajectory(log_dir + "/traj_se3_se3cf.csv");
+    Experiment(log_dir + "/trajso3xr3.csv", gtTrajSO3xR3, Dtstep, Wstep);
+    Experiment(log_dir + "/trajse3.csv",    gtTrajSE3,    Dtstep, Wstep);
 
     // Visualizing the result
 

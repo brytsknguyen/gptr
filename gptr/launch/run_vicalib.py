@@ -4,7 +4,7 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 # Save patj
-result_save_path = '/home/kailai/Documents/results/gptr/vicalib/'
+result_save_path = '/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/vicalib/'
 
 # Data path
 vi_data_path = '/home/tmn/ros2_ws/src/gptr/gptr/dataVICalib/'
@@ -42,6 +42,13 @@ def generate_launch_description():
             {"ACC_W"             : 0.0},
             {"corner_loss_thres" :-1.0},
             {"mp_loss_thres"     :-1.0},
+            
+            # Time skewing factor
+            {"tskew0"            :1.0},
+            {"tskewmax"          :4.0},
+            {"tskewstep"         :0.1},
+            {"Dtstep"            :10},
+            
         ]  # Optional: pass parameters if needed
     )
 

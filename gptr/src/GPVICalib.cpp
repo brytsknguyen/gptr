@@ -22,6 +22,8 @@
 #include "GPVICalib.hpp"
 #include "utility.h"
 
+namespace fs = std::filesystem;
+
 using namespace std;
 
 NodeHandlePtr nh_ptr;
@@ -154,10 +156,10 @@ void getIMUMeasurements(const std::string &data_path, vector<IMUData> &imu_meas)
         uint64_t timestamp;
         Eigen::Vector3d gyro, accel;
 
-        ss >> timestamp >> tmp >> gyro[0] >> tmp >> gyro[1] >> tmp >> gyro[2] >>
-            tmp >> accel[0] >> tmp >> accel[1] >> tmp >> accel[2];
+        ss >> timestamp >> tmp >> gyro[0] >> tmp >> gyro[1] >> tmp >> gyro[2]
+           >> tmp >> accel[0] >> tmp >> accel[1] >> tmp >> accel[2];
 
-        double t_s = timestamp * 1e-9;
+        double t_s = timestamp * 1.0e-9;
 
         IMUData imu(t_s, accel, gyro);
         imu_meas.push_back(imu);
@@ -166,9 +168,9 @@ void getIMUMeasurements(const std::string &data_path, vector<IMUData> &imu_meas)
     std::cout << "loaded " << imu_meas.size() << " IMU measurements" << std::endl;
 }
 
-void getGT(const std::string &data_path, RosPathMsg &gt_path)
+void getGT(const std::string &data_path, CloudPosePtr &gtrPoseCloud)
 {
-    gt_path.poses.clear();
+    gtrPoseCloud->clear();
 
     std::ifstream infile(data_path + "cam_pose.csv");
     std::string line;
@@ -184,22 +186,28 @@ void getGT(const std::string &data_path, RosPathMsg &gt_path)
         Eigen::Quaterniond q;
         Eigen::Vector3d pos;
 
-        ss >> timestamp >> tmp >> pos[0] >> tmp >> pos[1] >> tmp >> pos[2] >>
-            tmp >> q.w() >> tmp >> q.x() >> tmp >> q.y() >> tmp >> q.z();
+        ss >> timestamp >> tmp >> pos[0] >> tmp >> pos[1] >> tmp >> pos[2]
+           >> tmp >> q.w() >> tmp >> q.x() >> tmp >> q.y() >> tmp >> q.z();
 
-        geometry_msgs::msg::PoseStamped traj_msg;
-        traj_msg.header.stamp = rclcpp::Time(timestamp);
-        traj_msg.pose.position.x = pos.x();
-        traj_msg.pose.position.y = pos.y();
-        traj_msg.pose.position.z = pos.z();
-        traj_msg.pose.orientation.w = q.w();
-        traj_msg.pose.orientation.x = q.x();
-        traj_msg.pose.orientation.y = q.y();
-        traj_msg.pose.orientation.z = q.z();
-        gt_path.poses.push_back(traj_msg);
+        // geometry_msgs::msg::PoseStamped traj_msg;
+        // traj_msg.header.stamp = rclcpp::Time(timestamp);
+        // traj_msg.pose.position.x = pos.x();
+        // traj_msg.pose.position.y = pos.y();
+        // traj_msg.pose.position.z = pos.z();
+        // traj_msg.pose.orientation.w = q.w();
+        // traj_msg.pose.orientation.x = q.x();
+        // traj_msg.pose.orientation.y = q.y();
+        // traj_msg.pose.orientation.z = q.z();
+
+        PointPose pose; pose.t = timestamp / 1.0e9;
+        pose.x = pos.x(); pose.y = pos.y(); pose.z = pos.z();
+        pose.qx = q.x(); pose.qy = q.y(); pose.qz = q.z(); pose.qw = q.w();
+
+        gtrPoseCloud->push_back(pose);
     }
+
     infile.close();
-    std::cout << "loaded " << gt_path.poses.size() << " gt data" << std::endl;
+    std::cout << "loaded " << gtrPoseCloud->size() << " gt data" << std::endl;
 }
 
 const double POSINF = std::numeric_limits<double>::infinity();
@@ -258,11 +266,11 @@ struct CameraImuBuf
 
 CameraImuBuf CIBuf;
 // RosPathMsg est_path;
-RosPathMsg gt_path;
+CloudPosePtr gtrPoseCloud(new CloudPose());
 
 // rclcpp::Publisher<> gt_pub;
-rclcpp::Publisher<RosPathMsg>::SharedPtr gt_path_pub;
-rclcpp::Publisher<RosPathMsg>::SharedPtr est_pub;
+rclcpp::Publisher<RosPc2Msg>::SharedPtr gtrPoseCloud_pub;
+rclcpp::Publisher<RosPc2Msg>::SharedPtr est_pub;
 rclcpp::Publisher<RosOdomMsg>::SharedPtr odom_pub;
 rclcpp::Publisher<RosPc2Msg>::SharedPtr knot_pub;
 rclcpp::Publisher<RosPc2Msg>::SharedPtr corner_pub;
@@ -289,98 +297,109 @@ void publishCornerPos(std::map<int, Eigen::Vector3d> &corner_pos_3d)
     corner_pub->publish(corners_msg);
 }
 
-void processData(GaussianProcessPtr traj, GPMVICalibPtr gpmui, std::map<int, Eigen::Vector3d> corner_pos_3d,
-                 CameraCalibration *cam_calib)
+// void processData(GaussianProcessPtr traj, GPMVICalibPtr gpmui, std::map<int, Eigen::Vector3d> corner_pos_3d,
+//                  CameraCalibration *cam_calib)
+// {
+//     // Step: Optimization
+//     TicToc tt_solve;
+//     double tmin = traj->getKnotTime(0) + 1e-3;                       // Start time of the sliding window
+//     double tmax = traj->getKnotTime(traj->getNumKnots() - 1) + 1e-3; // End time of the sliding window
+//     double tmid = tmin + SLIDE_SIZE * traj->getDt() + 1e-3;          // Next start time of the sliding window,
+//                                                                         // also determines the marginalization time limit
+//     gpmui->Evaluate(tmin, tmax, tmid, traj, bg, ba, g, cam_calib, CIBuf.imu_data,
+//                     CIBuf.corner_data_cam0, CIBuf.corner_data_cam1, corner_pos_3d, w_corner,
+//                     GYR_N, ACC_N, GYR_W, ACC_W, corner_loss_thres, mp_loss_thres, false);
+//     tt_solve.Toc();
+
+//     // for (int i = 0; i < 2; i++)
+//     // {
+//     //     std::cout << "Ric"   << i << ": \n" << cam_calib->T_i_c[i].so3().matrix() << std::endl;
+//     //     std::cout << "tic"   << i << ": \n" << cam_calib->T_i_c[i].translation().transpose() << std::endl;
+//     //     std::cout << "param" << i << ": \n" << cam_calib->intrinsics[i].getParam().transpose() << std::endl;
+//     // }
+//     // std::cout << "ba: " << ba.transpose() << endl;
+//     // std::cout << "bg: " << bg.transpose() << endl;
+//     // std::cout << "g : " << g.transpose()  << endl;
+
+//     // Visualize knots
+//     // pcl::PointCloud<pcl::PointXYZ> est_knots;
+//     // for (int i = 0; i < traj->getNumKnots(); i++)
+//     // {
+//     //     Eigen::Vector3d knot_pos = traj->getKnotPose(i).translation();
+//     //     est_knots.points.push_back(pcl::PointXYZ(knot_pos.x(), knot_pos.y(), knot_pos.z()));
+//     // }
+
+//     // RosPc2Msg knot_msg;
+//     // pcl::toROSMsg(est_knots, knot_msg);
+
+//     // // while(rclcpp::ok())
+//     // {           
+//     //     publishCornerPos(corner_pos_3d);
+
+//     //     gtrPoseCloud.header.stamp = rclcpp::Clock().now();
+//     //     // gtrPoseCloud_pub->publish(gtrPoseCloud);
+//     //     Util::publishCloud(gtrPoseCloud_pub, gtrPoseCloud, rclcpp::Clock().now(), "world")
+
+//     //     knot_msg.header.stamp = rclcpp::Clock().now();
+//     //     knot_msg.header.frame_id = "map";
+//     //     knot_pub->publish(knot_msg);
+
+//     //     this_thread::sleep_for(chrono::milliseconds(100));
+//     // }
+// }
+
+// void saveTraj(GaussianProcessPtr traj)
+// {
+//     if (!std::filesystem::is_directory(traj_save_path) || !std::filesystem::exists(traj_save_path))
+//     {
+//         std::filesystem::create_directories(traj_save_path);
+//     }
+//     std::string traj_file_name = traj_save_path + "traj.txt";
+//     std::ofstream f_traj(traj_file_name);
+//     for (int i = 0; i < gtrPoseCloud->size(); i++)
+//     {
+//         double t_gt = rclcpp::Time(gtrPoseCloud.poses[i].header.stamp).seconds();
+//         auto us = traj->computeTimeIndex(t_gt);
+//         int u = us.first;
+//         double s = us.second;
+
+//         if (u < 0 || u + 1 >= traj->getNumKnots())
+//         {
+//             continue;
+//         }
+//         auto est_pose = traj->pose(t_gt);
+//         Eigen::Vector3d est_pos = est_pose.translation();
+//         Eigen::Quaterniond est_ort = est_pose.unit_quaternion();
+//         f_traj << std::fixed << t_gt << std::setprecision(7)
+//                << " " << est_pos.x() << " " << est_pos.y() << " " << est_pos.z()
+//                << " " << est_ort.x() << " " << est_ort.y() << " " << est_ort.z() << " " << est_ort.w() << std::endl;
+//     }
+//     f_traj.close();
+
+//     std::string gt_file_name = traj_save_path + "gt.txt";
+//     std::ofstream f_gt(gt_file_name);
+//     for (int i = 0; i < gtrPoseCloud.poses.size(); i++)
+//     {
+//         double t_gt = rclcpp::Time(gtrPoseCloud.poses[i].header.stamp).seconds();
+
+//         f_gt << std::fixed << t_gt << std::setprecision(7)
+//              << " " << gtrPoseCloud.poses[i].pose.position.x << " " << gtrPoseCloud.poses[i].pose.position.y << " " << gtrPoseCloud.poses[i].pose.position.z
+//              << " " << gtrPoseCloud.poses[i].pose.orientation.x << " " << gtrPoseCloud.poses[i].pose.orientation.y << " " << gtrPoseCloud.poses[i].pose.orientation.z << " " << gtrPoseCloud.poses[i].pose.orientation.w << std::endl;
+//     }
+//     f_gt.close();
+// }
+
+
+void Visualization(map<int, Vector3d> &corner_pos_3d, GaussianProcessPtr &traj)
 {
-    // Loop and optimize
-    while (rclcpp::ok())
-    {
-        // Step: Optimization
-        TicToc tt_solve;
-        double tmin = traj->getKnotTime(0) + 1e-3;                       // Start time of the sliding window
-        double tmax = traj->getKnotTime(traj->getNumKnots() - 1) + 1e-3; // End time of the sliding window
-        double tmid = tmin + SLIDE_SIZE * traj->getDt() + 1e-3;          // Next start time of the sliding window,
-                                                                         // also determines the marginalization time limit
-        gpmui->Evaluate(tmin, tmax, tmid, traj, bg, ba, g, cam_calib, CIBuf.imu_data,
-                        CIBuf.corner_data_cam0, CIBuf.corner_data_cam1, corner_pos_3d, w_corner, GYR_N, ACC_N, GYR_W, ACC_W, corner_loss_thres, mp_loss_thres, false);
-        tt_solve.Toc();
+    publishCornerPos(corner_pos_3d);
+    Util::publishCloud(gtrPoseCloud_pub, *gtrPoseCloud, rclcpp::Clock().now(), "world");
 
-        for (int i = 0; i < 2; i++)
-        {
-            std::cout << "Ric"   << i << ": \n" << cam_calib->T_i_c[i].so3().matrix() << std::endl;
-            std::cout << "tic"   << i << ": \n" << cam_calib->T_i_c[i].translation().transpose() << std::endl;
-            std::cout << "param" << i << ": \n" << cam_calib->intrinsics[i].getParam().transpose() << std::endl;
-        }
-        std::cout << "ba: " << ba.transpose() << endl;
-        std::cout << "bg: " << bg.transpose() << endl;
-        std::cout << "g : " << g.transpose()  << endl;
-
-        // Visualize knots
-        pcl::PointCloud<pcl::PointXYZ> est_knots;
-        for (int i = 0; i < traj->getNumKnots(); i++)
-        {
-            Eigen::Vector3d knot_pos = traj->getKnotPose(i).translation();
-            est_knots.points.push_back(pcl::PointXYZ(knot_pos.x(), knot_pos.y(), knot_pos.z()));
-        }
-
-            RosPc2Msg knot_msg;
-            pcl::toROSMsg(est_knots, knot_msg);
-
-        while(rclcpp::ok())
-        {           
-            publishCornerPos(corner_pos_3d);
-
-            gt_path.header.stamp = rclcpp::Clock().now();
-            gt_path_pub->publish(gt_path);
-
-            knot_msg.header.stamp = rclcpp::Clock().now();
-            knot_msg.header.frame_id = "map";
-            knot_pub->publish(knot_msg);
-
-            this_thread::sleep_for(chrono::milliseconds(100));
-        }
-    }
-}
-
-void saveTraj(GaussianProcessPtr traj)
-{
-    if (!std::filesystem::is_directory(traj_save_path) || !std::filesystem::exists(traj_save_path))
-    {
-        std::filesystem::create_directories(traj_save_path);
-    }
-    std::string traj_file_name = traj_save_path + "traj.txt";
-    std::ofstream f_traj(traj_file_name);
-    for (int i = 0; i < gt_path.poses.size(); i++)
-    {
-        double t_gt = rclcpp::Time(gt_path.poses[i].header.stamp).seconds();
-        auto us = traj->computeTimeIndex(t_gt);
-        int u = us.first;
-        double s = us.second;
-
-        if (u < 0 || u + 1 >= traj->getNumKnots())
-        {
-            continue;
-        }
-        auto est_pose = traj->pose(t_gt);
-        Eigen::Vector3d est_pos = est_pose.translation();
-        Eigen::Quaterniond est_ort = est_pose.unit_quaternion();
-        f_traj << std::fixed << t_gt << std::setprecision(7)
-               << " " << est_pos.x() << " " << est_pos.y() << " " << est_pos.z()
-               << " " << est_ort.x() << " " << est_ort.y() << " " << est_ort.z() << " " << est_ort.w() << std::endl;
-    }
-    f_traj.close();
-
-    std::string gt_file_name = traj_save_path + "gt.txt";
-    std::ofstream f_gt(gt_file_name);
-    for (int i = 0; i < gt_path.poses.size(); i++)
-    {
-        double t_gt = rclcpp::Time(gt_path.poses[i].header.stamp).seconds();
-
-        f_gt << std::fixed << t_gt << std::setprecision(7)
-             << " " << gt_path.poses[i].pose.position.x << " " << gt_path.poses[i].pose.position.y << " " << gt_path.poses[i].pose.position.z
-             << " " << gt_path.poses[i].pose.orientation.x << " " << gt_path.poses[i].pose.orientation.y << " " << gt_path.poses[i].pose.orientation.z << " " << gt_path.poses[i].pose.orientation.w << std::endl;
-    }
-    f_gt.close();
+    CloudPosePtr estPoseCloud(new CloudPose());
+    for(int kidx = 0; kidx < traj->getNumKnots(); kidx++)
+        estPoseCloud->push_back(myTf(traj->getKnotPose(kidx)).Pose6D());
+    
+    Util::publishCloud(est_pub, *estPoseCloud, rclcpp::Clock().now(), "world");
 }
 
 int main(int argc, char **argv)
@@ -431,18 +450,18 @@ int main(int argc, char **argv)
     getCameraModel(cam_path, cam_calib);
 
     getIMUMeasurements(data_path, CIBuf.imu_data);
-    getGT(data_path, gt_path);
+    getGT(data_path, gtrPoseCloud);
 
     // Publish estimates
     knot_pub = nh_ptr->create_publisher<RosPc2Msg>("/estimated_knot", 10);
     // gt_pub = nh_ptr->create_publisher<RosOdomMsg>("/ground_truth", 10);
-    gt_path_pub = nh_ptr->create_publisher<RosPathMsg>("/ground_truth_path", 10);
-    est_pub = nh_ptr->create_publisher<RosPathMsg>("/estimated_trajectory", 10);
+    gtrPoseCloud_pub = nh_ptr->create_publisher<RosPc2Msg>("/ground_truth_path", 10);
+    est_pub = nh_ptr->create_publisher<RosPc2Msg>("/estimated_trajectory", 10);
     odom_pub = nh_ptr->create_publisher<RosOdomMsg>("/estimated_pose", 10);
     corner_pub = nh_ptr->create_publisher<RosPc2Msg>("/corners", 10);
 
     // est_path.header.frame_id = "map";
-    gt_path.header.frame_id = "map";
+    // gtrPoseCloud.header.frame_id = "map";
 
     // Time to check the buffers and perform optimization
     Util::GetParam(nh_ptr, "WINDOW_SIZE", WINDOW_SIZE);
@@ -457,53 +476,154 @@ int main(int argc, char **argv)
     if_save_traj = Util::GetBoolParam(nh_ptr, "if_save_traj", if_save_traj);
     Util::GetParam(nh_ptr, "traj_save_path", traj_save_path);
 
-    // Create the trajectory
-    traj = GaussianProcessPtr(new GaussianProcess(gpDt, gpQr, gpQc, true, pose_type, lie_epsilon, use_approx_drv));
+    double tskew0 = 1.0;
+    double tskewmax = 1.0;
+    double tskewstep = 0.1;
+    Util::GetParam(nh_ptr, "tskew0", tskew0);
+    Util::GetParam(nh_ptr, "tskewmax", tskewmax);
+    Util::GetParam(nh_ptr, "tskewstep", tskewstep);
+
+    int Dtstep = 1;
+    Util::GetParam(nh_ptr, "Dtstep", Dtstep);
+    
+
+    CameraImuBuf CIBuf_ = CIBuf;
+    CloudPosePtr gtrPoseCloud_(new CloudPose()); *gtrPoseCloud_  = *gtrPoseCloud;
     GPMVICalibPtr gpmui(new GPMVICalib(nh_ptr));
 
-    // double t0 = CIBuf.minTime();
-    double t0 = max(CIBuf.imu_data.front().t, CIBuf.corner_data_cam0.front().t);
-    traj->setStartTime(t0);
-    SE3d initial_pose;
-    Eigen::Matrix3d rwi;
-    rwi << -0.9978650,  0.0135724, 0.0638772,
-            0.0628005, -0.0687564, 0.9956550,
-            0.0179054,  0.9975410, 0.0677573;
-    initial_pose.so3() = Sophus::SO3d::fitToSO3(rwi);
-    initial_pose.translation() = Eigen::Vector3d(0.290213, 0.393962, 0.642399);
-    traj->setKnot(0, GPState(t0, initial_pose));
+    fs::create_directories(traj_save_path);
+    std::ofstream logfile(traj_save_path + "/vicalib.csv", std::ios::out);
+    logfile << std::fixed << std::setprecision(6);
+    logfile << "tskew,dt,"
+               "so3xr3ap_tslv,so3xr3cf_tslv,se3ap_tslv,se3cf_tslv,"
+               "so3xr3ap_JK,so3xr3cf_JK,se3ap_JK,se3cf_JK,"
+               "so3xr3ap_rmse,so3xr3cf_rmse,se3ap_rmse,se3cf_rmse\n";
 
-    Eigen::Matrix3d rai;
-    rai << -0.9979450,  0.00867498, 0.0634844,
-            0.0627571, -0.06752980, 0.9957420,
-            0.0129251,  0.99768000, 0.0668466;
-
-    for (size_t i = 0; i < CIBuf.imu_data.size(); i++)
+    auto AssessTraj = [&corner_pos_3d, &cam_calib, &gpmui](CameraImuBuf &data, GaussianProcessPtr &traj, CloudPosePtr &gtrPoseCloud, map<string, double> &report) -> string
     {
-        const Eigen::Vector3d ad = CIBuf.imu_data[i].acc;
-        if (std::abs(CIBuf.imu_data[i].t - CIBuf.corner_data_cam0[1].t) < 3000000 * 1e-9)
+        // double t0 = CIBuf.minTime();
+        double t0 = max(CIBuf.imu_data.front().t, CIBuf.corner_data_cam0.front().t);
+        traj->setStartTime(t0);
+        SE3d initial_pose;
+        Eigen::Matrix3d rwi;
+        rwi << -0.9978650,  0.0135724, 0.0638772,
+                0.0628005, -0.0687564, 0.9956550,
+                0.0179054,  0.9975410, 0.0677573;
+        initial_pose.so3() = Sophus::SO3d::fitToSO3(rwi);
+        initial_pose.translation() = Eigen::Vector3d(0.290213, 0.393962, 0.642399);
+        traj->setKnot(0, GPState(t0, initial_pose));
+
+        Eigen::Matrix3d rai;
+        rai << -0.9979450,  0.00867498, 0.0634844,
+                0.0627571, -0.06752980, 0.9957420,
+                0.0129251,  0.99768000, 0.0668466;
+
+        for (size_t i = 0; i < CIBuf.imu_data.size(); i++)
         {
-            g = rai * ad;
-            std::cout << "g_a initialized with " << g.transpose() << std::endl;
-            break;
+            const Eigen::Vector3d ad = CIBuf.imu_data[i].acc;
+            if (std::abs(CIBuf.imu_data[i].t - CIBuf.corner_data_cam0[1].t) < 3000000 * 1e-9)
+            {
+                g = rai * ad;
+                // std::cout << "g_a initialized with " << g.transpose() << std::endl;
+                break;
+            }
+        }
+
+        double newMaxTime = min(CIBuf.imu_data.back().t, CIBuf.corner_data_cam0.back().t);
+
+        // Step 2: Extend the trajectory
+        if (traj->getMaxTime() < newMaxTime && (newMaxTime - traj->getMaxTime()) > gpDt * 0.01)
+            traj->extendKnotsTo(newMaxTime, GPState(t0, initial_pose));
+
+        // // Start polling and processing the data
+        // processData(traj, gpmui, corner_pos_3d, &cam_calib);
+
+        double tmin = traj->getKnotTime(0) + 1e-3;                       // Start time of the sliding window
+        double tmax = traj->getKnotTime(traj->getNumKnots() - 1) + 1e-3; // End time of the sliding window
+        double tmid = tmin + SLIDE_SIZE * traj->getDt() + 1e-3;          // Next start time of the sliding window,
+
+        string report_;
+        gpmui->Evaluate(tmin, tmax, tmid, traj, bg, ba, g, &cam_calib,
+                        CIBuf.imu_data, CIBuf.corner_data_cam0, CIBuf.corner_data_cam1,
+                        corner_pos_3d, w_corner,
+                        GYR_N, ACC_N, GYR_W, ACC_W, corner_loss_thres, mp_loss_thres, false,
+                        gtrPoseCloud, report_, report);
+
+        return report_;
+    };
+
+    for(double tskew = tskew0; tskew <= tskewmax; tskew += tskewstep)
+    {
+        for(int m = 1; m <= Dtstep; m++)
+        {
+            CIBuf = CIBuf_;
+            *gtrPoseCloud = *gtrPoseCloud_;
+
+            // Modify the data with skewed timestamp
+            for(auto &cornerdata : CIBuf.corner_data_cam0)
+                cornerdata.t /= tskew;
+
+            for(auto &cornerdata : CIBuf.corner_data_cam1)
+                cornerdata.t /= tskew;
+
+            for(auto &imudata : CIBuf.imu_data)
+            {
+                imudata.t /= tskew;
+                imudata.acc *= (tskew*tskew);
+                imudata.gyro *= tskew;
+            }
+
+            for(auto &pose : gtrPoseCloud->points)
+                pose.t /= tskew;
+                
+            double deltaTm = gpDt*m;
+
+            map<string, double> so3xr3ap_report;
+            map<string, double> so3xr3cf_report;
+            map<string, double> se3ap_report;
+            map<string, double> se3cf_report;
+
+            GaussianProcessPtr trajSO3xR3AP(new GaussianProcess(deltaTm, gpQr, gpQc, false, POSE_GROUP::SO3xR3, lie_epsilon, true));
+            GaussianProcessPtr trajSO3xR3CF(new GaussianProcess(deltaTm, gpQr, gpQc, false, POSE_GROUP::SO3xR3, lie_epsilon, false));
+            GaussianProcessPtr trajSE3AP(new GaussianProcess(deltaTm, gpQr, gpQc, false, POSE_GROUP::SE3, lie_epsilon, true));
+            GaussianProcessPtr trajSE3CF(new GaussianProcess(deltaTm, gpQr, gpQc, false, POSE_GROUP::SE3, lie_epsilon, false));
+
+            string report_SO3xR3_by_SO3xR3AP = AssessTraj(CIBuf, trajSO3xR3AP, gtrPoseCloud, so3xr3ap_report);
+            string report_SO3xR3_by_SO3xR3CF = AssessTraj(CIBuf, trajSO3xR3CF, gtrPoseCloud, so3xr3cf_report);
+            string report_SO3xR3_by_SE3AP___ = AssessTraj(CIBuf, trajSE3AP,    gtrPoseCloud, se3ap_report);
+            string report_SO3xR3_by_SE3CF___ = AssessTraj(CIBuf, trajSE3CF,    gtrPoseCloud, se3cf_report);
+
+            RINFO("VICalibTraj %2dxDt, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SO3xR3AP.c_str());
+            RINFO("VICalibTraj %2dxDt, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SO3xR3CF.c_str());
+            RINFO("VICalibTraj %2dxDt, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SE3AP___.c_str());
+            RINFO("VICalibTraj %2dxDt, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SE3CF___.c_str());
+            RINFO("");
+
+            // Save the rmse result to the log
+            logfile << tskew << ","
+                    << deltaTm << ","
+                    << so3xr3ap_report["tslv"] << ","
+                    << so3xr3cf_report["tslv"] << ","
+                    << se3ap_report["tslv"] << ","
+                    << se3cf_report["tslv"] << ","
+                    << so3xr3ap_report["JK"] << ","
+                    << so3xr3cf_report["JK"] << ","
+                    << se3ap_report["JK"] << ","
+                    << se3cf_report["JK"] << ","
+                    << so3xr3ap_report["rmse"] << ","
+                    << so3xr3cf_report["rmse"] << ","
+                    << se3ap_report["rmse"] << ","
+                    << se3cf_report["rmse"]
+                    << endl;
+
+            // Publish the estimated trajectory for visualization
+            Visualization(corner_pos_3d, trajSO3xR3AP);
         }
     }
 
-    double newMaxTime = min(CIBuf.imu_data.back().t, CIBuf.corner_data_cam0.back().t);
+    logfile.close();
 
-    // Step 2: Extend the trajectory
-    if (traj->getMaxTime() < newMaxTime && (newMaxTime - traj->getMaxTime()) > gpDt * 0.01)
-        traj->extendKnotsTo(newMaxTime, GPState(t0, initial_pose));
-
-    // Start polling and processing the data
-    thread pdthread(processData, traj, gpmui, corner_pos_3d, &cam_calib);
-
-    // Spin
-    rclcpp::spin(nh_ptr);
-    pdthread.join();
-
-    if (if_save_traj)
-        saveTraj(traj);
+    RINFO(KGRN"Program finished!"RESET);
 
     return 0;
 }

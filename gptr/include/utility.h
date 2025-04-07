@@ -1653,16 +1653,16 @@ struct TDOAData {
 };
 
 struct CornerData {
-  const double t;         // Time stamp
-  const vector<int> id;
-  const vector<Eigen::Vector2d> proj;      // corner positions
+  double t;         // Time stamp
+  vector<int> id;
+  vector<Eigen::Vector2d> proj;      // corner positions
   CornerData(double s, vector<int> index, vector<Eigen::Vector2d> corner) : t(s), id(index), proj(corner) {};
 };
 
 struct IMUData {
-  const double t;            // Time stamp
-  const Eigen::Vector3d acc; // acceleration measurement
-  const Eigen::Vector3d gyro;// gyroscope measurement
+  double t;            // Time stamp
+  Eigen::Vector3d acc; // acceleration measurement
+  Eigen::Vector3d gyro;// gyroscope measurement
   IMUData(double s, const Eigen::Vector3d& acc_, const Eigen::Vector3d& gyro_) : t(s), acc(acc_), gyro(gyro_) {};
 };
 
