@@ -308,7 +308,7 @@ public:
         }
     }
 
-    void Associate(const ikdtreePtr &ikdTreeMap, const CloudXYZIPtr &priormap,
+    void Associate(const KdFLANNPtr &kdTreeMap, const CloudXYZIPtr &priormap,
                    const CloudXYZIPtr &cloudInB, const CloudXYZIPtr &cloudInW, vector<LidarCoef> &Coef)
     {
         if (priormap->size() > knnSize)
@@ -326,17 +326,14 @@ public:
                 Coef_[pidx].n = Vector4d(0, 0, 0, 0);
                 Coef_[pidx].t = -1;
 
-                if(!Util::PointIsValid(pointInB))
-                {
-                    // printf(KRED "Invalid surf point!: %f, %f, %f\n" RESET, pointInB.x, pointInB.y, pointInB.z);
-                    pointInB.x = 0; pointInB.y = 0; pointInB.z = 0; pointInB.intensity = 0;
-                    continue;
-                }
-                
-                ikdtPointVec nbrPoints; vector<float> knnSqDis(knnSize, 0);
-                ikdTreeMap->Nearest_Search(pointInW, knnSize, nbrPoints, knnSqDis);
+                vector<int> knn_idx(knnSize, 0); vector<float> knn_sq_dis(knnSize, 0);
+                kdTreeMap->nearestKSearch(pointInW, knnSize, knn_idx, knn_sq_dis);
 
-                if (nbrPoints.size() < knnSize)
+                vector<PointXYZI> nbrPoints;
+                if (knn_sq_dis.back() < minKnnSqDis)
+                    for(auto &idx : knn_idx)
+                        nbrPoints.push_back(priormap->points[idx]);
+                else
                     continue;
                     
                 // Fit the plane
@@ -385,7 +382,7 @@ public:
         }
     }
 
-    void FindTraj(const ikdtreePtr &ikdTreeMap, const CloudXYZIPtr priormap,
+    void FindTraj(const KdFLANNPtr &kdTreeMap, const CloudXYZIPtr priormap,
                   const vector<CloudXYZITPtr> &clouds, const vector<rclcpp::Time> &cloudstamp, CloudPosePtr &posePrior)
     {
         int Ncloud = clouds.size();
@@ -430,7 +427,7 @@ public:
 
                 // Step 2.2: Associate pointcloud with map
                 vector<LidarCoef> Coef;
-                Associate(ikdTreeMap, priormap, cloudDeskewedInB, cloudDeskewedInW, Coef);
+                Associate(kdTreeMap, priormap, cloudDeskewedInB, cloudDeskewedInW, Coef);
 
                 // Step 2.3: Find the increment and update the states
                 int Nf = Coef.size();

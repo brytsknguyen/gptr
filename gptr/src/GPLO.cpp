@@ -19,7 +19,7 @@
 #include "geometry_msgs/msg/transform_stamped.hpp"
 
 // Add ikdtree
-#include <ikdTree/ikd_Tree.h>
+// #include <ikdTree/ikd_Tree.h>
 
 // Custom built utilities
 #include "utility.h"
@@ -71,17 +71,10 @@ double pmap_leaf_size = 0.15;
 vector<double> cloud_ds;
 
 // Kdtree for priormap
-ikdtreePtr ikdTreeMap;
-CloudPosePtr kfPose;
-
-double kf_min_dis = 1.0;
-double kf_min_angle = 1.0;
+KdFLANNPtr kdTreeMap(new KdFLANN());
 
 // Spline knot length
 double deltaT = 0.01;
-
-// ikdtree of the priormap
-ikdtreePtr ikdtPM;
 
 // Number of poses per knot in the extrinsic optimization
 int SW_CLOUDNUM = 20;
@@ -240,10 +233,10 @@ void getInitPose(int lidx,
     ioaOpt.init_tf = tf_W_L0;
     ioaOpt.max_iterations = 20;
     ioaOpt.show_report = true;
-    ioaOpt.text = myprintf( "T_W_L(%d,0)_refined_%d", lidx, 10);
+    ioaOpt.text = myprintf("T_W_L(%d,0)_refined_%d", lidx, 10);
     IOASummary ioaSum;
     ioaSum.final_tf = ioaOpt.init_tf;
-    // cm.IterateAssociateOptimize(ioaOpt, ioaSum, priormap, pc0[lidx]);
+    cm.IterateAssociateOptimize(ioaOpt, ioaSum, priormap, pc0[lidx]);
     RINFO("Refined: \n");
     cout << ioaSum.final_tf.tfMat() << endl;
     
@@ -343,51 +336,6 @@ void VisualizeGndtr(vector<CloudPosePtr> &gndtrCloud)
     }    
 }
 
-// Check new KF
-bool IsKfCandidate(CloudPosePtr &kfPose, PointPose &kfPoseCand)
-{
-    // tt_margcloud.Tic();
-
-    static double last_kf_time = kfPose->points.front().t;
-
-    double kfPoseCandTime = kfPoseCand.t;
-
-    static KdTreeFLANN<PointPose> kdTreeKeyFrames;
-    kdTreeKeyFrames.setInputCloud(kfPose);
-
-    int knnKfNbrSize = min(10, (int)kfPose->size());
-    vector<int> knnNbrIdx(knnKfNbrSize); vector<float> knnNbrSqDis(knnKfNbrSize);
-    kdTreeKeyFrames.nearestKSearch(kfPoseCand, knnKfNbrSize, knnNbrIdx, knnNbrSqDis);
-    
-    bool far_distance = knnNbrSqDis.front() > kf_min_dis*kf_min_dis;
-    bool far_angle = true;
-    for(int idx = 0; idx < knnNbrIdx.size(); idx++)
-    {
-        int kfidx = knnNbrIdx[idx];
-
-        // Collect the angle difference
-        Quaternionf Qa(kfPose->points[kfidx].qw,
-                       kfPose->points[kfidx].qx,
-                       kfPose->points[kfidx].qy,
-                       kfPose->points[kfidx].qz);
-
-        Quaternionf Qb(kfPoseCand.qw, kfPoseCand.qx, kfPoseCand.qy, kfPoseCand.qz);
-
-        // If the angle is more than 10 degrees, add this to the key pose
-        if (fabs(Util::angleDiff(Qa, Qb)) < kf_min_angle)
-        {
-            far_angle = false;
-            break;
-        }
-    }
-    bool kf_timeout = fabs(kfPoseCandTime - last_kf_time) > 2.0 && (knnNbrSqDis.front() > 0.1*0.1);
-
-    if (far_distance || far_angle || kf_timeout)
-        return true;
-    else
-        return false;
-}
-
 int main(int argc, char **argv)
 {
     // Initalize ros nodes
@@ -409,8 +357,6 @@ int main(int argc, char **argv)
     // Knot length
     Util::GetParam(nh_ptr, "deltaT", deltaT);
     RINFO("Gaussian process with knot length: %f\n", deltaT);
-
-    Util::GetParam(nh_ptr, "kf_min_dis", kf_min_dis);
 
     // Get the user define parameters
     Util::GetParam(nh_ptr, "priormap_file", priormap_file);
@@ -549,19 +495,11 @@ int main(int argc, char **argv)
  
     /* #region Load the priormap ------------------------------------------------------------------------------------*/
 
-    ikdTreeMap = ikdtreePtr(new ikdtree(0.5, 0.6, pmap_leaf_size));
-    kfPose = CloudPosePtr(new CloudPose());
-    if (priormap_file != "none")
-    {
-        pcl::io::loadPCDFile<PointXYZI>(priormap_file, *priormap);
-        priormap = uniformDownsample<PointXYZI>(priormap, pmap_leaf_size);
-        // Create the kd tree
-        RINFO(KYEL "Building the prior map. Size: %d\n" RESET, priormap->size());
-        
-        // Insert points to the prior map
-        insertCloudToikdTree(ikdTreeMap, *priormap);
-        kfPose->push_back(myTf().Pose6D(0));    // Just add one random pose
-    }
+    pcl::io::loadPCDFile<PointXYZI>(priormap_file, *priormap);
+    priormap = uniformDownsample<PointXYZI>(priormap, pmap_leaf_size);
+    // Create the kd tree
+    printf(KYEL "Building the prior map. Size: %d\n" RESET, priormap->size());
+    kdTreeMap->setInputCloud(priormap);
 
     /* #endregion Load the priormap ---------------------------------------------------------------------------------*/
  
@@ -659,21 +597,21 @@ int main(int argc, char **argv)
                       { return pa.t < pb.t; });
 
             double sweeptime = (cloudRaw->points.back().t - cloudRaw->points.front().t)/1.0e9;
-            // if(fabs(sweeptime - 0.1) > 1e-3)
-            //     RINFO(KYEL "Irregular sweep time: %f, %f\n" RESET, sweeptime, fabs(sweeptime - 0.1));
+            if(fabs(sweeptime - 0.1) > 1e-3)
+                RINFO(KYEL "Irregular sweep time: %f, %f\n" RESET, sweeptime, fabs(sweeptime - 0.1));
             double timebase = stamp_time[lidx] == "start" ? timestamp.seconds() : timestamp.seconds() - sweeptime;
 
             // Preserve the start point and end point
             PointOuster pb = cloudRaw->points.front();
             PointOuster pf = cloudRaw->points.back();
 
-            // // Downsample the pointcloud
-            // Vector3d offset(offsetgen(gen), offsetgen(gen), offsetgen(gen));
+            // Downsample the pointcloud
+            Vector3d offset(offsetgen(gen), offsetgen(gen), offsetgen(gen));
             
-            // // Transform all the points back to the original, downsample, then transform back
-            // pcl::transformPointCloud(*cloudRaw, *cloudRaw, myTf<double>(Quaternf(1, 0, 0, 0),  offset).cast<float>().tfMat());
-            // cloudRaw = uniformDownsample<PointOuster>(cloudRaw, cloud_ds[lidx]);
-            // pcl::transformPointCloud(*cloudRaw, *cloudRaw, myTf<double>(Quaternf(1, 0, 0, 0), -offset).cast<float>().tfMat());
+            // Transform all the points back to the original, downsample, then transform back
+            pcl::transformPointCloud(*cloudRaw, *cloudRaw, myTf<double>(Quaternf(1, 0, 0, 0),  offset).cast<float>().tfMat());
+            cloudRaw = uniformDownsample<PointOuster>(cloudRaw, cloud_ds[lidx]);
+            pcl::transformPointCloud(*cloudRaw, *cloudRaw, myTf<double>(Quaternf(1, 0, 0, 0), -offset).cast<float>().tfMat());
 
             // Check if we should reinsert the first and last points
             if ( !(pb.x == cloudRaw->points.front().x
@@ -722,21 +660,6 @@ int main(int argc, char **argv)
     }
 
     /* #endregion Load the data -------------------------------------------------------------------------------------*/
-
-    /* #region Initialize the map if no prior specified -------------------------------------------------------------*/
-
-    if (priormap_file == "none")
-    {
-        printf("Initializing map with scan of %d points\n", clouds.front().front()->size());
-
-        kfPose->push_back(myTf().Pose6D(clouds.front().front()->points.front().t));
-        insertCloudToikdTree(ikdTreeMap, *clouds.front().front());
-
-        // Copy to the prior map for initialization
-        pcl::copyPointCloud(*clouds.front().front(), *priormap);
-    }
-
-    /* #endregion Initialize the map if no prior specified ----------------------------------------------------------*/
  
     /* #region Extract the ground truth and publish -----------------------------------------------------------------*/
 
@@ -801,17 +724,14 @@ int main(int argc, char **argv)
     vector<myTf<double>> tf_W_Li0_refined(Nlidar, myTf());
     vector<CloudXYZIPtr> pc0(Nlidar);
 
-    if(priormap_file != "none")
-    {
-        vector<double> timestart(Nlidar);
-        vector<thread> poseInitThread(Nlidar);
-        for(int lidx = 0; lidx < Nlidar; lidx++)
-            poseInitThread[lidx] = thread(getInitPose, lidx, std::ref(clouds), std::ref(cloudstamp), std::ref(priormap),
-                                          std::ref(timestart), std::ref(xyzypr_W_L0), std::ref(pc0), std::ref(tf_W_Li0), std::ref(tf_W_Li0_refined));
+    vector<double> timestart(Nlidar);
+    vector<thread> poseInitThread(Nlidar);
+    for(int lidx = 0; lidx < Nlidar; lidx++)
+        poseInitThread[lidx] = thread(getInitPose, lidx, std::ref(clouds), std::ref(cloudstamp), std::ref(priormap),
+                                        std::ref(timestart), std::ref(xyzypr_W_L0), std::ref(pc0), std::ref(tf_W_Li0), std::ref(tf_W_Li0_refined));
 
-        for(int lidx = 0; lidx < Nlidar; lidx++)
-            poseInitThread[lidx].join();
-    }
+    for(int lidx = 0; lidx < Nlidar; lidx++)
+        poseInitThread[lidx].join();
 
     /* #endregion Initialize the pose of each lidar -----------------------------------------------------------------*/
  
@@ -955,7 +875,7 @@ int main(int argc, char **argv)
             // Estimate the trajectory
             posePrior[lidx] = CloudPosePtr(new CloudPose());
             trajEst.push_back(thread(std::bind(&i2EKFLO::FindTraj, i2kflo[lidx],
-                                                std::ref(ikdTreeMap), std::ref(priormap),
+                                                std::ref(kdTreeMap), std::ref(priormap),
                                                 std::ref(clouds[lidx]), std::ref(cloudstamp[lidx]),
                                                 std::ref(posePrior[lidx]))));
         }
@@ -1117,14 +1037,8 @@ int main(int argc, char **argv)
             {
                 traj_curr_knots[lidx] = trajs[lidx]->getNumKnots();
                 while(trajs[lidx]->getMaxTime() < tmax)
-                {
-                    // Predict on step ahead
-                    GPState Xp = trajs[lidx]->predictState(1);
-                    // Extend the trajectory by the predicted state
-                    trajs[lidx]->extendOneKnot(Xp);
-
-                    // trajs[lidx]->extendOneKnot(trajs[lidx]->getKnot(trajs[lidx]->getNumKnots()-1));
-                }
+                    // trajs[lidx]->extendOneKnot();
+                    trajs[lidx]->extendOneKnot(trajs[lidx]->getKnot(trajs[lidx]->getNumKnots()-1));
             }
 
             // Estimation change
@@ -1145,8 +1059,8 @@ int main(int argc, char **argv)
                 TicToc tt_inner_loop;
 
                 // Deskew, Transform and Associate
-                auto ProcessCloud = [&ikdTreeMap, &priormap](LOAMPtr &gpmaplo, CloudXYZITPtr &cloudRaw, CloudXYZIPtr &cloudUndi,
-                                                             CloudXYZIPtr &cloudUndiInW, vector<LidarCoef> &cloudCoeff) -> void
+                auto ProcessCloud = [&kdTreeMap, &priormap](LOAMPtr &gpmaplo, CloudXYZITPtr &cloudRaw, CloudXYZIPtr &cloudUndi,
+                                                            CloudXYZIPtr &cloudUndiInW, vector<LidarCoef> &cloudCoeff) -> void
                 {
                     // Get the trajectory
                     GaussianProcessPtr &traj = gpmaplo->GetTraj();
@@ -1161,7 +1075,7 @@ int main(int argc, char **argv)
                     pcl::transformPointCloud(*cloudUndi, *cloudUndiInW, pose.translation(), pose.so3().unit_quaternion());
 
                     // Associate
-                    gpmaplo->Associate(traj, ikdTreeMap, priormap, cloudRaw, cloudUndi, cloudUndiInW, cloudCoeff);
+                    gpmaplo->Associate(traj, kdTreeMap, priormap, cloudRaw, cloudUndi, cloudUndiInW, cloudCoeff);
                 };
                 
                 for(int lidx = 0; lidx < Nlidar; lidx++)
@@ -1621,37 +1535,6 @@ int main(int argc, char **argv)
 
             if (SW_END == int(cloudsx[0].size())-1)
                 break;
-
-            // Update map
-            if(priormap_file == "none")
-            {
-                // Check if a new keyframe should be added
-                PointPose kfPoseCand = myTf(trajs.front()->pose(tmin)).Pose6D(tmin);
-                bool newKf = IsKfCandidate(kfPose, kfPoseCand);
-
-                if (newKf)
-                {
-                    // Add new keyframe pose
-                    kfPose->push_back(kfPoseCand);
-                    
-                    // Extend the map
-                    CloudXYZIPtr kfCloud(new CloudXYZI());
-                    for(int lidx = 0; lidx < Nlidar; lidx++)
-                    {
-                        for(int cidx = 0; cidx < swCloudUndiInW[lidx].size(); cidx++)
-                        {
-                            if (swCloud[lidx][cidx]->points.back().t - tmin > 0.1) 
-                                break;
-                            else
-                                *kfCloud += *swCloudUndiInW[lidx][cidx];
-                        }
-                    }
-                    insertCloudToikdTree(ikdTreeMap, *kfCloud);
-
-                    // Notice
-                    printf(KYEL "Extending map with %d points\n" RESET, kfCloud->size());
-                }
-            }
         }
 
         if (loam_diverges)

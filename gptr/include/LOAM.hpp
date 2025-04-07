@@ -103,7 +103,7 @@ public:
         traj->setKnot(0, GPState(t0, T_W_Li0));
     }
 
-    void Associate(GaussianProcessPtr &traj, const ikdtreePtr &ikdTreeMap, const CloudXYZIPtr &priormap,
+    void Associate(GaussianProcessPtr &traj, const KdFLANNPtr &kdTreeMap, const CloudXYZIPtr &priormap,
                    const CloudXYZITPtr &cloudRaw, const CloudXYZIPtr &cloudInB, const CloudXYZIPtr &cloudInW,
                    vector<LidarCoef> &Coef)
     {
@@ -139,10 +139,14 @@ public:
                 if (!traj->TimeInInterval(tpoint, 1e-6))
                     continue;
 
-                ikdtPointVec nbrPoints; vector<float> knnSqDis(knnSize, 0);
-                ikdTreeMap->Nearest_Search(pointInW, knnSize, nbrPoints, knnSqDis);
+                vector<int> knn_idx(knnSize, 0); vector<float> knn_sq_dis(knnSize, 0);
+                kdTreeMap->nearestKSearch(pointInW, knnSize, knn_idx, knn_sq_dis);
 
-                if (nbrPoints.size() < knnSize)
+                vector<PointXYZI> nbrPoints;
+                if (knn_sq_dis.back() < minKnnSqDis)
+                    for(auto &idx : knn_idx)
+                        nbrPoints.push_back(priormap->points[idx]);
+                else
                     continue;
                     
                 // Fit the plane

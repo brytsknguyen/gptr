@@ -24,7 +24,7 @@ pose_type_ = 'SO3xR3'
 use_approx_drv_ = '0'
 
 # Knot length
-deltaT_ = '0.01'
+deltaT_ = '0.02204'
 
 # Initial pose in each sequence
 xyzypr_W_L0 =[ 0,   0,  0,   0, 0,  0,
@@ -65,7 +65,7 @@ def generate_launch_description():
             {'VIZ_ONLY'        : 0},
 
             # Lidar topics and their settings
-            {'lidar_topic'     : ['/livox/lidar_0/points']},
+            {'lidar_topic'     : ['/livox/lidar_0/points', '/livox/lidar_1/points']},
             {'lidar_type'      : ['ouster', 'ouster']},
             {'stamp_time'      : ['start', 'start']},
 
@@ -122,11 +122,11 @@ def generate_launch_description():
             # Extrinsic estimation
             {'SW_CLOUDNUM'     : 40},
             {'SW_CLOUDSTEP'    : 1},
-            {'max_lidarcoefs'  : 8000},
+            {'max_lidarcoefs'  : 2000},
             {'XTRZ_DENSITY'    : 1},
             {'min_planarity'   : 0.5},
             {'max_plane_dis'   : 0.5},
-            {'knnsize'         : 10},
+            {'knnsize'         : 6},
             
             {'use_ceres'       : 1},
             {'max_ceres_iter'  : 50},
