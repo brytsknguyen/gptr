@@ -64,69 +64,56 @@ runexp()
 }
 
 
-# runexp cloud_avia_mid_w75_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_050/lio/ 0.05
-# runexp cloud_avia_mid_w65_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_050/lio/ 0.05
-# runexp cloud_avia_mid_w55_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_050/lio/ 0.05
-# runexp cloud_avia_mid_w50_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_050/lio/ 0.05
-# runexp cloud_avia_mid_w45_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_050/lio/ 0.05
-# runexp cloud_avia_mid_w35_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_050/lio/ 0.05
-# runexp cloud_avia_mid_w25_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_050/lio/ 0.05
-# runexp cloud_avia_mid_w15_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_050/lio/ 0.05
+# runexp cloud_ousterx2_w75_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_100/lio/ 0.10
+# runexp cloud_ousterx2_w75_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_150/lio/ 0.15
+# runexp cloud_ousterx2_w75_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_200/lio/ 0.20
+# runexp cloud_ousterx2_w75_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_250/lio/ 0.25
+# runexp cloud_ousterx2_w75_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_300/lio/ 0.30
 
-# runexp cloud_avia_mid_w75_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_100/lio/ 0.10
-# runexp cloud_avia_mid_w65_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_100/lio/ 0.10
-# runexp cloud_avia_mid_w55_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_100/lio/ 0.10
-# runexp cloud_avia_mid_w50_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_100/lio/ 0.10
-# runexp cloud_avia_mid_w45_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_100/lio/ 0.10
-# runexp cloud_avia_mid_w35_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_100/lio/ 0.10
-# runexp cloud_avia_mid_w25_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_100/lio/ 0.10
-# runexp cloud_avia_mid_w15_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_100/lio/ 0.10
+# runexp cloud_ousterx2_w70_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_100/lio/ 0.10
+# runexp cloud_ousterx2_w70_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_150/lio/ 0.15
+# runexp cloud_ousterx2_w70_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_200/lio/ 0.20
+# runexp cloud_ousterx2_w70_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_250/lio/ 0.25
+# runexp cloud_ousterx2_w70_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_300/lio/ 0.30
 
-# runexp cloud_avia_mid_w75_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_150/lio/ 0.15
-# runexp cloud_avia_mid_w65_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_150/lio/ 0.15
-# runexp cloud_avia_mid_w55_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_150/lio/ 0.15
-# runexp cloud_avia_mid_w50_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_150/lio/ 0.15
-# runexp cloud_avia_mid_w45_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_150/lio/ 0.15
-# runexp cloud_avia_mid_w35_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_150/lio/ 0.15
-# runexp cloud_avia_mid_w25_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_150/lio/ 0.15
-# runexp cloud_avia_mid_w15_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_150/lio/ 0.15
+# runexp cloud_ousterx2_w65_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_100/lio/ 0.10
+# runexp cloud_ousterx2_w65_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_150/lio/ 0.15
+# runexp cloud_ousterx2_w65_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_200/lio/ 0.20
+# runexp cloud_ousterx2_w65_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_250/lio/ 0.25
+# runexp cloud_ousterx2_w65_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_300/lio/ 0.30
 
-# runexp cloud_avia_mid_w75_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_200/lio/ 0.20
-# runexp cloud_avia_mid_w65_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_200/lio/ 0.20
-runexp cloud_avia_mid_w55_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_200/lio/ 0.20
-runexp cloud_avia_mid_w50_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_200/lio/ 0.20
-runexp cloud_avia_mid_w45_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_200/lio/ 0.20
-# runexp cloud_avia_mid_w35_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_200/lio/ 0.20
-# runexp cloud_avia_mid_w25_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_200/lio/ 0.20
-# runexp cloud_avia_mid_w15_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_200/lio/ 0.20
+# runexp cloud_ousterx2_w60_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_100/lio/ 0.10
+# runexp cloud_ousterx2_w60_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_150/lio/ 0.15
+# runexp cloud_ousterx2_w60_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_200/lio/ 0.20
+# runexp cloud_ousterx2_w60_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_250/lio/ 0.25
+# runexp cloud_ousterx2_w60_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_300/lio/ 0.30
 
-# runexp cloud_avia_mid_w75_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_250/lio/ 0.25
-# runexp cloud_avia_mid_w65_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_250/lio/ 0.25
-runexp cloud_avia_mid_w55_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_250/lio/ 0.25
-runexp cloud_avia_mid_w50_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_250/lio/ 0.25
-runexp cloud_avia_mid_w45_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_250/lio/ 0.25
-# runexp cloud_avia_mid_w35_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_250/lio/ 0.25
-# runexp cloud_avia_mid_w25_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_250/lio/ 0.25
-# runexp cloud_avia_mid_w15_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_250/lio/ 0.25
+# runexp cloud_ousterx2_w55_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_100/lio/ 0.10
+# runexp cloud_ousterx2_w55_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_150/lio/ 0.15
+# runexp cloud_ousterx2_w55_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_200/lio/ 0.20
+# runexp cloud_ousterx2_w55_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_250/lio/ 0.25
+# runexp cloud_ousterx2_w55_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_300/lio/ 0.30
 
-# runexp cloud_avia_mid_w75_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_300/lio/ 0.30
-# runexp cloud_avia_mid_w65_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_300/lio/ 0.30
-runexp cloud_avia_mid_w55_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_300/lio/ 0.30
-runexp cloud_avia_mid_w50_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_300/lio/ 0.30
-runexp cloud_avia_mid_w45_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_300/lio/ 0.30
-# runexp cloud_avia_mid_w35_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_300/lio/ 0.30
-# runexp cloud_avia_mid_w25_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_300/lio/ 0.30
-# runexp cloud_avia_mid_w15_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_300/lio/ 0.30
+# runexp cloud_ousterx2_w50_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_100/lio/ 0.10
+# runexp cloud_ousterx2_w50_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_150/lio/ 0.15
+# runexp cloud_ousterx2_w50_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_200/lio/ 0.20
+# runexp cloud_ousterx2_w50_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_250/lio/ 0.25
+# runexp cloud_ousterx2_w50_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_300/lio/ 0.30
 
-# runexp cloud_avia_mid_w75_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_400/lio/ 0.40
-# runexp cloud_avia_mid_w65_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_400/lio/ 0.40
-# runexp cloud_avia_mid_w55_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_400/lio/ 0.40
-# runexp cloud_avia_mid_w50_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_400/lio/ 0.40
-# runexp cloud_avia_mid_w45_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_400/lio/ 0.40
-# runexp cloud_avia_mid_w35_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_400/lio/ 0.40
-# runexp cloud_avia_mid_w25_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_400/lio/ 0.40
-# runexp cloud_avia_mid_w15_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_16032025/Dt_400/lio/ 0.40
+# runexp cloud_ousterx2_w45_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_100/lio/ 0.10
+# runexp cloud_ousterx2_w45_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_150/lio/ 0.15
+# runexp cloud_ousterx2_w45_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_200/lio/ 0.20
+# runexp cloud_ousterx2_w45_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_250/lio/ 0.25
+# runexp cloud_ousterx2_w45_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_300/lio/ 0.30
 
+runexp cloud_ousterx2_w40_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_100/lio/ 0.10
+runexp cloud_ousterx2_w40_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_150/lio/ 0.15
+runexp cloud_ousterx2_w40_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_200/lio/ 0.20
+runexp cloud_ousterx2_w40_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_250/lio/ 0.25
+runexp cloud_ousterx2_w40_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_300/lio/ 0.30
 
-
-
+# runexp cloud_ousterx2_w35_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_100/lio/ 0.10
+# runexp cloud_ousterx2_w35_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_150/lio/ 0.15
+# runexp cloud_ousterx2_w35_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_200/lio/ 0.20
+# runexp cloud_ousterx2_w35_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_250/lio/ 0.25
+# runexp cloud_ousterx2_w35_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_09042025/Dt_300/lio/ 0.30

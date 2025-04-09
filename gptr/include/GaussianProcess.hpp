@@ -2245,10 +2245,10 @@ public:
         for(int k = 0; k < steps; k++)
         {
             SO3d Rpred = Rc*SO3d::exp(Dt*Oc);
-            Vec3 Opred = Oc;
+            Vec3 Opred = Oc + Dt*Sc;
             Vec3 Spred = Sc;
             Vec3 Ppred = Pc + Dt*Vc;
-            Vec3 Vpred = Vc;
+            Vec3 Vpred = Vc + Dt*Ac;
             Vec3 Apred = Ac;
 
             Rc = Rpred;

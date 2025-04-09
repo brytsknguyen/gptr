@@ -8,20 +8,20 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 # Sequence
-sequence_ = 'cloud_avia_mid_w75_e5'
+sequence_ = 'cloud_ousterx2_w70_e5'
 
 # Bag file
 lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/{sequence_}'
 
 # Direction to log the exp
-log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/sim_{sequence_}_gptr_two_lidar/'
+log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/sim_{sequence_}_gptr_lidar0/'
 
 # Type of pose
 # pose_type_ = 'SE3'
 pose_type_ = 'SO3xR3'
 
 # Type of pose
-use_approx_drv_ = '1'
+use_approx_drv_ = '0'
 
 # Knot length
 deltaT_ = '0.3'
@@ -65,7 +65,7 @@ def generate_launch_description():
             {'VIZ_ONLY'        : 0},
 
             # Lidar topics and their settings
-            {'lidar_topic'     : ['/lidar_0/points', '/lidar_1/points']},
+            {'lidar_topic'     : ['/lidar_0/points']},
             {'lidar_type'      : ['livox', 'livox']},
             {'stamp_time'      : ['start', 'start']},
 
@@ -92,8 +92,8 @@ def generate_launch_description():
             # GN MAP optimization params
             {'deltaT'          : LaunchConfiguration('deltaT')},
             # Motion prior factors
-            {'mpCovROSJerk'    : 0.5},
-            {'mpCovPVAJerk'    : 0.5},
+            {'mpCovROSJerk'    : 5.0},
+            {'mpCovPVAJerk'    : 5.0},
             {"pose_type"       : LaunchConfiguration('pose_type')}, # Choose 'SE3' or 'SO3xR3'
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
             {"lie_epsilon"     : 1e-1},
@@ -102,8 +102,8 @@ def generate_launch_description():
             {'lidar_weight'    : 10.0},
 
             # Extrinsic factors
-            {'xtCovROSJerk'    : 0.1},
-            {'xtCovPVAJerk'    : 0.1},
+            {'xtCovROSJerk'    : 1.0},
+            {'xtCovPVAJerk'    : 1.0},
 
             # Loss function threshold
             {'ld_loss_thres'   : -1.0},
@@ -119,7 +119,7 @@ def generate_launch_description():
             # Extrinsic estimation
             {'SW_CLOUDNUM'     : PythonExpression(['int(1.2/', LaunchConfiguration('deltaT'), ' + 0.5)'])},
             {'SW_CLOUDSTEP'    : 1},
-            {'max_lidarcoefs'  : 4000},
+            {'max_lidarcoefs'  : 2000},
             {'XTRZ_DENSITY'    : 1},
             {'min_planarity'   : 0.5},
             {'max_plane_dis'   : 0.5},
@@ -128,9 +128,9 @@ def generate_launch_description():
             {'use_ceres'       : 1},
             {'max_ceres_iter'  : 50},
             {'max_outer_iter'  : 1},
-            {'max_inner_iter'  : 2},
-            {'min_inner_iter'  : 2},
-            {'conv_thres'      : 2},
+            {'max_inner_iter'  : 5},
+            {'min_inner_iter'  : 5},
+            {'conv_thres'      : 5},
             {'dJ_conv_thres'   : 10.0},
             {'conv_dX_thres'   : [-0.05, -0.5, -1.0, -0.05, -0.5, -1.0 ]},
             {'change_thres'    : [-15.0, -0.5, -1.0, -15.0, -8.0, -2.0 ]},

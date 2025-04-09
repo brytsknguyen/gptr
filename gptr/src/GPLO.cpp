@@ -728,7 +728,7 @@ int main(int argc, char **argv)
     vector<thread> poseInitThread(Nlidar);
     for(int lidx = 0; lidx < Nlidar; lidx++)
         poseInitThread[lidx] = thread(getInitPose, lidx, std::ref(clouds), std::ref(cloudstamp), std::ref(priormap),
-                                        std::ref(timestart), std::ref(xyzypr_W_L0), std::ref(pc0), std::ref(tf_W_Li0), std::ref(tf_W_Li0_refined));
+                                      std::ref(timestart), std::ref(xyzypr_W_L0), std::ref(pc0), std::ref(tf_W_Li0), std::ref(tf_W_Li0_refined));
 
     for(int lidx = 0; lidx < Nlidar; lidx++)
         poseInitThread[lidx].join();
@@ -1037,8 +1037,14 @@ int main(int argc, char **argv)
             {
                 traj_curr_knots[lidx] = trajs[lidx]->getNumKnots();
                 while(trajs[lidx]->getMaxTime() < tmax)
-                    // trajs[lidx]->extendOneKnot();
-                    trajs[lidx]->extendOneKnot(trajs[lidx]->getKnot(trajs[lidx]->getNumKnots()-1));
+                {
+                    // Predict on step ahead
+                    GPState Xp = trajs[lidx]->predictState(1);
+                    // Extend the trajectory by the predicted state
+                    trajs[lidx]->extendOneKnot(Xp);
+
+                    // trajs[lidx]->extendOneKnot(trajs[lidx]->getKnot(trajs[lidx]->getNumKnots()-1));
+                }
             }
 
             // Estimation change
@@ -1352,7 +1358,7 @@ int main(int argc, char **argv)
                         convergence_count = 0;
 
                     // Set the flag when convergence has been acheived, one more iteration will be run with marginalization
-                    if(convergence_count >= conv_thres && (inner_iter >= min_inner_iter))
+                    if(convergence_count >= conv_thres && (inner_iter >= min_inner_iter - 1))
                     {
                         // RINFO("Convergent. Slide window.\n");
                         converged = true;
