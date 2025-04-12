@@ -259,9 +259,10 @@ public:
         // Set up the ceres problem
         options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
         options.num_threads = MAX_THREADS;
-        options.max_num_iterations = 100;
-        // options.check_gradients = false;
-        // options.gradient_check_relative_precision = 0.02;
+        options.max_num_iterations = 50;
+        options.function_tolerance = 0.0;
+        options.gradient_tolerance = 0.0;
+        options.parameter_tolerance = 0.0;
 
         // Documenting the parameter blocks
         paramInfoMap.clear();
@@ -338,31 +339,43 @@ public:
         }
 
         // Add the motion prior factor
+        TicToc tt_addmp2k;
+        RINFO("Add mp2k...");
         FactorMeta factorMetaMp2k;
         double cost_mp2k_init = -1, cost_mp2k_final = -1;
         AddMP2KFactors(problem, tmin, tmax, traj, mp_loss_thres, paramInfoMap, factorMetaMp2k);
+        RINFO("Done, %.0fms", tt_addmp2k.Toc());
 
+        TicToc tt_imu;
+        RINFO("Add imu...");
         FactorMeta factorMetaIMU;
         double cost_imu_init = -1;
         double cost_imu_final = -1;
         AddIMUFactors(problem, tmin, tmax, traj, XBIG, XBIA, g, imuData, wGyro, wAcce, wBiasGyro, wBiasAcce, paramInfoMap, factorMetaIMU);
+        RINFO("Done, %.0fms", tt_imu.Toc());
 
         // Add the projection factors
+        TicToc tt_projcam0;
+        RINFO("Add projcam0...");
         FactorMeta factorMetaProjCam0;
         double cost_proj_init0 = -1;
         double cost_proj_final0 = -1;
         AddProjFactors(problem, tmin, tmax, traj, cam_calib, corner_data_cam0, corner_pos_3d, 0, w_corner, corner_loss_thres, paramInfoMap, factorMetaProjCam0);
+        RINFO("Done, %.0fms", tt_projcam0.Toc());
 
+        TicToc tt_projcam1;
+        RINFO("Add projcam1...");
         FactorMeta factorMetaProjCam1;
         double cost_proj_init1 = -1;
         double cost_proj_final1 = -1;
         AddProjFactors(problem, tmin, tmax, traj, cam_calib, corner_data_cam1, corner_pos_3d, 1, w_corner, corner_loss_thres, paramInfoMap, factorMetaProjCam1);
+        RINFO("Done, %.0fms", tt_projcam1.Toc());
 
         tt_build.Toc();
 
-        TicToc tt_slv;
 
-        // Find the initial cost
+        // Find the initial 
+        RINFO(KYEL"Solving..."RESET);
         Util::ComputeCeresCost(factorMetaMp2k.res, cost_mp2k_init, problem);
         Util::ComputeCeresCost(factorMetaIMU.res, cost_imu_init, problem);
         Util::ComputeCeresCost(factorMetaProjCam0.res, cost_proj_init0, problem);
@@ -378,9 +391,13 @@ public:
         Util::ComputeCeresCost(factorMetaIMU.res, cost_imu_final, problem);
         Util::ComputeCeresCost(factorMetaProjCam0.res, cost_proj_final0, problem);
         Util::ComputeCeresCost(factorMetaProjCam1.res, cost_proj_final1, problem);
+        RINFO(KGRN"Done. %fms"RESET, tt_solve.GetLastStop());
 
         // RINFO("Factors: MP2K: %d, Proj0: %d, Proj1: %d, IMU: %d.",
         //       factorMetaMp2k.size(), factorMetaProjCam0.size(), factorMetaProjCam1.size(), factorMetaIMU.size());
+
+        RINFO("Calculating error...");
+        TicToc tt_rmse;
 
         auto umeyama_alignment = [](vector<Vector3d>& src, vector<Vector3d>& tgt) -> myTf<double>
         {
@@ -441,7 +458,13 @@ public:
         for (auto &err : se3_err)
             se3_rmse += err.dot(err);
         se3_rmse /= se3_err.size();
-        se3_rmse = sqrt(se3_rmse);    
+        se3_rmse = sqrt(se3_rmse);
+        
+        RINFO(KGRN"Done. %fms"RESET, tt_rmse.Toc());
+
+
+        RINFO("Drafting report ...");
+        TicToc tt_report;
 
         report_ = myprintf(
             "Pose group: %s. Method: %s. Dt: %.3f. "
@@ -476,6 +499,9 @@ public:
         report["IMUJK"]   = cost_imu_final;
         report["CAM0JK"]  = cost_proj_final0;
         report["CAM1JK"]  = cost_proj_final1;
+
+        RINFO(KGRN"Done. %fms\n"RESET, tt_report.Toc());
+
     }
 };
 

@@ -3,7 +3,9 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
-# Save patj
+import numpy as np
+
+# Save path
 result_save_path = '/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/vicalib/'
 
 # Data path
@@ -44,10 +46,10 @@ def generate_launch_description():
             {"mp_loss_thres"     :-1.0},
             
             # Time skewing factor
-            {"tskew0"            :1.0},
-            {"tskewmax"          :4.0},
-            {"tskewstep"         :0.1},
-            {"Dtstep"            :10},
+            {"tskew0"            : 1.0},
+            {"tskewmax"          : 4.0},
+            {"tskewstep"         : 0.1},
+            {"Dtstep"            : np.arange(0.01, 0.1, 0.01).tolist()},
             
         ]  # Optional: pass parameters if needed
     )

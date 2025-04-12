@@ -1241,6 +1241,10 @@ public:
         ceres::Problem problem;
         ceres::Solver::Options options;
         ceres::Solver::Summary summary;
+        options.max_num_iterations = 50;
+        options.function_tolerance = 0.0;
+        options.gradient_tolerance = 0.0;
+        options.parameter_tolerance = 0.0;
 
         // Set up the ceres problem
         options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;

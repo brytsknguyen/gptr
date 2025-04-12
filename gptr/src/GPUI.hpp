@@ -659,10 +659,10 @@ public:
         // Set up the ceres problem
         options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
         options.num_threads = MAX_THREADS;
-        options.max_num_iterations = 100;
-        options.check_gradients = false;
-        
-        options.gradient_check_relative_precision = 0.02;  
+        options.max_num_iterations = 50;
+        options.function_tolerance = 0.0;
+        options.gradient_tolerance = 0.0;
+        options.parameter_tolerance = 0.0;
 
         // Documenting the parameter blocks
         paramInfoMap.clear();

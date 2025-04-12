@@ -57,24 +57,24 @@ def generate_launch_description():
             # Gtr traj params
             
             # SO3xR3 trajectory
-            {"wqx1"            : 3*0.1},
-            {"wqy1"            : 3*0.1},
-            {"wqz1"            : 1*0.1},
+            {"wqx1"            : 3*0.3},
+            {"wqy1"            : 3*0.3},
+            {"wqz1"            : 1*0.3},
             {"rqx1"            : M_PI*0.5},
             {"rqy1"            : M_PI*0.5},
             {"rqz1"            : M_PI*sqrt(3)/2},
             
-            {"wpx1"            : 3*0.15},
-            {"wpy1"            : 3*0.15},
-            {"wpz1"            : 1*0.15},
+            {"wpx1"            : 3*0.45},
+            {"wpy1"            : 3*0.45},
+            {"wpz1"            : 1*0.45},
             {"rpx1"            : 5.0},
             {"rpy1"            : 5.0},
             {"rpz1"            : 5.0},
 
             # SE3 trajectory
-            {"wpx2"            : 3*0.15},
-            {"wpy2"            : 3*0.15},
-            {"wpz2"            : 1*0.15},
+            {"wpx2"            : 3*0.45},
+            {"wpy2"            : 3*0.45},
+            {"wpz2"            : 1*0.45},
             {"rpx2"            : 5.0},
             {"rpy2"            : 5.0},
             {"rpz2"            : 5.0},
@@ -83,21 +83,21 @@ def generate_launch_description():
             # GN MAP optimization params
             {"maxTime"         : 69.0/3},
             {'deltaT'          : LaunchConfiguration('deltaT')},
-            {'mpCovROSJerk'    : 10.0},
-            {'mpCovPVAJerk'    : 10.0},
+            {'mpCovROSJerk'    : 20.0},
+            {'mpCovPVAJerk'    : 20.0},
             {"pose_type"       : LaunchConfiguration('pose_type')}, # Choose 'SE3' or 'SO3xR3'
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
             {"lie_epsilon"     : 1e-2},
-            {"max_ceres_iter"  : 10},
+            {"max_ceres_iter"  : 50},
             
             
             # UWB param config
-            {"lidar_rate"      : 200.0},
+            {"lidar_rate"      : 300.0},
             {"lidar_noise"     : 0.05},
             
             # UWB param config
-            {"Dtstep"          : [0.1, 0.2]},
-            {"Wstep"           : [1, 20]},
+            {"Dtstep"          : [0.05, 0.1, 0.3]},
+            {"Wstep"           : [1, 10]},
 
         ]  # Optional: pass parameters if needed
     )

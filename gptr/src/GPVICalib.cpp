@@ -407,7 +407,7 @@ int main(int argc, char **argv)
     // Initialize the node
     rclcpp::init(argc, argv);
 
-    nh_ptr = rclcpp::Node::make_shared("gpvicalib");
+    nh_ptr = rclcpp::Node::make_shared("GPVICalib");
 
     // Determine if we exit if no data is received after a while
     bool auto_exit = Util::GetBoolParam(nh_ptr, "auto_exit", false);
@@ -483,7 +483,7 @@ int main(int argc, char **argv)
     Util::GetParam(nh_ptr, "tskewmax", tskewmax);
     Util::GetParam(nh_ptr, "tskewstep", tskewstep);
 
-    int Dtstep = 1;
+    vector<double> Dtstep = {0.01};
     Util::GetParam(nh_ptr, "Dtstep", Dtstep);
     
 
@@ -554,7 +554,7 @@ int main(int argc, char **argv)
 
     for(double tskew = tskew0; tskew <= tskewmax; tskew += tskewstep)
     {
-        for(int m = 1; m <= Dtstep; m++)
+        for(double &m : Dtstep)
         {
             CIBuf = CIBuf_;
             *gtrPoseCloud = *gtrPoseCloud_;
@@ -575,10 +575,11 @@ int main(int argc, char **argv)
                 imudata.gyro *= tskew;
             }
 
+            #pragma omp parallel for num_threads(MAX_THREADS)
             for(auto &pose : gtrPoseCloud->points)
                 pose.t /= tskew;
-                
-            double deltaTm = gpDt*m;
+
+            double deltaTm = m;
 
             map<string, double> so3xr3ap_report;
             map<string, double> so3xr3cf_report;
@@ -595,10 +596,10 @@ int main(int argc, char **argv)
             string report_SO3xR3_by_SE3AP___ = AssessTraj(CIBuf, trajSE3AP,    gtrPoseCloud, se3ap_report);
             string report_SO3xR3_by_SE3CF___ = AssessTraj(CIBuf, trajSE3CF,    gtrPoseCloud, se3cf_report);
 
-            RINFO("VICalibTraj %2dxDt, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SO3xR3AP.c_str());
-            RINFO("VICalibTraj %2dxDt, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SO3xR3CF.c_str());
-            RINFO("VICalibTraj %2dxDt, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SE3AP___.c_str());
-            RINFO("VICalibTraj %2dxDt, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SE3CF___.c_str());
+            RINFO("VICalibTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SO3xR3AP.c_str());
+            RINFO("VICalibTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SO3xR3CF.c_str());
+            RINFO("VICalibTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SE3AP___.c_str());
+            RINFO("VICalibTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SE3CF___.c_str());
             RINFO("");
 
             // Save the rmse result to the log
@@ -619,7 +620,7 @@ int main(int argc, char **argv)
                     << endl;
 
             // Publish the estimated trajectory for visualization
-            Visualization(corner_pos_3d, trajSO3xR3AP);
+            // Visualization(corner_pos_3d, trajSO3xR3AP);
         }
     }
 

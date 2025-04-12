@@ -36,21 +36,15 @@ double rpx1 = 5.0;
 double rpy1 = 5.0;
 double rpz1 = 5.0;
 
-// double wqx2 = 3*5.0;
-// double wqy2 = 3*5.0;
-// double wqz2 = 1*5.0;
 double wpx2 = 3*0.15;
 double wpy2 = 3*0.15;
 double wpz2 = 1*0.15;
 
-// double rqx2 = M_PI*0.5;
-// double rqy2 = M_PI*0.5;
-// double rqz2 = M_PI*sqrt(3)/2;
 double rpx2 = 5.0;
 double rpy2 = 5.0;
 double rpz2 = 5.0;
 
-vector<long int> Dtstep = {1, 10};
+vector<double> Dtstep = {1, 10};
 vector<long int> Wstep = {1, 50};
 
 class GtTrajSO3xR3
@@ -84,11 +78,6 @@ public:
 private:
     
     int n = 1;
-
-    // double r1 = M_PI*0.5;
-    // double r2 = M_PI*sqrt(3)/2;
-    // double wr = 1.0;
-    // double wp = 0.015;
 };
 
 class GtTrajSE3
@@ -130,11 +119,6 @@ public:
 private:
 
     int n = 1;
-    
-    // double r1 = M_PI*0.5;
-    // double r2 = M_PI*sqrt(3)/2;
-    // double wr = 1.0;
-    // double wp = 0.015;
 };
 
 // Create the ground truth trajectory
@@ -308,7 +292,7 @@ void InitializeTrajEst(GaussianProcessPtr &traj, const T &gtTraj)
     traj->setKnot(0, GPState(0));
 
     // Extend the trajectory to maxTime
-    RINFO("Extending trajectory %s-%s.",
+    RINFO("Initializing trajectory %s-%s.",
           traj->getGPMixerPtr()->getPoseRepresentation() == POSE_GROUP::SO3xR3 ? "SO3xR3" : "SE3",
           traj->getGPMixerPtr()->getJacobianForm() ? "AP" : "CF");
 
@@ -349,28 +333,31 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
     options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
     options.num_threads = MAX_THREADS;
     options.max_num_iterations = max_ceres_iter;
+    options.function_tolerance  = 0.0;
+    options.gradient_tolerance  = 0.0;
+    options.parameter_tolerance = 0.0;
 
     // Add trajectory params
     TicToc tt_addparam;
-    // RINFO("Add params...");
+    RINFO("Add params...");
     AddTrajParams(problem, traj);
-    // RINFO("Done, %.0f\n", tt_addparam.Toc());
+    RINFO("Done, %.0fms", tt_addparam.Toc());
 
     // Add the motion prior factors
     TicToc tt_addmp2k;
-    // RINFO("Add mp2k...");
+    RINFO("Add mp2k...");
     FactorMeta mp2kFactorMeta;
     double cost_mp2k_init = -1, cost_mp2k_final = -1;
     AddMP2KFactors(problem, traj, mp2kFactorMeta);
-    // RINFO("Done, %.0f\n", tt_addmp2k.Toc());
+    RINFO("Done, %.0fms", tt_addmp2k.Toc());
 
     // Add the UWB factors
     TicToc tt_uwb;
-    // RINFO("Add uwb...");
+    RINFO("Add uwb...");
     FactorMeta uwbFactorMeta;
     double cost_uwb_init = -1, cost_uwb_final = -1;
     AddUWBFactors(problem, traj, trajGtr, uwbFactorMeta);
-    // RINFO("Done, %.0f\n", tt_uwb.Toc());
+    RINFO("Done, %.0fms", tt_uwb.Toc());
 
     // RINFO(KYEL"Solving..."RESET);
     Util::ComputeCeresCost(mp2kFactorMeta.res, cost_mp2k_init, problem);
@@ -382,12 +369,13 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
 
     Util::ComputeCeresCost(mp2kFactorMeta.res, cost_mp2k_final, problem);
     Util::ComputeCeresCost(uwbFactorMeta.res,  cost_uwb_final,  problem);
-    // RINFO(KGRN"Done. %f"RESET, tt_solve.Toc());
+    RINFO(KGRN"Done. %fms"RESET, tt_solve.GetLastStop());
 
 
     // Calculate the pose errors
-    vector<Vector3d> pos_err;
-    vector<Vector3d> se3_err;
+    RINFO("Calculating error...");
+    TicToc tt_rmse;
+    vector<Vector3d> pos_err; vector<Vector3d> se3_err;
     for(double ts = traj->getMinTime(); ts < traj->getMaxTime(); ts += 0.01)
     {
         myTf poseEst = myTf(traj->pose(ts));
@@ -407,6 +395,12 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
         se3_rmse += err.dot(err);
     se3_rmse /= se3_err.size();
     se3_rmse = sqrt(se3_rmse);
+    
+    RINFO(KGRN"Done. %fms"RESET, tt_rmse.Toc());
+
+
+    RINFO("Drafting report ...");
+    TicToc tt_report;
     
     string report_ = myprintf(
         "Pose group: %s. Method: %s. Dt: %.3f."
@@ -436,6 +430,9 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
     report["MP2KJK"]  = cost_mp2k_final;
     report["UWBJK"]   = cost_uwb_final;
     
+    RINFO(KGRN"Done. %fms\n"RESET, tt_report.Toc());
+
+    
     return report_;
 }
 
@@ -443,11 +440,9 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
 
 int main(int argc, char **argv)
 {
-
-    
     // Initalize ros nodes
     rclcpp::init(argc, argv);
-    nh_ptr = rclcpp::Node::make_shared("GPTRPP");
+    nh_ptr = rclcpp::Node::make_shared("GPPP");
 
     // Log direction
     Util::GetParam(nh_ptr, "log_dir", log_dir);   RINFO("Log dir: %s", log_dir.c_str());
@@ -518,55 +513,74 @@ int main(int argc, char **argv)
     Util::GetParam(nh_ptr, "Dtstep", Dtstep);
     Util::GetParam(nh_ptr, "Wstep",  Wstep);
     
-    RINFO("Dtstep: %d -> %d", Dtstep.front(), Dtstep.back());
+    RINFO("Dtstep: %f -> %f", Dtstep.front(), Dtstep.back());
     RINFO("Wstep: %d -> %d", Wstep.front(), Wstep.back());
 
 
-    auto Experiment = [&](string logname, auto gtrTraj, string gtrTrajType, vector<long int> M, vector<long int> N)
+    auto Experiment = [&](string logname, auto gtrTraj, string gtrTrajType, vector<double> &M, vector<long int> &N)
     {
         std::ofstream logfile(logname, std::ios::out);
         logfile << std::fixed << std::setprecision(6);
         logfile << "wqx1,wqy1,wqz1,"
                    "wpx1,wpy1,wpz1,"
                    "dt,"
-                   "so3xr3ap_tslv,so3xr3cf_tslv,se3ap_tslv,se3cf_tslv,"
-                   "so3xr3ap_JK,so3xr3cf_JK,se3ap_JK,se3cf_JK,"
-                   "so3xr3ap_rmse,so3xr3cf_rmse,se3ap_rmse,se3cf_rmse\n";
+                   "so3xr3ap_tslv,so3xr3cf_tslv,so3xr3rf_tslv,"
+                   "se3ap_tslv,se3cf_tslv,se3rf_tslv,"
+                   "so3xr3ap_JK,so3xr3cf_JK,so3xr3rf_JK,"
+                   "se3ap_JK,se3cf_JK,se3rf_JK,"
+                   "so3xr3ap_rmse,so3xr3cf_rmse,so3xr3rf_rmse,"
+                   "se3ap_rmse,se3cf_rmse,se3rf_rmse\n";
 
-        for (int m = M.front(); m <= M.back(); m++)
+        for (double &m : M)
         {
-            double deltaTm = deltaT*m;
+            double deltaTm = m;
 
             map<string, double> so3xr3ap_report;
             map<string, double> so3xr3cf_report;
+            map<string, double> so3xr3rf_report;
             map<string, double> se3ap_report;
             map<string, double> se3cf_report;
+            map<string, double> se3rf_report;
 
             for (int n = N.front(); n <= N.back(); n++)
             {
                 GaussianProcessPtr trajSO3xR3AP(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, true));
                 GaussianProcessPtr trajSO3xR3CF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, false));
+                GaussianProcessPtr trajSO3xR3RF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, false));
                 GaussianProcessPtr trajSE3AP(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, true));
                 GaussianProcessPtr trajSE3CF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, false));
+                GaussianProcessPtr trajSE3RF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, false));
 
                 gtrTraj.setn(n);
 
                 InitializeTrajEst(trajSO3xR3AP, gtrTraj);
                 InitializeTrajEst(trajSO3xR3CF, gtrTraj);
+                InitializeTrajEst(trajSO3xR3RF, gtrTraj);
                 InitializeTrajEst(trajSE3AP, gtrTraj);
                 InitializeTrajEst(trajSE3CF, gtrTraj);
+                InitializeTrajEst(trajSE3RF, gtrTraj);
 
                 // double rmse = -1;
                 // Assess with the SO3xR3 trajectory
-                string report_SO3xR3_by_SO3xR3AP = AssessTraj(trajSO3xR3AP, gtrTraj, so3xr3ap_report);
-                string report_SO3xR3_by_SO3xR3CF = AssessTraj(trajSO3xR3CF, gtrTraj, so3xr3cf_report);
-                string report_SO3xR3_by_SE3AP___ = AssessTraj(trajSE3AP,    gtrTraj, se3ap_report);
-                string report_SO3xR3_by_SE3CF___ = AssessTraj(trajSE3CF,    gtrTraj, se3cf_report);
+                string report_SO3xR3AP = AssessTraj(trajSO3xR3AP, gtrTraj, so3xr3ap_report);
+                string report_SO3xR3CF = AssessTraj(trajSO3xR3CF, gtrTraj, so3xr3cf_report);
+                string report_SE3AP___ = AssessTraj(trajSE3AP,    gtrTraj, se3ap_report);
+                string report_SE3CF___ = AssessTraj(trajSE3CF,    gtrTraj, se3cf_report);
 
-                RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SO3xR3AP.c_str());
-                RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SO3xR3CF.c_str());
-                RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SE3AP___.c_str());
-                RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SE3CF___.c_str());
+                for(int kidx = 0; kidx < trajSO3xR3AP->getNumKnots(); kidx++)
+                {
+                    trajSO3xR3RF->setKnot(kidx, trajSO3xR3AP->getKnot(kidx));
+                    trajSE3RF->setKnot(kidx, trajSE3AP->getKnot(kidx));
+                }
+                string report_SO3xR3RF = AssessTraj(trajSO3xR3RF, gtrTraj, so3xr3rf_report);
+                string report_SE3RF___ = AssessTraj(trajSE3RF,    gtrTraj, se3rf_report);
+
+                RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SO3xR3AP.c_str());
+                RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SO3xR3CF.c_str());
+                RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SO3xR3RF.c_str());
+                RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SE3AP___.c_str());
+                RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SE3CF___.c_str());
+                RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SE3RF___.c_str());
 
                 // Save the rmse result to the log
                 logfile << gtrTraj.getwqx() << ","
@@ -578,16 +592,22 @@ int main(int argc, char **argv)
                         << deltaTm << ","
                         << so3xr3ap_report["tslv"] << ","
                         << so3xr3cf_report["tslv"] << ","
+                        << so3xr3rf_report["tslv"] << ","
                         << se3ap_report["tslv"] << ","
                         << se3cf_report["tslv"] << ","
+                        << se3rf_report["tslv"] << ","
                         << so3xr3ap_report["JK"] << ","
                         << so3xr3cf_report["JK"] << ","
+                        << so3xr3rf_report["JK"] << ","
                         << se3ap_report["JK"] << ","
                         << se3cf_report["JK"] << ","
+                        << se3rf_report["JK"] << ","
                         << so3xr3ap_report["rmse"] << ","
                         << so3xr3cf_report["rmse"] << ","
+                        << so3xr3rf_report["rmse"] << ","
                         << se3ap_report["rmse"] << ","
-                        << se3cf_report["rmse"]
+                        << se3cf_report["rmse"] << ","
+                        << se3rf_report["rmse"]
                         << endl;
             }
         }
@@ -596,75 +616,11 @@ int main(int argc, char **argv)
 
 
     RINFO(KGRN "Experimenting with SO3xR3 gtr traj" RESET);
-    Experiment(log_dir + "/trajso3xr3.csv", gtTrajSO3xR3, string("gtTrajSO3xR3"), Dtstep, Wstep);
+    Experiment(log_dir + "/gtrTrajso3xr3.csv", gtTrajSO3xR3, string("gtTrajSO3xR3"), Dtstep, Wstep);
     RINFO(KGRN "Experimenting with SE3 gtr traj" RESET);
-    Experiment(log_dir + "/trajse3.csv",    gtTrajSE3,    string("gtTrajSE3"),    Dtstep, Wstep);
+    Experiment(log_dir + "/gtrTrajse3.csv",    gtTrajSE3,    string("gtTrajSE3"),    Dtstep, Wstep);
 
-    // Visualizing the result
-
-    // rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajEstSO3xR3APPub = nh_ptr->create_publisher<RosPc2Msg>("/gp_traj_est_so3xr3_cf", 1);
-    // rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajEstSO3xR3CFPub = nh_ptr->create_publisher<RosPc2Msg>("/gp_traj_est_so3xr3_ap", 1);
-    // rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajEstSE3APPub = nh_ptr->create_publisher<RosPc2Msg>("/gp_traj_est_se3_cf", 1);
-    // rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajEstSE3CFPub = nh_ptr->create_publisher<RosPc2Msg>("/gp_traj_est_se3_ap", 1);
-
-    // rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajGtrSO3xR3Pub = nh_ptr->create_publisher<RosPc2Msg>("/gp_trajso3xr3_gtr", 1);
-    // rclcpp::Publisher<RosPc2Msg>::SharedPtr cloudTrajGtrSE3Pub = nh_ptr->create_publisher<RosPc2Msg>("/gp_trajse3_gtr", 1);
-    
-    // rclcpp::Publisher<RosOdomMsg>::SharedPtr odomTrajGtrSO3xR3Pub = nh_ptr->create_publisher<RosOdomMsg>("/gp_trajso3xr3_gtr_odom", 1);
-    // rclcpp::Publisher<RosOdomMsg>::SharedPtr odomTrajGtrSE3Pub = nh_ptr->create_publisher<RosOdomMsg>("/gp_trajse3_gtr_odom", 1);
-
-    // CloudPosePtr cloudTrajEstSO3xR3AP = CloudPosePtr(new CloudPose());
-    // CloudPosePtr cloudTrajEstSO3xR3CF = CloudPosePtr(new CloudPose());
-    // CloudPosePtr cloudTrajEstSE3AP = CloudPosePtr(new CloudPose());
-    // CloudPosePtr cloudTrajEstSE3CF = CloudPosePtr(new CloudPose());
-
-    // CloudPosePtr cloudTrajGtrSO3xR3 = CloudPosePtr(new CloudPose());
-    // CloudPosePtr cloudTrajGtrSE3 = CloudPosePtr(new CloudPose());
-
-    // for(int kidx = 0; kidx < trajSO3xR3AP->getNumKnots(); kidx++)
-    // {
-    //     // ROS_ASSERT_MSG(trajSO3xR3AP->getKnotTime(kidx) == trajSO3xR3CF->getKnotTime(kidx),
-    //     //                "Knot time not match: %f, %f",
-    //     //                trajSO3xR3AP->getKnotTime(kidx), trajSO3xR3CF->getKnotTime(kidx));
-        
-    //     double knot_time = trajSO3xR3AP->getKnotTime(kidx);
-    //     cloudTrajEstSO3xR3AP->points.push_back(myTf(trajSO3xR3AP->getKnotPose(kidx)).Pose6D(knot_time));
-    //     cloudTrajEstSO3xR3CF->points.push_back(myTf(trajSO3xR3CF->getKnotPose(kidx)).Pose6D(knot_time));
-    //     cloudTrajEstSE3AP->points.push_back(myTf(trajSE3AP->getKnotPose(kidx)).Pose6D(knot_time));
-    //     cloudTrajEstSE3CF->points.push_back(myTf(trajSE3CF->getKnotPose(kidx)).Pose6D(knot_time));
-
-    //     cloudTrajGtrSO3xR3->points.push_back(gtTrajSO3xR3.pose(knot_time).Pose6D(knot_time));
-    //     cloudTrajGtrSE3->points.push_back(gtTrajSE3.pose(knot_time).Pose6D(knot_time));
-    // }
-
-    // int kidx = 0;
-    // while(rclcpp::ok())
-    // {
-    //     // Publish global trajectory
-    //     Util::publishCloud(cloudTrajEstSO3xR3APPub, *cloudTrajEstSO3xR3AP, rclcpp::Clock().now(), "world");
-    //     Util::publishCloud(cloudTrajEstSO3xR3CFPub, *cloudTrajEstSO3xR3CF, rclcpp::Clock().now(), "world");
-    //     Util::publishCloud(cloudTrajEstSE3APPub, *cloudTrajEstSE3AP, rclcpp::Clock().now(), "world");
-    //     Util::publishCloud(cloudTrajEstSE3CFPub, *cloudTrajEstSE3CF, rclcpp::Clock().now(), "world");
-
-    //     Util::publishCloud(cloudTrajGtrSO3xR3Pub, *cloudTrajGtrSO3xR3, rclcpp::Clock().now(), "world");
-    //     Util::publishCloud(cloudTrajGtrSE3Pub, *cloudTrajGtrSE3, rclcpp::Clock().now(), "world");
-
-    //     double tk = trajSO3xR3AP->getKnotTime(kidx);
-
-    //     RosOdomMsg odom_so3xr3 = gtTrajSO3xR3.pose(tk).rosOdom();
-    //     odom_so3xr3.header.frame_id = "world";
-    //     odom_so3xr3.header.stamp = rclcpp::Clock().now();
-    //     odomTrajGtrSO3xR3Pub->publish(odom_so3xr3);
-
-    //     RosOdomMsg odom_se3 = gtTrajSE3.pose(tk).rosOdom();
-    //     odom_se3.header.frame_id = "world";
-    //     odom_se3.header.stamp = rclcpp::Clock().now();
-    //     odomTrajGtrSE3Pub->publish(odom_se3);
-
-    //     kidx = kidx >= trajSO3xR3AP->getNumKnots() - 1 ? 0 : kidx + 1;
-
-    //     this_thread::sleep_for(chrono::milliseconds(int(deltaT*1000)));
-    // }
+    RINFO(KGRN"Program finished!"RESET);
 
     return 0;
 }
