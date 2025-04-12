@@ -11,7 +11,7 @@
 #include "GaussNewtonUtilities.hpp"
 
 #include "factor/GPMotionPriorTwoKnotsFactor.h"
-#include "factor/GPTWRFactor.h"
+#include "factor/GPPointToPlaneFactor.h"
 #include "utility.h"
 
 using namespace std;
@@ -36,21 +36,15 @@ double rpx1 = 5.0;
 double rpy1 = 5.0;
 double rpz1 = 5.0;
 
-// double wqx2 = 3*5.0;
-// double wqy2 = 3*5.0;
-// double wqz2 = 1*5.0;
 double wpx2 = 3*0.15;
 double wpy2 = 3*0.15;
 double wpz2 = 1*0.15;
 
-// double rqx2 = M_PI*0.5;
-// double rqy2 = M_PI*0.5;
-// double rqz2 = M_PI*sqrt(3)/2;
 double rpx2 = 5.0;
 double rpy2 = 5.0;
 double rpz2 = 5.0;
 
-vector<long int> Dtstep = {1, 10};
+vector<double> Dtstep = {1, 10};
 vector<long int> Wstep = {1, 50};
 
 class GtTrajSO3xR3
@@ -84,11 +78,6 @@ public:
 private:
     
     int n = 1;
-
-    // double r1 = M_PI*0.5;
-    // double r2 = M_PI*sqrt(3)/2;
-    // double wr = 1.0;
-    // double wp = 0.015;
 };
 
 class GtTrajSE3
@@ -130,11 +119,6 @@ public:
 private:
 
     int n = 1;
-    
-    // double r1 = M_PI*0.5;
-    // double r2 = M_PI*sqrt(3)/2;
-    // double wr = 1.0;
-    // double wp = 0.015;
 };
 
 // Create the ground truth trajectory
@@ -157,32 +141,78 @@ int max_ceres_iter = 100;
 
 
 
-// UWB params
+// lidar params
 
-// Anchor and tag configs
-vector<Vector3d> tags = {
-    // Vector3d( 0.2,  0.2, 0.0),
-    // Vector3d(-0.2,  0.2, 0.0),
-    // Vector3d(-0.2, -0.2, 0.0),
-    // Vector3d( 0.2, -0.2, 0.0)};
-    Vector3d( 0.2, 0.0, 0.0),
-    Vector3d(-0.2, 0.0, 0.0)
+// Ranging beams
+vector<Vector3d> beams = {
+    Vector3d(  1.0,  0.0,  0.0),
+    Vector3d( -1.0,  0.0,  0.0),
+    Vector3d(  0.0,  1.0,  0.0),
+    Vector3d(  0.0, -1.0,  0.0),
+    Vector3d(  0.0,  0.0,  1.0),
+    Vector3d(  0.0,  0.0, -1.0)
 };
 
-vector<Vector3d> anchors = {
-    Vector3d( 10.0,  10.0, 0.5),
-    Vector3d(-10.0,  10.0, 1.5),
-    Vector3d(-10.0, -10.0, 0.5),
-    Vector3d( 10.0, -10.0, 1.5)};
+double xb = 12;
+double yb = 12;
+double zb = 8;
+vector<vector<Vector3d>> planes =
+{
+   {
+        Vector3d(1, 0, 0),
+        Vector3d(1, 0, 0),
+        Vector3d(0, 1, 0),
+        Vector3d(0, 1, 0),
+        Vector3d(0, 0, 1),
+        Vector3d(0, 0, 1)
+   },
+   {
+        Vector3d( xb,  0,  0 ),
+        Vector3d(-xb,  0,  0 ),
+        Vector3d(0,    yb, 0 ),
+        Vector3d(0,   -yb, 0 ),
+        Vector3d(0,    0,  zb),
+        Vector3d(0,    0, -zb)
+   }
+};
 
-double uwb_rate = 200.0;
-double uwb_noise = 0.05;
+double lidar_rate = 200.0;
+double lidar_noise = 0.05;
 
 
 // Creating the param info
 ParamInfoMap paramInfoMap;
 
+// Find the hit point from position p and the ray e
+bool findHitpoint(const Vector3d &p, const Vector3d &e, Vector3d &h, Vector4d &normal, double eta=0)
+{
+    int Nplane = planes[0].size();
+    for (int pidx = 0; pidx < Nplane; pidx++)
+    {
+        Vector3d n = planes[0][pidx];
+        Vector3d m = planes[1][pidx];
 
+        double nm_ = n.dot(m);
+        double np_ = n.dot(p);
+        double ne_ = n.dot(e);
+
+        if (ne_ == 0.0)
+            continue;
+        else
+        {
+            double s = (nm_ - np_)/ne_;
+            h = p + (s + eta)*e;
+            normal << n, -nm_;
+            if ((s > 0)
+                && (-xb <= h(0)) && (h(0) <= xb)
+                && (-yb <= h(1)) && (h(1) <= yb)
+                && (-zb <= h(2)) && (h(2) <= zb))
+                return true;
+        }
+    }
+
+    return false;
+}
 
 void AddTrajParams(ceres::Problem &problem, GaussianProcessPtr &traj)
 {
@@ -243,13 +273,13 @@ void AddMP2KFactors(ceres::Problem &problem, GaussianProcessPtr &traj, FactorMet
 }
 
 template <typename T>
-void AddUWBFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T &trajGtr, FactorMeta &factorMeta)
+void AddLidarFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T &trajGtr, FactorMeta &factorMeta)
 {
     // Random number generator with fixed seed for reproducibility
-    static std::mt19937 rng(571991);  
-    static std::normal_distribution<double> noise_dist(0.0, uwb_noise);
+    static std::mt19937 rng(57);
+    static std::normal_distribution<double> noise_dist(0.0, lidar_noise);
 
-    for (double ts = traj->getMinTime() + traj->getDt()/10.0; ts < traj->getMaxTime(); ts+=(1.0/uwb_rate))
+    for (double ts = traj->getMinTime() + traj->getDt()/10.0; ts < traj->getMaxTime(); ts+=(1.0/lidar_rate))
     {
         myTf tf_W_B = trajGtr.pose(ts);
 
@@ -257,46 +287,55 @@ void AddUWBFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T &t
         int    u  = us.first;
         double s  = us.second;
 
-        for(int tidx = 0; tidx < tags.size(); tidx++)
+        for(int bidx = 0; bidx < beams.size(); bidx++)
         {
-            for(int aidx = 0; aidx < anchors.size(); aidx++)
+            Vector3d e_inB = beams[bidx];
+            Vector3d e_inW = tf_W_B.rot*e_inB;
+            Vector3d p_inW = tf_W_B.pos;
+            Vector3d h_inW = Vector3d(0, 0, 0);
+            Vector4d n_inW = Vector4d(0, 0, 0, 0);
+            bool hit = findHitpoint(p_inW, e_inW, h_inW, n_inW, noise_dist(rng));
+
+            if (!hit)
+                continue;
+
+            Vector3d h_inB = tf_W_B.inverse()*h_inW;
+            LidarCoef coef;
+            coef.t = ts;
+            coef.f = h_inB;
+            coef.n = n_inW;
+            coef.plnrty = 0.8;
+
+            vector<double *> factor_param_blocks;
+            factorMeta.coupled_params.push_back(vector<ParamInfo>());
+            
+            // Add the parameter blocks for rotation
+            for (int kidx = u; kidx < u + 2; kidx++)
             {
-                Vector3d pos_tag = tags[tidx];
-                Vector3d pos_anc = anchors[aidx];
+                factor_param_blocks.push_back(traj->getKnotSO3(kidx).data());
+                factor_param_blocks.push_back(traj->getKnotOmg(kidx).data());
+                factor_param_blocks.push_back(traj->getKnotAlp(kidx).data());
+                factor_param_blocks.push_back(traj->getKnotPos(kidx).data());
+                factor_param_blocks.push_back(traj->getKnotVel(kidx).data());
+                factor_param_blocks.push_back(traj->getKnotAcc(kidx).data());
 
-                double twr = (tf_W_B.rot*pos_tag + tf_W_B.pos - pos_anc).norm() + noise_dist(rng);
-
-                vector<double *> factor_param_blocks;
-                factorMeta.coupled_params.push_back(vector<ParamInfo>());
-                
-                // Add the parameter blocks for rotation
-                for (int kidx = u; kidx < u + 2; kidx++)
-                {
-                    factor_param_blocks.push_back(traj->getKnotSO3(kidx).data());
-                    factor_param_blocks.push_back(traj->getKnotOmg(kidx).data());
-                    factor_param_blocks.push_back(traj->getKnotAlp(kidx).data());
-                    factor_param_blocks.push_back(traj->getKnotPos(kidx).data());
-                    factor_param_blocks.push_back(traj->getKnotVel(kidx).data());
-                    factor_param_blocks.push_back(traj->getKnotAcc(kidx).data());
-
-                    // Record the param info
-                    factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotSO3(kidx).data()]);
-                    factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotOmg(kidx).data()]);
-                    factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAlp(kidx).data()]);
-                    factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotPos(kidx).data()]);
-                    factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotVel(kidx).data()]);
-                    factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);             
-                }
-
-                // Record the time stamp of the factor
-                factorMeta.stamp.push_back(ts);
-
-                ceres::CostFunction *cost_function = new GPTWRFactor(twr, pos_anc, pos_tag, 1.0, traj->getGPMixerPtr(), s);
-                auto res = problem.AddResidualBlock(cost_function, NULL, factor_param_blocks);
-                
-                // Record the residual block
-                factorMeta.res.push_back(res);
+                // Record the param info
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotSO3(kidx).data()]);
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotOmg(kidx).data()]);
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAlp(kidx).data()]);
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotPos(kidx).data()]);
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotVel(kidx).data()]);
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);             
             }
+
+            // Record the time stamp of the factor
+            factorMeta.stamp.push_back(ts);
+
+            ceres::CostFunction *cost_function = new GPPointToPlaneFactor(coef.f, coef.n, 1.0, traj->getGPMixerPtr(), s);
+            auto res = problem.AddResidualBlock(cost_function, NULL, factor_param_blocks);
+
+            // Record the residual block
+            factorMeta.res.push_back(res);
         }
     }
 }
@@ -308,7 +347,7 @@ void InitializeTrajEst(GaussianProcessPtr &traj, const T &gtTraj)
     traj->setKnot(0, GPState(0));
 
     // Extend the trajectory to maxTime
-    RINFO("Extending trajectory %s-%s.",
+    RINFO("Initializing trajectory %s-%s.",
           traj->getGPMixerPtr()->getPoseRepresentation() == POSE_GROUP::SO3xR3 ? "SO3xR3" : "SE3",
           traj->getGPMixerPtr()->getJacobianForm() ? "AP" : "CF");
 
@@ -352,42 +391,43 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
 
     // Add trajectory params
     TicToc tt_addparam;
-    // RINFO("Add params...");
+    RINFO("Add params...");
     AddTrajParams(problem, traj);
-    // RINFO("Done, %.0f\n", tt_addparam.Toc());
+    RINFO("Done, %.0fms", tt_addparam.Toc());
 
     // Add the motion prior factors
     TicToc tt_addmp2k;
-    // RINFO("Add mp2k...");
+    RINFO("Add mp2k...");
     FactorMeta mp2kFactorMeta;
     double cost_mp2k_init = -1, cost_mp2k_final = -1;
     AddMP2KFactors(problem, traj, mp2kFactorMeta);
-    // RINFO("Done, %.0f\n", tt_addmp2k.Toc());
+    RINFO("Done, %.0fms", tt_addmp2k.Toc());
 
-    // Add the UWB factors
-    TicToc tt_uwb;
-    // RINFO("Add uwb...");
-    FactorMeta uwbFactorMeta;
-    double cost_uwb_init = -1, cost_uwb_final = -1;
-    AddUWBFactors(problem, traj, trajGtr, uwbFactorMeta);
-    // RINFO("Done, %.0f\n", tt_uwb.Toc());
+    // Add the lidar factors
+    TicToc tt_lidar;
+    RINFO("Add lidar...");
+    FactorMeta lidarFactorMeta;
+    double cost_lidar_init = -1, cost_lidar_final = -1;
+    AddLidarFactors(problem, traj, trajGtr, lidarFactorMeta);
+    RINFO("Done, %.0fms", tt_lidar.Toc());
 
-    // RINFO(KYEL"Solving..."RESET);
+    RINFO(KYEL"Solving..."RESET);
     Util::ComputeCeresCost(mp2kFactorMeta.res, cost_mp2k_init, problem);
-    Util::ComputeCeresCost(uwbFactorMeta.res,  cost_uwb_init,  problem);
-
+    Util::ComputeCeresCost(lidarFactorMeta.res,  cost_lidar_init,  problem);
+    
     TicToc tt_solve;
     ceres::Solve(options, &problem, &summary);
     tt_solve.Toc();
 
     Util::ComputeCeresCost(mp2kFactorMeta.res, cost_mp2k_final, problem);
-    Util::ComputeCeresCost(uwbFactorMeta.res,  cost_uwb_final,  problem);
-    // RINFO(KGRN"Done. %f"RESET, tt_solve.Toc());
+    Util::ComputeCeresCost(lidarFactorMeta.res,  cost_lidar_final,  problem);
+    RINFO(KGRN"Done. %fms"RESET, tt_solve.GetLastStop());
 
 
     // Calculate the pose errors
-    vector<Vector3d> pos_err;
-    vector<Vector3d> se3_err;
+    RINFO("Calculating error...");
+    TicToc tt_rmse;
+    vector<Vector3d> pos_err; vector<Vector3d> se3_err;
     for(double ts = traj->getMinTime(); ts < traj->getMaxTime(); ts += 0.01)
     {
         myTf poseEst = myTf(traj->pose(ts));
@@ -408,21 +448,27 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
     se3_rmse /= se3_err.size();
     se3_rmse = sqrt(se3_rmse);
     
+    RINFO(KGRN"Done. %fms"RESET, tt_rmse.Toc());
+
+
+    RINFO("Drafting report ...");
+    TicToc tt_report;
+
     string report_ = myprintf(
         "Pose group: %s. Method: %s. Dt: %.3f."
         "Tslv: %.0f. Iterations: %d.\n"
-        "Factors: MP2K: %05d, UWB: %05d.\n"
-        "J0: %16.3f, MP2K: %16.3f, UWB: %7.3f.\n"
-        "JK: %16.3f, MP2K: %16.3f, UWB: %7.3f.\n"
+        "Factors: MP2K: %05d, lidar: %05d.\n"
+        "J0: %16.3f, MP2K: %16.3f, lidar: %7.3f.\n"
+        "JK: %16.3f, MP2K: %16.3f, lidar: %7.3f.\n"
         "RMSE: POS: %9.3f. POSE: %9.3f.\n"
         ,
         traj->getGPMixerPtr()->getPoseRepresentation() == POSE_GROUP::SO3xR3 ? "SO3xR3" : "SE3",
         traj->getGPMixerPtr()->getJacobianForm() ? "AP" : "CF",
         traj->getDt(),
         tt_solve.GetLastStop(), summary.iterations.size(),
-        mp2kFactorMeta.size(), uwbFactorMeta.size(),
-        summary.initial_cost, cost_mp2k_init,  cost_uwb_init,
-        summary.final_cost,   cost_mp2k_final, cost_uwb_final,
+        mp2kFactorMeta.size(), lidarFactorMeta.size(),
+        summary.initial_cost, cost_mp2k_init,  cost_lidar_init,
+        summary.final_cost,   cost_mp2k_final, cost_lidar_final,
         pos_rmse, se3_rmse
     );
 
@@ -432,19 +478,20 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
     report["J0"]      = summary.initial_cost;
     report["JK"]      = summary.final_cost;
     report["MP2KJ0"]  = cost_mp2k_init;
-    report["UWBJ0"]   = cost_uwb_init;
+    report["LidarJ0"]   = cost_lidar_init;
     report["MP2KJK"]  = cost_mp2k_final;
-    report["UWBJK"]   = cost_uwb_final;
+    report["LidarJK"]   = cost_lidar_final;
     
+    RINFO(KGRN"Done. %fms\n"RESET, tt_report.Toc());
+
+
     return report_;
 }
 
 
 
 int main(int argc, char **argv)
-{
-
-    
+{   
     // Initalize ros nodes
     rclcpp::init(argc, argv);
     nh_ptr = rclcpp::Node::make_shared("GPTRPP");
@@ -506,23 +553,23 @@ int main(int argc, char **argv)
 
 
 
-    // Get param of UWB
-    Util::GetParam(nh_ptr, "uwb_rate", uwb_rate);
-    Util::GetParam(nh_ptr, "uwb_noise", uwb_noise);
+    // Get param of lidar
+    Util::GetParam(nh_ptr, "lidar_rate", lidar_rate);
+    Util::GetParam(nh_ptr, "lidar_noise", lidar_noise);
     
-    RINFO("UWB rate: %f", uwb_rate);
-    RINFO("UWB noise: %f", uwb_noise);
+    RINFO("lidar rate: %f", lidar_rate);
+    RINFO("lidar noise: %f", lidar_noise);
 
 
     // Get param for experiments
     Util::GetParam(nh_ptr, "Dtstep", Dtstep);
     Util::GetParam(nh_ptr, "Wstep",  Wstep);
     
-    RINFO("Dtstep: %d -> %d", Dtstep.front(), Dtstep.back());
+    RINFO("Dtstep: %f -> %f", Dtstep.front(), Dtstep.back());
     RINFO("Wstep: %d -> %d", Wstep.front(), Wstep.back());
 
 
-    auto Experiment = [&](string logname, auto gtrTraj, string gtrTrajType, vector<long int> M, vector<long int> N)
+    auto Experiment = [&](string logname, auto gtrTraj, string gtrTrajType, vector<double> &M, vector<long int> &N)
     {
         std::ofstream logfile(logname, std::ios::out);
         logfile << std::fixed << std::setprecision(6);
@@ -533,9 +580,9 @@ int main(int argc, char **argv)
                    "so3xr3ap_JK,so3xr3cf_JK,se3ap_JK,se3cf_JK,"
                    "so3xr3ap_rmse,so3xr3cf_rmse,se3ap_rmse,se3cf_rmse\n";
 
-        for (int m = M.front(); m <= M.back(); m++)
+        for (double &m : M)
         {
-            double deltaTm = deltaT*m;
+            double deltaTm = m;
 
             map<string, double> so3xr3ap_report;
             map<string, double> so3xr3cf_report;
@@ -558,15 +605,15 @@ int main(int argc, char **argv)
 
                 // double rmse = -1;
                 // Assess with the SO3xR3 trajectory
-                string report_SO3xR3_by_SO3xR3AP = AssessTraj(trajSO3xR3AP, gtrTraj, so3xr3ap_report);
-                string report_SO3xR3_by_SO3xR3CF = AssessTraj(trajSO3xR3CF, gtrTraj, so3xr3cf_report);
-                string report_SO3xR3_by_SE3AP___ = AssessTraj(trajSE3AP,    gtrTraj, se3ap_report);
-                string report_SO3xR3_by_SE3CF___ = AssessTraj(trajSE3CF,    gtrTraj, se3cf_report);
+                string report_SO3xR3AP = AssessTraj(trajSO3xR3AP, gtrTraj, so3xr3ap_report);
+                string report_SO3xR3CF = AssessTraj(trajSO3xR3CF, gtrTraj, so3xr3cf_report);
+                string report_SE3AP___ = AssessTraj(trajSE3AP,    gtrTraj, se3ap_report);
+                string report_SE3CF___ = AssessTraj(trajSE3CF,    gtrTraj, se3cf_report);
 
-                RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SO3xR3AP.c_str());
-                RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SO3xR3CF.c_str());
-                RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SE3AP___.c_str());
-                RINFO("SO3xR3Traj %2dx%2d %s", m, n, report_SO3xR3_by_SE3CF___.c_str());
+                RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SO3xR3AP.c_str());
+                RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SO3xR3CF.c_str());
+                RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SE3AP___.c_str());
+                RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SE3CF___.c_str());
 
                 // Save the rmse result to the log
                 logfile << gtrTraj.getwqx() << ","
@@ -596,9 +643,9 @@ int main(int argc, char **argv)
 
 
     RINFO(KGRN "Experimenting with SO3xR3 gtr traj" RESET);
-    Experiment(log_dir + "/trajso3xr3.csv", gtTrajSO3xR3, string("gtTrajSO3xR3"), Dtstep, Wstep);
+    Experiment(log_dir + "/gtrTrajso3xr3.csv", gtTrajSO3xR3, string("gtTrajSO3xR3"), Dtstep, Wstep);
     RINFO(KGRN "Experimenting with SE3 gtr traj" RESET);
-    Experiment(log_dir + "/trajse3.csv",    gtTrajSE3,    string("gtTrajSE3"),    Dtstep, Wstep);
+    Experiment(log_dir + "/gtrTrajse3.csv",    gtTrajSE3,    string("gtTrajSE3"),    Dtstep, Wstep);
 
     // Visualizing the result
 

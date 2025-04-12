@@ -453,12 +453,12 @@ int main(int argc, char **argv)
     getGT(data_path, gtrPoseCloud);
 
     // Publish estimates
-    knot_pub = nh_ptr->create_publisher<RosPc2Msg>("/estimated_knot", 10);
+    knot_pub = nh_ptr->create_publisher<RosPc2Msg>("/estimated_knot", 100);
     // gt_pub = nh_ptr->create_publisher<RosOdomMsg>("/ground_truth", 10);
-    gtrPoseCloud_pub = nh_ptr->create_publisher<RosPc2Msg>("/ground_truth_path", 10);
-    est_pub = nh_ptr->create_publisher<RosPc2Msg>("/estimated_trajectory", 10);
-    odom_pub = nh_ptr->create_publisher<RosOdomMsg>("/estimated_pose", 10);
-    corner_pub = nh_ptr->create_publisher<RosPc2Msg>("/corners", 10);
+    gtrPoseCloud_pub = nh_ptr->create_publisher<RosPc2Msg>("/ground_truth_path", 100);
+    est_pub = nh_ptr->create_publisher<RosPc2Msg>("/estimated_trajectory", 100);
+    odom_pub = nh_ptr->create_publisher<RosOdomMsg>("/estimated_pose", 100);
+    corner_pub = nh_ptr->create_publisher<RosPc2Msg>("/corners", 100);
 
     // est_path.header.frame_id = "map";
     // gtrPoseCloud.header.frame_id = "map";
@@ -559,13 +559,15 @@ int main(int argc, char **argv)
             CIBuf = CIBuf_;
             *gtrPoseCloud = *gtrPoseCloud_;
 
-            // Modify the data with skewed timestamp
+            #pragma omp parallel for num_threads(MAX_THREADS)
             for(auto &cornerdata : CIBuf.corner_data_cam0)
                 cornerdata.t /= tskew;
 
+            #pragma omp parallel for num_threads(MAX_THREADS)
             for(auto &cornerdata : CIBuf.corner_data_cam1)
                 cornerdata.t /= tskew;
 
+            #pragma omp parallel for num_threads(MAX_THREADS)
             for(auto &imudata : CIBuf.imu_data)
             {
                 imudata.t /= tskew;

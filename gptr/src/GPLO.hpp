@@ -155,7 +155,7 @@ public:
     void AddTrajParams(
         ceres::Problem &problem, double tmin, double tmax, double tmid,
         GaussianProcessPtr &traj, int tidx,
-        ParamInfoMap &paramInfoMap)
+        ParamInfoMap &paramInfoMap, int outer_iter)
     {
         auto usmin = traj->computeTimeIndex(tmin);
         auto usmax = traj->computeTimeIndex(tmax);
@@ -1253,7 +1253,7 @@ public:
         {
             // Add the parameter blocks for rotation
             for(int tidx = 0; tidx < trajs.size(); tidx++)
-                AddTrajParams(problem, tmin, tmax, tmid, trajs[tidx], tidx, paramInfoMap);
+                AddTrajParams(problem, tmin, tmax, tmid, trajs[tidx], tidx, paramInfoMap, outer_iter);
 
             // Only add extrinsic if there are multiple trajectories
             if (trajs.size() > 1)

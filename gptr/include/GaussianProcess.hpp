@@ -2475,7 +2475,7 @@ public:
         return *this;
     }
 
-    bool saveTrajectory(string log_dir, int lidx)
+    bool saveTrajectory(string log_dir, int lidx, double rmse=-1.0)
     {
         string log_ = log_dir + "/gptraj_" + std::to_string(lidx) + ".csv";
         std::ofstream logfile;
@@ -2492,6 +2492,7 @@ public:
                 << ";keepCov:" << getKeepCov()
                 << ";poseType:" << int(getPoseRepresentation())
                 << ";closedform:" << getGPMixerPtr()->getJacobianForm()
+                << ";RMSE:" << rmse
                 << endl;
 
         for(int kidx = 0; kidx < getNumKnots(); kidx++)

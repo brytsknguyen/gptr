@@ -10,6 +10,8 @@ from ament_index_python.packages import get_package_share_directory
 from math import pi as M_PI
 from math import sqrt as sqrt
 
+import numpy as np
+
 # # Sequence
 # sequence_ = 'cathhs_07'
 
@@ -17,7 +19,7 @@ from math import sqrt as sqrt
 # lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence_}'
 
 # # Direction to log the exp
-log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/uwb_mle_noise2/'
+log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lidar_mle_noise/'
 
 # Type of pose
 # pose_type_ = 'SE3'
@@ -42,10 +44,10 @@ def generate_launch_description():
     deltaT          = DeclareLaunchArgument('deltaT', default_value=deltaT_, description='')                   # Variant of approximation
 
     # GPTR LO node
-    gptr_lo_node = Node(
+    gptr_pl_node = Node(
         package     = 'gptr',
-        executable  = 'gptr_pp',  # Name of the executable built by your package
-        name        = 'gptr_pp',  # Optional: gives the node instance a name
+        executable  = 'gptr_pl',  # Name of the executable built by your package
+        name        = 'gptr_pl',  # Optional: gives the node instance a name
         output      = 'screen',   # Print the node output to the screen
         # prefix      = 'gdb -ex=r --args',
         # prefix      = 'sleep 3;',
@@ -86,16 +88,16 @@ def generate_launch_description():
             {"pose_type"       : LaunchConfiguration('pose_type')}, # Choose 'SE3' or 'SO3xR3'
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
             {"lie_epsilon"     : 1e-2},
-            {"max_ceres_iter"  : 50},
+            {"max_ceres_iter"  : 10},
             
             
             # UWB param config
-            {"uwb_rate"        : 50.0},
-            {"uwb_noise"       : 0.05},
+            {"lidar_rate"      : 200.0},
+            {"lidar_noise"     : 0.05},
             
             # UWB param config
-            {"Dtstep"          : [1, 6]},
-            {"Wstep"           : [1, 30]},
+            {"Dtstep"          : [0.1, 0.2]},
+            {"Wstep"           : [1, 20]},
 
         ]  # Optional: pass parameters if needed
     )
@@ -106,17 +108,17 @@ def generate_launch_description():
     #     executable  = 'rviz2',
     #     name        = 'rviz2',
     #     output      = 'screen',
-    #     arguments   = ['-d', get_package_share_directory('gptr') + '/launch/gptr_pp.rviz']
+    #     arguments   = ['-d', get_package_share_directory('gptr') + '/launch/gptr_pl.rviz']
     # )
 
     on_exit_action = RegisterEventHandler(event_handler=OnProcessExit(
-                                          target_action=gptr_lo_node,
+                                          target_action=gptr_pl_node,
                                           on_exit=[Shutdown()])
                                          )
     
     # launch_arg = DeclareLaunchArgument('cartinbot_viz', required=True, description='Testing')
 
     return LaunchDescription([log_dir, deltaT, pose_type, use_approx_drv,
-                              gptr_lo_node,
+                              gptr_pl_node,
                             #   rviz_node,
                               on_exit_action])

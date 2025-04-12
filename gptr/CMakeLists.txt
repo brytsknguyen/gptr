@@ -66,7 +66,28 @@ message("Eigen dir ${EIGEN3_INCLUDE_DIR}")
 # endif()
 
 
-# Test
+# region Prototype lidar and uwb --------------------------------------------------------------------------------------
+
+# lidar
+add_executable(${PROJECT_NAME}_pl src/GPPL.cpp include/SE3JQ.cpp)
+target_include_directories(${PROJECT_NAME}_pl PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+ament_target_dependencies(${PROJECT_NAME}_pl
+  rclcpp
+  pcl_conversions
+  Sophus
+  tf2_ros
+  visualization_msgs
+  sensor_msgs std_msgs geometry_msgs nav_msgs tf2_msgs
+)
+target_compile_options(${PROJECT_NAME}_pl PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
+target_link_libraries(${PROJECT_NAME}_pl ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS} fmt::fmt)
+# Link the executable to the workspace library
+install(TARGETS
+  ${PROJECT_NAME}_pl
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+# UWB
 add_executable(${PROJECT_NAME}_pp src/GPPP.cpp include/SE3JQ.cpp)
 target_include_directories(${PROJECT_NAME}_pp PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
 ament_target_dependencies(${PROJECT_NAME}_pp
@@ -85,6 +106,7 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
+# endregion Prototype lidar and uwb -----------------------------------------------------------------------------------
 
 
 # region Visual-Inertial Fusion ---------------------------------------------------------------------------------------

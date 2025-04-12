@@ -8,7 +8,7 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 # Sequence
-sequence_ = 'cloud_ousterx2_w70_e5'
+sequence_ = 'cloud_ousterx2_w75_e5'
 
 # Bag file
 lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/{sequence_}'
@@ -21,7 +21,7 @@ log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/sim_{seq
 pose_type_ = 'SO3xR3'
 
 # Type of pose
-use_approx_drv_ = '0'
+use_approx_drv_ = '1'
 
 # Knot length
 deltaT_ = '0.3'
@@ -32,11 +32,17 @@ xyzypr_W_L0 =[ 0,    0,   0.70,  43,  48, 0,
 
 def generate_launch_description():
     
-    lidar_bag_file  = DeclareLaunchArgument('lidar_bag_file', default_value=lidar_bag_file_, description='')   # Bag file
-    log_dir         = DeclareLaunchArgument('log_dir', default_value=log_dir_, description='')                 # Direction to log the exp
-    pose_type       = DeclareLaunchArgument('pose_type', default_value=pose_type_, description='')             # Variant of kinematics
-    use_approx_drv  = DeclareLaunchArgument('use_approx_drv', default_value=use_approx_drv_, description='')   # Variant of approximation
-    deltaT          = DeclareLaunchArgument('deltaT', default_value=deltaT_, description='')                   # Variant of approximation
+    launcharg_lidar_bag_file  = DeclareLaunchArgument('lidar_bag_file', default_value=lidar_bag_file_, description='')   # Bag file
+    launcharg_log_dir         = DeclareLaunchArgument('log_dir', default_value=log_dir_, description='')                 # Direction to log the exp
+    launcharg_pose_type       = DeclareLaunchArgument('pose_type', default_value=pose_type_, description='')             # Variant of kinematics
+    launcharg_use_approx_drv  = DeclareLaunchArgument('use_approx_drv', default_value=use_approx_drv_, description='')   # Variant of approximation
+    launcharg_deltaT          = DeclareLaunchArgument('deltaT', default_value=deltaT_, description='')                   # Variant of approximation
+
+    lidar_bag_file  = LaunchConfiguration('lidar_bag_file')
+    log_dir         = LaunchConfiguration('log_dir')       
+    pose_type       = LaunchConfiguration('pose_type')     
+    use_approx_drv  = LaunchConfiguration('use_approx_drv')
+    deltaT          = LaunchConfiguration('deltaT')        
 
     # GPTR LO node
     gptr_lo_node = Node(
@@ -52,14 +58,14 @@ def generate_launch_description():
             {"priormap_file"   : "/media/tmn/mySataSSD1/Experiments/gptr/sim_priormap.pcd"},
             
             # Location of bag file
-            {"lidar_bag_file"  : LaunchConfiguration('lidar_bag_file')},
+            {"lidar_bag_file"  : lidar_bag_file},
             
             # Total number of clouds loaded
             {'MAX_CLOUDS'      : -1},
 
             # Time since first pointcloud to skip MAP Opt
             {'SKIPPED_TIME'    : 4.7},
-            {'RECURRENT_SKIP'  : 0},
+            {'RECURRENT_SKIP'  : 1},
 
             # Set to '1' to skip optimization
             {'VIZ_ONLY'        : 0},
@@ -76,7 +82,7 @@ def generate_launch_description():
             {'runkf'           : 1},
 
             # Set to 1 to load the search for previous logs and redo
-            {'resume_from_log' : [1, 1]},
+            {'resume_from_log' : [0, 0]},
 
             # Initial pose of each lidars
             {'xyzypr_W_L0'     : xyzypr_W_L0},
@@ -90,13 +96,13 @@ def generate_launch_description():
             {'cloud_ds'        : [0.1, 0.1]},
 
             # GN MAP optimization params
-            {'deltaT'          : LaunchConfiguration('deltaT')},
+            {'deltaT'          : deltaT},
             # Motion prior factors
-            {'mpCovROSJerk'    : 5.0},
-            {'mpCovPVAJerk'    : 5.0},
-            {"pose_type"       : LaunchConfiguration('pose_type')}, # Choose 'SE3' or 'SO3xR3'
-            {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
-            {"lie_epsilon"     : 1e-1},
+            {'mpCovROSJerk'    : 6.0},
+            {'mpCovPVAJerk'    : 6.0},
+            {"pose_type"       : pose_type}, # Choose 'SE3' or 'SO3xR3'
+            {"use_approx_drv"  : use_approx_drv},
+            {"lie_epsilon"     : 5.0e-1},
 
             {'lidar_ds_rate'   : 1},
             {'lidar_weight'    : 10.0},
@@ -128,14 +134,14 @@ def generate_launch_description():
             {'use_ceres'       : 1},
             {'max_ceres_iter'  : 50},
             {'max_outer_iter'  : 1},
-            {'max_inner_iter'  : 5},
-            {'min_inner_iter'  : 5},
-            {'conv_thres'      : 5},
+            {'max_inner_iter'  : 4},
+            {'min_inner_iter'  : 4},
+            {'conv_thres'      : 4},
             {'dJ_conv_thres'   : 10.0},
             {'conv_dX_thres'   : [-0.05, -0.5, -1.0, -0.05, -0.5, -1.0 ]},
             {'change_thres'    : [-15.0, -0.5, -1.0, -15.0, -8.0, -2.0 ]},
-            {'fix_time_begin'  : -0.025},
-            {'fix_time_end'    : -0.0},
+            {'fix_time_begin'  : -0.125},
+            {'fix_time_end'    : -0.125},
             {'fuse_marg'       : 1},
             {'compute_cost'    : 0},
             {'lambda'          : 1.0},
@@ -143,7 +149,7 @@ def generate_launch_description():
 
             # Log dir
             {'log_period'      : 5.0},
-            {'log_dir'         : LaunchConfiguration('log_dir')},
+            {'log_dir'         : log_dir},
         ]  # Optional: pass parameters if needed
     )
     
@@ -172,6 +178,10 @@ def generate_launch_description():
     
     # launch_arg = DeclareLaunchArgument('cartinbot_viz', required=True, description='Testing')
 
-    return LaunchDescription([lidar_bag_file, log_dir, deltaT, pose_type, use_approx_drv,
+    return LaunchDescription([launcharg_lidar_bag_file,
+                              launcharg_log_dir,
+                              launcharg_deltaT,
+                              launcharg_pose_type,
+                              launcharg_use_approx_drv,
                               gptr_lo_node, cartinbot_viz, rviz_node,
                               on_exit_action])
