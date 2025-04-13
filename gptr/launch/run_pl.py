@@ -89,6 +89,7 @@ def generate_launch_description():
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
             {"lie_epsilon"     : 1e-2},
             {"max_ceres_iter"  : 50},
+            {"random_start"    : 0},
             
             
             # UWB param config

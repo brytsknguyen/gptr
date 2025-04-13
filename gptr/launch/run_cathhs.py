@@ -14,7 +14,7 @@ sequence_ = 'cathhs_07'
 lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence_}'
 
 # Direction to log the exp
-log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/cathhs_exp/cathhs_{sequence_}_gptr_two_lidar/'
+log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/cathhs_{sequence_}_gptr_two_lidar/'
 
 # Type of pose
 # pose_type_ = 'SE3'
@@ -24,7 +24,7 @@ pose_type_ = 'SO3xR3'
 use_approx_drv_ = '0'
 
 # Knot length
-deltaT_ = '0.01102'
+deltaT_ = '0.02204'
 
 # Initial pose in each sequence
 xyzypr_W_L0 =[ 0,   0,  0,   0, 0,  0,
@@ -55,7 +55,7 @@ def generate_launch_description():
             {"lidar_bag_file"  : LaunchConfiguration('lidar_bag_file')},
             
             # Total number of clouds loaded
-            {'MAX_CLOUDS'      : 120},
+            {'MAX_CLOUDS'      : -1},
 
             # Time since first pointcloud to skip MAP Opt
             {'SKIPPED_TIME'    : 2.0},
@@ -120,9 +120,9 @@ def generate_launch_description():
             {'max_acc'         : -5.0},
 
             # Extrinsic estimation
-            {'SW_CLOUDNUM'     : PythonExpression(['int(1.0/', LaunchConfiguration('deltaT'), ' + 0.5)'])},
+            {'SW_CLOUDNUM'     : 40},
             {'SW_CLOUDSTEP'    : 1},
-            {'max_lidarcoefs'  : 8000},
+            {'max_lidarcoefs'  : 2000},
             {'XTRZ_DENSITY'    : 1},
             {'min_planarity'   : 0.5},
             {'max_plane_dis'   : 0.5},

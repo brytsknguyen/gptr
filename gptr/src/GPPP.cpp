@@ -286,17 +286,17 @@ void AddUWBFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T &t
 }
 
 template <typename T>
-void InitializeTrajEst(GaussianProcessPtr &traj, const T &gtTraj)
+void InitializeTrajEst(double t0, GaussianProcessPtr &traj, const T &gtTraj)
 {
-    traj->setStartTime(0);
-    traj->setKnot(0, GPState(0));
+    traj->setStartTime(t0);
+    traj->setKnot(0, GPState(t0));
 
     // Extend the trajectory to maxTime
     RINFO("Initializing trajectory %s-%s.",
           traj->getGPMixerPtr()->getPoseRepresentation() == POSE_GROUP::SO3xR3 ? "SO3xR3" : "SE3",
           traj->getGPMixerPtr()->getJacobianForm() ? "AP" : "CF");
 
-    while(traj->getMaxTime() < maxTime)
+    while(traj->getMaxTime() < t0 + maxTime)
         traj->extendOneKnot(traj->getKnot(traj->getNumKnots()-1));
 
     // Fixed seed for reproducibility
@@ -483,6 +483,7 @@ int main(int argc, char **argv)
     Util::GetParam(nh_ptr, "lie_epsilon", lie_epsilon);
     string pose_type_; Util::GetParam(nh_ptr, "pose_type", pose_type_); pose_type = pose_type_ == "SE3" ? POSE_GROUP::SE3 : POSE_GROUP::SO3xR3;
     bool use_approx_drv =  Util::GetBoolParam(nh_ptr, "use_approx_drv", true);
+    bool random_start =  Util::GetBoolParam(nh_ptr, "random_start", true);
     Util::GetParam(nh_ptr, "max_ceres_iter", max_ceres_iter);
 
     // Report the param values
@@ -516,6 +517,12 @@ int main(int argc, char **argv)
     RINFO("Dtstep: %f -> %f", Dtstep.front(), Dtstep.back());
     RINFO("Wstep: %d -> %d", Wstep.front(), Wstep.back());
 
+
+    // Fixed seed for reproducibility
+    std::mt19937 rng(1102); 
+    // Define a uniform distribution (e.g., integers between 1 and 100)
+    std::uniform_real_distribution<double> t0udist(-10, 10);
+    
 
     auto Experiment = [&](string logname, auto gtrTraj, string gtrTrajType, vector<double> &M, vector<long int> &N)
     {
@@ -553,12 +560,16 @@ int main(int argc, char **argv)
 
                 gtrTraj.setn(n);
 
-                InitializeTrajEst(trajSO3xR3AP, gtrTraj);
-                InitializeTrajEst(trajSO3xR3CF, gtrTraj);
-                InitializeTrajEst(trajSO3xR3RF, gtrTraj);
-                InitializeTrajEst(trajSE3AP, gtrTraj);
-                InitializeTrajEst(trajSE3CF, gtrTraj);
-                InitializeTrajEst(trajSE3RF, gtrTraj);
+                double t0 = 0;
+                if (random_start)
+                    t0 = t0udist(rng);
+
+                InitializeTrajEst(t0, trajSO3xR3AP, gtrTraj);
+                InitializeTrajEst(t0, trajSO3xR3CF, gtrTraj);
+                InitializeTrajEst(t0, trajSO3xR3RF, gtrTraj);
+                InitializeTrajEst(t0, trajSE3AP, gtrTraj);
+                InitializeTrajEst(t0, trajSE3CF, gtrTraj);
+                InitializeTrajEst(t0, trajSE3RF, gtrTraj);
 
                 // double rmse = -1;
                 // Assess with the SO3xR3 trajectory

@@ -78,8 +78,8 @@ def generate_launch_description():
             {"rpz2"            : 5.0},
             
             
-            # GN MAP optimization params
-            {"maxTime"         : 69.0/3},
+            # GN optimization params
+            {"maxTime"         : 69/3},
             {'deltaT'          : LaunchConfiguration('deltaT')},
             {'mpCovROSJerk'    : 10.0},
             {'mpCovPVAJerk'    : 10.0},
@@ -87,6 +87,7 @@ def generate_launch_description():
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
             {"lie_epsilon"     : 1e-2},
             {"max_ceres_iter"  : 50},
+            {"random_start"    : 0},
             
             
             # UWB param config
