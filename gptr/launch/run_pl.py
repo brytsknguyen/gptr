@@ -81,13 +81,13 @@ def generate_launch_description():
             
             
             # GN MAP optimization params
-            {"maxTime"         : 69.0/3},
+            {"maxTime"         : 20.0},
             {'deltaT'          : LaunchConfiguration('deltaT')},
             {'mpCovROSJerk'    : 20.0},
             {'mpCovPVAJerk'    : 20.0},
             {"pose_type"       : LaunchConfiguration('pose_type')}, # Choose 'SE3' or 'SO3xR3'
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
-            {"lie_epsilon"     : 1e-2},
+            {"lie_epsilon"     : 5e-2},
             {"max_ceres_iter"  : 50},
             {"random_start"    : 0},
             

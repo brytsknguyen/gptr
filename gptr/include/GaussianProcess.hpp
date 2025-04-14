@@ -1700,7 +1700,7 @@ public:
             MatTT J_Wrt_Aa =                                           J_Wrt_Wra*J_Wra_Aa;      MatTT J_Wrt_Ab =                                           J_Wrt_Wrb*J_Wrb_Ab;
 
 
-            // Jacobians from L5 to L0, dXt/dXa
+            // Jacobians from L5 to L0, dXt/dXa                                                 // Jacobians from L5 to L0, dXt/dXb
 
             DXt_DXa[RIDX][RIDX] = J_Rt_Tft*J_Tft_Ra;                                            DXt_DXb[RIDX][RIDX] = J_Rt_Tft*J_Tft_Rb;                                         // DRt_DRa
             DXt_DXa[RIDX][OIDX] = J_Rt_Tft*J_Tft_Oa;                                            DXt_DXb[RIDX][OIDX] = J_Rt_Tft*J_Tft_Ob;                                         // DRt_DOa
@@ -2475,7 +2475,7 @@ public:
         return *this;
     }
 
-    bool saveTrajectory(string log_dir, int lidx, double rmse=-1.0)
+    bool saveTrajectory(string log_dir, int lidx)
     {
         string log_ = log_dir + "/gptraj_" + std::to_string(lidx) + ".csv";
         std::ofstream logfile;
@@ -2492,7 +2492,6 @@ public:
                 << ";keepCov:" << getKeepCov()
                 << ";poseType:" << int(getPoseRepresentation())
                 << ";closedform:" << getGPMixerPtr()->getJacobianForm()
-                << ";RMSE:" << rmse
                 << endl;
 
         for(int kidx = 0; kidx < getNumKnots(); kidx++)

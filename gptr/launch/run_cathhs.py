@@ -14,7 +14,7 @@ sequence_ = 'cathhs_07'
 lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence_}'
 
 # Direction to log the exp
-log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/cathhs_{sequence_}_gptr_two_lidar/'
+log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/cathhs_exp/cathhs_{sequence_}_gptr_two_lidar/'
 
 # Type of pose
 # pose_type_ = 'SE3'
@@ -55,7 +55,7 @@ def generate_launch_description():
             {"lidar_bag_file"  : LaunchConfiguration('lidar_bag_file')},
             
             # Total number of clouds loaded
-            {'MAX_CLOUDS'      : -1},
+            {'MAX_CLOUDS'      : 120},
 
             # Time since first pointcloud to skip MAP Opt
             {'SKIPPED_TIME'    : 2.0},
@@ -90,7 +90,7 @@ def generate_launch_description():
 
             # Leaf size to downsample priormap
             {'pmap_leaf_size'  : 0.1},
-            {'cloud_ds'        : [0.1, 0.1]},
+            {'cloud_ds'        : [0.2, 0.2]},
 
             # GN MAP optimization params
             {'deltaT'          : LaunchConfiguration('deltaT')},
@@ -126,19 +126,19 @@ def generate_launch_description():
             {'XTRZ_DENSITY'    : 1},
             {'min_planarity'   : 0.5},
             {'max_plane_dis'   : 0.5},
-            {'knnsize'         : 6},
+            {'knnsize'         : 10},
             
             {'use_ceres'       : 1},
             {'max_ceres_iter'  : 50},
-            {'max_outer_iter'  : 2},
+            {'max_outer_iter'  : 1},
             {'max_inner_iter'  : 40},
-            {'min_inner_iter'  : 5},
-            {'conv_thres'      : 5},
+            {'min_inner_iter'  : 6},
+            {'conv_thres'      : 6},
             {'dJ_conv_thres'   : 10.0},
             {'conv_dX_thres'   : [-0.05, -0.5, -1.0, -0.05, -0.5, -1.0 ]},
             {'change_thres'    : [-15.0, -0.5, -1.0, -15.0, -8.0, -2.0 ]},
             {'fix_time_begin'  : 0.025},
-            {'fix_time_end'    : 0.0},
+            {'fix_time_end'    : -0.00},
             {'fuse_marg'       : 1},
             {'compute_cost'    : 0},
             {'lambda'          : 1.0},

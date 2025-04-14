@@ -6,7 +6,7 @@ from ament_index_python.packages import get_package_share_directory
 import numpy as np
 
 # Save path
-result_save_path = '/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/vicalib/'
+result_save_path = '/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/vicalib__/'
 
 # Data path
 vi_data_path = '/home/tmn/ros2_ws/src/gptr/gptr/dataVICalib/'
@@ -19,6 +19,7 @@ def generate_launch_description():
         executable  = 'gptr_vicalib',  # Name of the executable built by your package
         name        = 'gptr_vicalib',  # Optional: gives the node instance a name
         output      = 'screen',   # Print the node output to the screen
+        # prefix      = 'gdb -ex=r --args',
         parameters  =
         [
             {"auto_exit"         : 1},
@@ -31,7 +32,7 @@ def generate_launch_description():
             {"gpQr"              : 1.00},
             {"gpQc"              : 1.00},
             {"pose_type"         : "SO3xR3"}, # Choose 'SE3' or 'SO3xR3'
-            {"lie_epsilon"       : 1e-2},
+            {"lie_epsilon"       : 5e-2},
             {"use_approx_drv"    : 0},
 
             # Parameters for the solver
@@ -47,22 +48,24 @@ def generate_launch_description():
             
             # Time skewing factor
             {"tskew0"            : 1.0},
-            {"tskewmax"          : 4.0},
+            {"tskewmax"          : 3.1},
             {"tskewstep"         : 0.1},
-            {"Dtstep"            : np.arange(0.01, 0.1, 0.01).tolist()},
+            {"Dtstep"            : [0.01, 0.05, 0.1]},
             
         ]  # Optional: pass parameters if needed
     )
 
     # Rviz node
-    rviz_node = Node(
-        package     = 'rviz2',
-        executable  = 'rviz2',
-        name        = 'rviz2',
-        output      = 'screen',
-        arguments   = ['-d', get_package_share_directory('gptr') + '/launch/gptr_vicalib.rviz']
-    )
+    # rviz_node = Node(
+    #     package     = 'rviz2',
+    #     executable  = 'rviz2',
+    #     name        = 'rviz2',
+    #     output      = 'screen',
+    #     arguments   = ['-d', get_package_share_directory('gptr') + '/launch/gptr_vicalib.rviz']
+    # )
 
     # launch_arg = DeclareLaunchArgument('cartinbot_viz', required=True, description='Testing')
 
-    return LaunchDescription([gptr_vicalib_node, rviz_node])
+    return LaunchDescription([gptr_vicalib_node,
+                            #   rviz_node
+                             ])

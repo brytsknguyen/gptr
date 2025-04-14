@@ -304,7 +304,7 @@ void AddLidarFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T 
             coef.t = ts;
             coef.f = h_inB;
             coef.n = n_inW;
-            coef.plnrty = 0.8;
+            coef.plnrty = 1.0;
 
             vector<double *> factor_param_blocks;
             factorMeta.coupled_params.push_back(vector<ParamInfo>());

@@ -156,6 +156,7 @@ typename pcl::PointCloud<PointType>::Ptr uniformDownsample(const typename pcl::P
         pcl::UniformSampling<PointType> downsampler;
         downsampler.setRadiusSearch(sampling_radius);
         downsampler.setInputCloud(cloudin);
+
         typename pcl::PointCloud<PointType>::Ptr cloudout(new pcl::PointCloud<PointType>());
         downsampler.filter(*cloudout);
         return cloudout;
@@ -335,43 +336,6 @@ void VisualizeGndtr(vector<CloudPosePtr> &gndtrCloud)
     }    
 }
 
-double findRMSE(const GaussianProcessPtr &traj, const CloudPosePtr &gtrCloud, map<double, double> &estErr, double tmin, double tmax)
-{
-    auto usmin = traj->computeTimeIndex(tmin);
-    auto usmax = traj->computeTimeIndex(tmax);
-
-    int kidxmin = max(usmin.first - 1, 0);
-    int kidxmax = min(traj->getNumKnots() - 1, usmax.first + 2);
-
-    #pragma omp parallel for num_threads(MAX_THREADS)
-    for(auto &gtrPose : gtrCloud->points)
-    {
-        double &t = gtrPose.t;
-
-        if (t < traj->getKnotTime(kidxmin)
-            || t > traj->getKnotTime(kidxmax))
-            continue;
-
-        ROS_ASSERT_MSG(estErr.find(t) != estErr.end(), "gtr time %f not found", t);
-
-        // myTf pose_est = myTf(traj->pose(t));
-        // myTf pose_gtr = myTf(gtrPose);
-        myTf pose_err = myTf(traj->pose(t)).inverse()*myTf(gtrPose);
-        Vector3d &pos_err = pose_err.pos;
-        estErr[t] = pos_err.dot(pos_err);
-    }
-
-    int N = 0; double E = 0.0;
-    for(auto &err : estErr)
-        if (err.second > 0)
-        {
-            N += 1;
-            E += err.second;
-        }
-    
-    return N > 0 ? sqrt(E)/N : -1;
-}
-
 int main(int argc, char **argv)
 {
     // Initalize ros nodes
@@ -400,7 +364,7 @@ int main(int argc, char **argv)
     
     Util::GetParam(nh_ptr, "MAX_CLOUDS", MAX_CLOUDS);
     Util::GetParam(nh_ptr, "SKIPPED_TIME", SKIPPED_TIME);
-    RECURRENT_SKIP = Util::GetBoolParam(nh_ptr, "RECURRENT_SKIP", RECURRENT_SKIP);
+    Util::GetBoolParam(nh_ptr, "RECURRENT_SKIP", RECURRENT_SKIP);
     
     Util::GetParam(nh_ptr, "imu_topic", imu_topic);
     Util::GetParam(nh_ptr, "lidar_topic", lidar_topic);
@@ -1008,13 +972,6 @@ int main(int argc, char **argv)
         *gpodom[lidx] = *(traj);
     }
 
-    // Create error logs
-    vector<double> trajRMSE(Nlidar, -1);
-    vector<map<double, double>> estErr(Nlidar);
-    for(int lidx = 0; lidx < Nlidar; lidx++)
-        for(auto &pose : gndtrCloud[lidx]->points)
-            estErr[lidx][pose.t] = -1.0;
-
     for(int outer_iter = 0; outer_iter < max_outer_iter; outer_iter++)
     {
         // Last time that was logged
@@ -1024,7 +981,7 @@ int main(int argc, char **argv)
         bool loam_diverges = false;
 
         // Parameters controlling the slide
-        int cidx = 0;
+        int cidx = outer_iter;
         int SW_CLOUDSTEP_NOW = SW_CLOUDSTEP;
         int SW_CLOUDSTEP_NXT = SW_CLOUDSTEP;
 
@@ -1040,7 +997,7 @@ int main(int argc, char **argv)
                 {
                     if (tcloudSinceStart < SKIPPED_TIME)
                     {
-                        // RINFO("tcloudSinceStart %f. SKIPPED_TIME: %f. SKIPPING. %d", tcloudSinceStart, SKIPPED_TIME, RECURRENT_SKIP);
+                        // RINFO("tcloudSinceStart %f. SKIPPED_TIME: %f. SKIPPING.", tcloudSinceStart, SKIPPED_TIME);
                         
                         SW_CLOUDSTEP_NXT = SW_CLOUDSTEP;
                         cidx += SW_CLOUDSTEP_NOW;
@@ -1083,14 +1040,8 @@ int main(int argc, char **argv)
             {
                 traj_curr_knots[lidx] = trajs[lidx]->getNumKnots();
                 while(trajs[lidx]->getMaxTime() < tmax)
-                {
-                    // Predict on step ahead
-                    GPState Xp = trajs[lidx]->predictState(1);
-                    // Extend the trajectory by the predicted state
-                    trajs[lidx]->extendOneKnot(Xp);
-
-                    // trajs[lidx]->extendOneKnot(trajs[lidx]->getKnot(trajs[lidx]->getNumKnots()-1));
-                }
+                    // trajs[lidx]->extendOneKnot();
+                    trajs[lidx]->extendOneKnot(trajs[lidx]->getKnot(trajs[lidx]->getNumKnots()-1));
             }
 
             // Estimation change
@@ -1404,7 +1355,7 @@ int main(int argc, char **argv)
                         convergence_count = 0;
 
                     // Set the flag when convergence has been acheived, one more iteration will be run with marginalization
-                    if(convergence_count >= conv_thres && (inner_iter >= min_inner_iter - 1))
+                    if(convergence_count >= conv_thres && (inner_iter + 1 >= min_inner_iter))
                     {
                         // RINFO("Convergent. Slide window.\n");
                         converged = true;
@@ -1483,11 +1434,6 @@ int main(int argc, char **argv)
                                      lidx, tf_L0_Li.yaw(),   tf_L0_Li.pitch(), tf_L0_Li.roll(),
                                            tf_L0_Li.pos.x(), tf_L0_Li.pos.y(), tf_L0_Li.pos.z(), T_err);
                     }
-                    // Add the RMSE info
-                    report_xtrs += myprintf("%s", do_marginalization ? "" : KGRN);
-                    for(int lidx = 0; lidx < Nlidar; lidx++)
-                        report_xtrs += myprintf("TrajRMSE%d: %f. ", lidx, trajRMSE[lidx]);
-                    report_xtrs += myprintf("\n"RESET);
 
                     // Combined Message
                     string fullreport = report_opt + report_state + report_xtrs + "\n";
@@ -1531,10 +1477,6 @@ int main(int argc, char **argv)
                 if (converged && report.marginalization_done)
                     break;
             }
-            
-            // Update the error with ground truth
-            for(int lidx = 0; lidx < Nlidar; lidx++)
-                trajRMSE[lidx] = findRMSE(trajs[lidx], gndtrCloud[lidx], estErr[lidx], tmin, tmax);
 
             // Log the result every 5 seconds
             if((int(floor(tcloudStart(cidx) - TSTART)) % int(log_period) == 0
@@ -1554,12 +1496,9 @@ int main(int argc, char **argv)
                 // Save the trajectory and estimation result
                 for(int lidx = 0; lidx < Nlidar; lidx++)
                 {
-                    trajRMSE[lidx] = findRMSE(trajs[lidx], gndtrCloud[lidx], estErr[lidx],
-                                              trajs[lidx]->getMinTime(), trajs[lidx]->getMaxTime());
-
                     // string log_file = log_dir + myprintf( "/gptraj_%d.csv", lidx);
                     RINFO("Exporting trajectory logs to %s.\n", output_dir.c_str());
-                    gpmaplo[lidx]->GetTraj()->saveTrajectory(output_dir, lidx, trajRMSE[lidx]);
+                    gpmaplo[lidx]->GetTraj()->saveTrajectory(output_dir, lidx);
 
                     // string log_file = log_dir + myprintf( "/gptraj_%d.csv", lidx);
                     RINFO("Exporting oodometry logs to %s.\n", odom_dir.c_str());
