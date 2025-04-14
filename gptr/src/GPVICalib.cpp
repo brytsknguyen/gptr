@@ -425,8 +425,9 @@ int main(int argc, char **argv)
     pose_type = pose_type_ == "SE3" ? POSE_GROUP::SE3 : POSE_GROUP::SO3xR3;
     RINFO("Pose representation: %s. Num: %d\n", pose_type_.c_str(), pose_type);
 
-    double lie_epsilon = 1e-3;
+    double lie_epsilon = 5e-2;
     Util::GetParam(nh_ptr, "lie_epsilon", lie_epsilon);
+    RINFO("lie epsilon: %f\n", lie_epsilon);
 
     bool use_approx_drv =  Util::GetBoolParam(nh_ptr, "use_approx_drv", true);
 

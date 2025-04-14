@@ -6,7 +6,7 @@ from ament_index_python.packages import get_package_share_directory
 import numpy as np
 
 # Save path
-result_save_path = '/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/vicalib__/'
+result_save_path = '/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/vicalib2/'
 
 # Data path
 vi_data_path = '/home/tmn/ros2_ws/src/gptr/gptr/dataVICalib/'
@@ -29,13 +29,13 @@ def generate_launch_description():
 
             # Parameters for the Gaussian Process
             {"gpDt"              : 0.01},
-            {"gpQr"              : 1.00},
-            {"gpQc"              : 1.00},
+            {"gpQr"              : 6.00},
+            {"gpQc"              : 6.00},
             {"pose_type"         : "SO3xR3"}, # Choose 'SE3' or 'SO3xR3'
             {"lie_epsilon"       : 5e-2},
             {"use_approx_drv"    : 0},
 
-            # Parameters for the solver
+            # Parameters for the solve
             {"SLIDE_SIZE"        : 2},
             {"WINDOW_SIZE"       : 20},
             {"w_corner"          : 8.0},
@@ -48,9 +48,9 @@ def generate_launch_description():
             
             # Time skewing factor
             {"tskew0"            : 1.0},
-            {"tskewmax"          : 3.1},
-            {"tskewstep"         : 0.1},
-            {"Dtstep"            : [0.01, 0.05, 0.1]},
+            {"tskewmax"          : 6.1},
+            {"tskewstep"         : 0.3},
+            {"Dtstep"            : [0.2, 0.05]},
             
         ]  # Optional: pass parameters if needed
     )
