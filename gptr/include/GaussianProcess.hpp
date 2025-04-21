@@ -2308,9 +2308,9 @@ public:
         assert(C.size() == R.size());
     }
 
-    void extendKnotsTo(double t, const GPState<double> &Xn=GPState())
+    void extendKnotsTo(double t, const GPState<double> &Xn=GPState(), bool check_min_time = true)
     {
-        if(t0 == 0)
+        if(t0 == 0 && check_min_time)
         {
             printf("MIN TIME HAS NOT BEEN INITIALIZED. "
                    "PLEASE CHECK, OR ELSE THE KNOT NUMBERS CAN BE VERY LARGE!");

@@ -18,6 +18,7 @@ find_package(rosidl_default_generators REQUIRED)
 
 # Ros packages
 find_package(tf2_ros REQUIRED)
+find_package(rosbag2_cpp REQUIRED)
 
 # Message packages
 find_package(std_msgs REQUIRED)
@@ -135,6 +136,27 @@ install(TARGETS
 
 
 # region UWB Inertial Fusion ------------------------------------------------------------------------------------------
+
+# UIB experiment
+add_executable(${PROJECT_NAME}_uib src/GPUIB.cpp include/SE3JQ.cpp)
+target_include_directories(${PROJECT_NAME}_uib PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+ament_target_dependencies(${PROJECT_NAME}_uib
+  rclcpp
+  pcl_conversions
+  Sophus
+  tf2_ros
+  rosbag2_cpp
+  cf_msgs
+  visualization_msgs
+  sensor_msgs std_msgs geometry_msgs nav_msgs tf2_msgs
+)
+target_compile_options(${PROJECT_NAME}_uib PRIVATE ${OpenMP_CXX_FLAGS} "-isystem ${PCL_INCLUDE_DIRS}")
+target_link_libraries(${PROJECT_NAME}_uib ${CERES_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} ${OpenMP_CXX_FLAGS} fmt::fmt)
+# Link the executable to the workspace library
+install(TARGETS
+  ${PROJECT_NAME}_uib
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 # UI Fusion
 add_executable(${PROJECT_NAME}_ui src/GPUI.cpp include/SE3JQ.cpp)
