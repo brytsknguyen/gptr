@@ -48,7 +48,7 @@ def generate_launch_description():
 
             # Time skewing factor
             {"tskew0"            : 1.0},
-            {"tskewmax"          : 2.2},
+            {"tskewmax"          : 6.0},
             {"tskewstep"         : 0.3},
             {"Dtstep"            : [1.0, 0.8, 0.5, 0.3, 0.1, 0.05]},        
         ]  # Optional: pass parameters if needed
