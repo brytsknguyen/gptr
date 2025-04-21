@@ -147,7 +147,7 @@ void readBag(const std::string& bag_file)
 }
 
 template <class SplineT>
-string AssessTraj(UwbImuBuf &data, SplineT &traj, CloudPosePtr &gtrPoseCloud, std::string pose_type,
+string AssessTraj(UwbImuBuf &data, SplineT &traj, CloudPosePtr &gtPoseCloud, std::string pose_type,
                 std::map<uint16_t, Eigen::Vector3d> &anc_pose_, map<string, double> &report)
 {
     Eigen::Vector3d gravity_sum(0, 0, 0);
@@ -212,7 +212,7 @@ string AssessTraj(UwbImuBuf &data, SplineT &traj, CloudPosePtr &gtrPoseCloud, st
     // Sample the trajectories
     vector<Vector3d> pos_est;
     vector<Vector3d> pos_gtr;
-    for(auto &pose : gtrPoseCloud->points)
+    for(auto &pose : gtPoseCloud->points)
     {
         double ts = pose.t;
 
@@ -331,9 +331,12 @@ int main(int argc, char *argv[])
             imudata.acc *= (tskew*tskew);
             imudata.gyro *= tskew;
         }
+        
+	CloudPosePtr gtPoseCloud_scale(new CloudPose());
+	*gtPoseCloud_scale = *gtrPoseCloud;
 
         #pragma omp parallel for num_threads(MAX_THREADS)
-        for(auto &pose : gtrPoseCloud->points) {
+        for(auto &pose : gtPoseCloud_scale->points) {
             pose.t /= tskew;
         }        
 
@@ -354,8 +357,8 @@ int main(int argc, char *argv[])
             map<string, double> so3xr3_report;
             map<string, double> se3_report;
 
-            string report_SO3xR3_by_SO3xR3 = AssessTraj<CeresCalibrationSplineSplit<N>>(UIBuf_scale, trajSO3xR3, gtrPoseCloud, "SO3xR3", anc_pose_, so3xr3_report);
-            string report_SO3xR3_by_SE3___ = AssessTraj<CeresCalibrationSplineSe3<N>>(UIBuf_scale, trajSE3, gtrPoseCloud, "SE3", anc_pose_, se3_report);
+            string report_SO3xR3_by_SO3xR3 = AssessTraj<CeresCalibrationSplineSplit<N>>(UIBuf_scale, trajSO3xR3, gtPoseCloud_scale, "SO3xR3", anc_pose_, so3xr3_report);
+            string report_SO3xR3_by_SE3___ = AssessTraj<CeresCalibrationSplineSe3<N>>(UIBuf_scale, trajSE3, gtPoseCloud_scale, "SE3", anc_pose_, se3_report);
        
 
             // Save the rmse result to the log

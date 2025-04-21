@@ -1140,7 +1140,7 @@ int main(int argc, char **argv)
                "so3xr3ap_JK,so3xr3cf_JK,se3ap_JK,se3cf_JK,"
                "so3xr3ap_rmse,so3xr3cf_rmse,se3ap_rmse,se3cf_rmse\n";    
 
-    auto AssessTraj = [&anc_pose_, &gpmui](UwbImuBuf &data, GaussianProcessPtr &traj, CloudPosePtr &gtrPoseCloud, map<string, double> &report) -> string
+    auto AssessTraj = [&anc_pose_, &gpmui](UwbImuBuf &data, GaussianProcessPtr &traj, CloudPosePtr &gtPoseCloud, map<string, double> &report) -> string
     {
         Eigen::Vector3d gravity_sum(0, 0, 0);
         size_t n_imu = 20;
@@ -1176,7 +1176,7 @@ int main(int argc, char **argv)
                         data.tdoa_data, data.imu_data,
                         anc_pose_, P_I_tag, w_tdoa, GYR_N, ACC_N, 0.0, 0.0,
                         tdoa_loss_thres, mp_loss_thres, false,
-                        gtrPoseCloud, report_, report);
+                        gtPoseCloud, report_, report);
         tt_solve.Toc();
 
         RINFO("Traj: %.6f. Sw: %.3f -> %.3f. Data: %4d, %4d. Num knots: %d",
@@ -1201,8 +1201,11 @@ int main(int argc, char **argv)
             imudata.gyro *= tskew;
         }
 
+	CloudPosePtr gtPoseCloud_scale(new CloudPose());
+	*gtPoseCloud_scale = *gtrPoseCloud;
+
         #pragma omp parallel for num_threads(MAX_THREADS)
-        for(auto &pose : gtrPoseCloud->points) {
+        for(auto &pose : gtPoseCloud_scale->points) {
             pose.t /= tskew;
         }        
 
@@ -1220,10 +1223,10 @@ int main(int argc, char **argv)
             GaussianProcessPtr trajSE3AP(new GaussianProcess(deltaTm, gpQr, gpQc, false, POSE_GROUP::SE3, lie_epsilon, true));
             GaussianProcessPtr trajSE3CF(new GaussianProcess(deltaTm, gpQr, gpQc, false, POSE_GROUP::SE3, lie_epsilon, false));
 
-            string report_SO3xR3_by_SO3xR3AP = AssessTraj(UIBuf_scale, trajSO3xR3AP, gtrPoseCloud, so3xr3ap_report);
-            string report_SO3xR3_by_SO3xR3CF = AssessTraj(UIBuf_scale, trajSO3xR3CF, gtrPoseCloud, so3xr3cf_report);
-            string report_SO3xR3_by_SE3AP___ = AssessTraj(UIBuf_scale, trajSE3AP,    gtrPoseCloud, se3ap_report);
-            string report_SO3xR3_by_SE3CF___ = AssessTraj(UIBuf_scale, trajSE3CF,    gtrPoseCloud, se3cf_report);            
+            string report_SO3xR3_by_SO3xR3AP = AssessTraj(UIBuf_scale, trajSO3xR3AP, gtPoseCloud_scale, so3xr3ap_report);
+            string report_SO3xR3_by_SO3xR3CF = AssessTraj(UIBuf_scale, trajSO3xR3CF, gtPoseCloud_scale, so3xr3cf_report);
+            string report_SO3xR3_by_SE3AP___ = AssessTraj(UIBuf_scale, trajSE3AP,    gtPoseCloud_scale, se3ap_report);
+            string report_SO3xR3_by_SE3CF___ = AssessTraj(UIBuf_scale, trajSE3CF,    gtPoseCloud_scale, se3cf_report);            
 
             RINFO("UIBTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SO3xR3AP.c_str());
             RINFO("UIBTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SO3xR3CF.c_str());
