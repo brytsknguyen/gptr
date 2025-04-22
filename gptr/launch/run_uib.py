@@ -5,9 +5,9 @@ from launch.actions import ExecuteProcess, DeclareLaunchArgument
 from ament_index_python.packages import get_package_share_directory
 from launch.substitutions import LaunchConfiguration
 
-bag_file_         = "/home/kailai/Documents/100_dataset/util_ros2/const4/const4-trial5-tdoa2-traj2/"
-anchor_path_      = "/home/kailai/Documents/100_dataset/util_dataset/flight-dataset/survey-results/anchor_const4_survey.txt"
-result_save_path_ = "/home/kailai/Documents/results/cmp4/"
+bag_file_         = "/media/tmn/mySataSSD1/DATASETS/UTIL_DATASETS/dataset/flight-dataset/ros2bag-data/const4/const4-trial5-tdoa2-traj2"
+anchor_path_      = "/media/tmn/mySataSSD1/DATASETS/UTIL_DATASETS/dataset/flight-dataset/survey-results/anchor_const4_survey.txt"
+result_save_path_ = "/home/tmn/Documents/results/cmp4/"
 
 def generate_launch_description():
 
@@ -23,7 +23,7 @@ def generate_launch_description():
     gptr_ui_node = Node(
         package     = 'gptr',
         executable  = 'gptr_uib',  # Name of the executable built by your package
-        name        = 'gptr_uib',  # Optional: gives the node instance a name
+        name        = 'gptr_uib',  # Optional: gives the node instance a name 
         # prefix      = ['gdb -ex run --args'],
         output      = 'screen',   # Print the node output to the screen
         parameters  =
@@ -48,9 +48,9 @@ def generate_launch_description():
 
             # Time skewing factor
             {"tskew0"            : 1.0},
-            {"tskewmax"          : 2.2},
-            {"tskewstep"         : 0.3},
-            {"Dtstep"            : [1.0, 0.8, 0.5, 0.3, 0.1, 0.05]},        
+            {"tskewmax"          : 6.0},
+            {"tskewstep"         : 0.5},
+            {"Dtstep"            : [0.05]},
         ]  # Optional: pass parameters if needed
     )
 

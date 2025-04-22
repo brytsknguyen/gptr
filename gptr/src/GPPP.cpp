@@ -154,10 +154,10 @@ vector<Vector3d> tags = {
 };
 
 vector<Vector3d> anchors = {
-    Vector3d( 10.0,  10.0, 0.5),
-    Vector3d(-10.0,  10.0, 1.5),
-    Vector3d(-10.0, -10.0, 0.5),
-    Vector3d( 10.0, -10.0, 1.5)};
+    Vector3d( 12.0,  12.0, 0.5),
+    Vector3d(-12.0,  12.0, 2.5),
+    Vector3d(-12.0, -12.0, 0.5),
+    Vector3d( 12.0, -12.0, 2.5)};
 
 double uwb_rate = 200.0;
 double uwb_noise = 0.05;
@@ -240,10 +240,24 @@ void AddUWBFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T &t
         auto   us = traj->computeTimeIndex(ts);
         int    u  = us.first;
         double s  = us.second;
-
-        for(int tidx = 0; tidx < tags.size(); tidx++)
+        
+        static vector<pair<int, int>> pairs(tags.size());
+        if (pairs.size() == 0) 
+            for(int tidx = 0; tidx < tags.size(); tidx++)
+                for(int aidx = 0; aidx < anchors.size(); aidx++)
+                    pairs.push_back(make_pair(tidx, aidx));
+                    
+        int curr_pair_idx = -1;
+        curr_pair_idx++;
+        if(curr_pair_idx == pairs.size())
+            curr_pair_idx = 0;
+        
+        int tidx = pairs[curr_pair_idx].first;
+        int aidx = pairs[curr_pair_idx].second;
+        
+        // for(int tidx = 0; tidx < tags.size(); tidx++)
         {
-            for(int aidx = 0; aidx < anchors.size(); aidx++)
+            // for(int aidx = 0; aidx < anchors.size(); aidx++)
             {
                 Vector3d pos_tag = tags[tidx];
                 Vector3d pos_anc = anchors[aidx];

@@ -17,7 +17,7 @@ from math import sqrt as sqrt
 # lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence_}'
 
 # # Direction to log the exp
-log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/uwb_mle_noise/'
+log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/uwb_mle_noise__/'
 
 # Type of pose
 # pose_type_ = 'SE3'
@@ -79,7 +79,7 @@ def generate_launch_description():
             
             
             # GN optimization params
-            {"maxTime"         : 20.0},
+            {"maxTime"         : 10.0},
             {'deltaT'          : LaunchConfiguration('deltaT')},
             {'mpCovROSJerk'    : 10.0},
             {'mpCovPVAJerk'    : 10.0},
@@ -91,7 +91,7 @@ def generate_launch_description():
             
             
             # UWB param config
-            {"uwb_rate"        : 50.0},
+            {"uwb_rate"        : 69.0},
             {"uwb_noise"       : 0.05},
             
             # UWB param config

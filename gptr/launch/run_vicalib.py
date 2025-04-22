@@ -6,7 +6,7 @@ from ament_index_python.packages import get_package_share_directory
 import numpy as np
 
 # Save path
-result_save_path = '/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/vicalib2/'
+result_save_path = '/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/vicalib_/'
 
 # Data path
 vi_data_path = '/home/tmn/ros2_ws/src/gptr/gptr/dataVICalib/'
@@ -48,9 +48,9 @@ def generate_launch_description():
             
             # Time skewing factor
             {"tskew0"            : 1.0},
-            {"tskewmax"          : 6.1},
+            {"tskewmax"          : 6.5},
             {"tskewstep"         : 0.3},
-            {"Dtstep"            : [0.2, 0.05]},
+            {"Dtstep"            : [0.2, 0.1]},
             
         ]  # Optional: pass parameters if needed
     )

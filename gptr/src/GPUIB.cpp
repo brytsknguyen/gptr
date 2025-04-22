@@ -775,7 +775,7 @@ public:
         ceres::Solve(options, &problem, &summary);
         tt_solve.Toc();
 
-        std::cout << summary.FullReport() << std::endl;
+        // std::cout << summary.FullReport() << std::endl;
 
         Util::ComputeCeresCost(factorMetaMp2k.res,  cost_mp2k_final,  problem);
         Util::ComputeCeresCost(factorMetaTDOA.res,  cost_tdoa_final,  problem);
@@ -804,6 +804,10 @@ public:
         
             Eigen::Matrix4d transformation = (Eigen::umeyama(src_mat, tgt_mat, false));
             myTf<double> T_tgt_src(transformation);
+
+            // RINFO("UMEYAMA ALIGN: %f, %f, %f. %f, %f, %f.\n",
+            //        T_tgt_src.pos(0), T_tgt_src.pos(1), T_tgt_src.pos(2),
+            //        T_tgt_src.yaw(), T_tgt_src.pitch(), T_tgt_src.roll());
 
             for (size_t i = 0; i < src.size(); ++i)
                 src[i] = T_tgt_src*src[i];
@@ -1077,7 +1081,8 @@ void readBag(const std::string& bag_file)
         }
     }
     reader->close();
-    std::cout << "load IMU messages: " << UIBuf.imu_data.size() << " TDOA messages: " << UIBuf.tdoa_data.size() << std::endl;
+    std::cout << "Loaded IMU messages: " << UIBuf.imu_data.size() << ". "
+              << "TDOA messages: " << UIBuf.tdoa_data.size() << std::endl;
 }
 
 int main(int argc, char **argv)
@@ -1126,8 +1131,6 @@ int main(int argc, char **argv)
 
     vector<double> Dtstep = {0.01};
     Util::GetParam(nh_ptr, "Dtstep", Dtstep);     
-
-    
     
     // Create the trajectory
     GPUIPtr gpmui(new GPUI(nh_ptr));
@@ -1138,8 +1141,8 @@ int main(int argc, char **argv)
     logfile << "tskew,dt,"   
                "so3xr3ap_tslv,so3xr3cf_tslv,se3ap_tslv,se3cf_tslv,"
                "so3xr3ap_JK,so3xr3cf_JK,se3ap_JK,se3cf_JK,"
-               "so3xr3ap_rmse,so3xr3cf_rmse,se3ap_rmse,se3cf_rmse\n";    
-
+               "so3xr3ap_rmse,so3xr3cf_rmse,se3ap_rmse,se3cf_rmse\n";
+    
     auto AssessTraj = [&anc_pose_, &gpmui](UwbImuBuf &data, GaussianProcessPtr &traj, CloudPosePtr &gtrPoseCloud, map<string, double> &report) -> string
     {
         Eigen::Vector3d gravity_sum(0, 0, 0);
@@ -1158,13 +1161,28 @@ int main(int argc, char **argv)
         traj->setStartTime(t0);
         // Set initial pose
         SE3d initial_pose;
-        initial_pose.translation() = Eigen::Vector3d(1.25, 0.0, 0.07);
+        initial_pose.translation() = Eigen::Vector3d(0, 0, 0);
         traj->setKnot(0, GPState(t0, initial_pose));
 
         double newMaxTime = min(data.imu_data.back().t, data.tdoa_data.back().t);
 
         // Extend the trajectory
-        traj->extendKnotsTo(newMaxTime, GPState(t0, initial_pose), false);       
+        traj->extendKnotsTo(newMaxTime, GPState(t0, initial_pose), false);
+
+        // // Assign the trajectory by groundtruth
+        // for(int kidx = 0; kidx < traj->getNumKnots(); kidx++)
+        // {
+        //     double tknot = traj->getKnotTime(kidx);
+        //     for(auto &pose : gtrPoseCloud->points)
+        //     {
+        //         if (abs(pose.t - tknot) < traj->getDt())
+        //         {
+        //             traj->getKnotSO3(kidx) = SO3d(Quaternd(pose.qw, pose.qx, pose.qy, pose.qz));
+        //             traj->getKnotPos(kidx) = Vector3d(pose.x, pose.y, pose.z);
+        //             break;
+        //         }
+        //     }
+        // }
 
         TicToc tt_solve;
         double tmin = traj->getMinTime();
@@ -1179,35 +1197,85 @@ int main(int argc, char **argv)
                         gtrPoseCloud, report_, report);
         tt_solve.Toc();
 
-        RINFO("Traj: %.6f. Sw: %.3f -> %.3f. Data: %4d, %4d. Num knots: %d",
-                traj->getMaxTime(), data.minTime(), data.maxTime(),
-                data.tdoa_data.size(), data.imu_data.size(), traj->getNumKnots());
+        // RINFO("Traj: %.6f. Sw: %.3f -> %.3f. Data: %4d, %4d. Num knots: %d",
+        //         traj->getMaxTime(), data.minTime(), data.maxTime(),
+        //         data.tdoa_data.size(), data.imu_data.size(), traj->getNumKnots());
 
         return report_;
-    };    
+    };
 
-    for(double tskew = tskew0; tskew <= tskewmax; tskew += tskewstep)
+    double tspan = 5.0;
+    for(double &m : Dtstep)
     {
-        UwbImuBuf UIBuf_scale = UIBuf; 
-        #pragma omp parallel for num_threads(MAX_THREADS)
-        for(auto &tdoadata : UIBuf_scale.tdoa_data)
-            tdoadata.t /= tskew;
-
-        #pragma omp parallel for num_threads(MAX_THREADS)
-        for(auto &imudata : UIBuf_scale.imu_data)
+        for(double tskew = tskew0; tskew <= tskewmax; tskew += tskewstep)
         {
-            imudata.t /= tskew;
-            imudata.acc *= (tskew*tskew);
-            imudata.gyro *= tskew;
-        }
+            // double tdatamin = gtrPoseCloud->points.front().t/tskew;
+            // double tdatamax = max(tdatamin, gtrPoseCloud->points.back().t/tskew - tspan);
 
-        #pragma omp parallel for num_threads(MAX_THREADS)
-        for(auto &pose : gtrPoseCloud->points) {
-            pose.t /= tskew;
-        }        
+            // // Fixed seed for reproducibility
+            // std::mt19937 rng(1102); 
+            // std::uniform_real_distribution<double> t0udist(0, 1);
 
-        for(double &m : Dtstep)
-        {
+            // double tmin = tdatamin;
+            // double tmax = tdatamax;
+
+            // RINFO("tmin: %f, tmax: %f\n", tmin, tmax);
+
+            // tmin /= tskew;
+            // tmax /= tskew;
+
+            CloudPosePtr gtrPoseCloud_scaled(new CloudPose());        
+            // #pragma omp parallel for num_threads(MAX_THREADS)
+            for(auto &pose : gtrPoseCloud->points)
+            {
+                double ts = pose.t / tskew;
+                // if(ts > tmin && ts < tmax)
+                {
+                    auto pose_ = pose; pose_.t = ts;
+                    gtrPoseCloud_scaled->push_back(pose_);
+                }
+            }
+
+            UwbImuBuf UIBuf_scale;
+            {
+                std::mt19937 rng(1102); 
+                std::uniform_real_distribution<double> sampler(0.0, 1.0);
+                // #pragma omp parallel for num_threads(MAX_THREADS)
+                for(auto &tdoadata : UIBuf.tdoa_data)
+                {
+                    // bool admitted = (sampler(rng) < 1.0/tskew);
+                    // if (!admitted)
+                    //     continue;
+                    
+                    double ts = tdoadata.t / tskew;
+                    // if(ts > tmin && ts < tmax)
+                    {
+                        auto tdoadata_ = tdoadata; tdoadata_.t = ts;
+                        UIBuf_scale.tdoa_data.push_back(tdoadata_);
+                    }
+                }
+            }
+            {
+                std::mt19937 rng(4357); 
+                std::uniform_real_distribution<double> sampler(0.0, 1.0);
+                // #pragma omp parallel for num_threads(MAX_THREADS)
+                for(auto &imudata : UIBuf.imu_data)
+                {
+                    // bool admitted = (sampler(rng) < 1.0/tskew);
+                    // if (!admitted)
+                    //     continue;
+
+                    double ts = imudata.t / tskew;
+                    // if(ts > tmin && ts < tmax)
+                    {
+                        auto imudata_ = imudata; imudata_.t = ts;
+                        imudata_.acc *= (tskew*tskew);
+                        imudata_.gyro *= tskew;
+                        UIBuf_scale.imu_data.push_back(imudata_);
+                    }
+                }
+            }
+
             double deltaTm = m;
 
             map<string, double> so3xr3ap_report;
@@ -1220,10 +1288,12 @@ int main(int argc, char **argv)
             GaussianProcessPtr trajSE3AP(new GaussianProcess(deltaTm, gpQr, gpQc, false, POSE_GROUP::SE3, lie_epsilon, true));
             GaussianProcessPtr trajSE3CF(new GaussianProcess(deltaTm, gpQr, gpQc, false, POSE_GROUP::SE3, lie_epsilon, false));
 
-            string report_SO3xR3_by_SO3xR3AP = AssessTraj(UIBuf_scale, trajSO3xR3AP, gtrPoseCloud, so3xr3ap_report);
-            string report_SO3xR3_by_SO3xR3CF = AssessTraj(UIBuf_scale, trajSO3xR3CF, gtrPoseCloud, so3xr3cf_report);
-            string report_SO3xR3_by_SE3AP___ = AssessTraj(UIBuf_scale, trajSE3AP,    gtrPoseCloud, se3ap_report);
-            string report_SO3xR3_by_SE3CF___ = AssessTraj(UIBuf_scale, trajSE3CF,    gtrPoseCloud, se3cf_report);            
+            string report_SO3xR3_by_SO3xR3AP = AssessTraj(UIBuf_scale, trajSO3xR3AP, gtrPoseCloud_scaled, so3xr3ap_report);
+            // for(int kidx = 0; kidx < trajSO3xR3AP->getNumKnots(); kidx++)
+            //     trajSO3xR3CF->setKnot(kidx, trajSO3xR3AP->getKnot(kidx));
+            string report_SO3xR3_by_SO3xR3CF = AssessTraj(UIBuf_scale, trajSO3xR3CF, gtrPoseCloud_scaled, so3xr3cf_report);
+            string report_SO3xR3_by_SE3AP___ = AssessTraj(UIBuf_scale, trajSE3AP, gtrPoseCloud_scaled, se3ap_report);
+            string report_SO3xR3_by_SE3CF___ = AssessTraj(UIBuf_scale, trajSE3CF, gtrPoseCloud_scaled, se3cf_report);            
 
             RINFO("UIBTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SO3xR3AP.c_str());
             RINFO("UIBTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SO3xR3CF.c_str());
@@ -1253,5 +1323,6 @@ int main(int argc, char **argv)
 
     rclcpp::shutdown();
 
+    RINFO(KGRN "Program Finsihed" RESET);
     return 0;
 } 

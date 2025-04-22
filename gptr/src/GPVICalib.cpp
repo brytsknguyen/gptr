@@ -525,7 +525,7 @@ int main(int argc, char **argv)
             if (std::abs(CIBuf.imu_data[i].t - CIBuf.corner_data_cam0[1].t) < 3000000 * 1e-9)
             {
                 g = rai * ad;
-                // std::cout << "g_a initialized with " << g.transpose() << std::endl;
+                std::cout << "g_a initialized with " << g.transpose() << std::endl;
                 break;
             }
         }

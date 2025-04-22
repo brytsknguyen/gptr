@@ -8,27 +8,27 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 # Sequence
-sequence_ = 'cloud_ousterx2_w75_e5'
+sequence_ = 'cloud_avia_mid_dynamic_extrinsics'
 
 # Bag file
 lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/{sequence_}'
 
 # Direction to log the exp
-log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/sim_{sequence_}_gptr_lidar0/'
+log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/sim_{sequence_}_gptr_two_lidar_W/'
 
 # Type of pose
-# pose_type_ = 'SE3'
-pose_type_ = 'SO3xR3'
+pose_type_ = 'SE3'
+# pose_type_ = 'SO3xR3'
 
 # Type of pose
 use_approx_drv_ = '1'
 
 # Knot length
-deltaT_ = '0.3'
+deltaT_ = '0.1'
 
 # Initial pose in each sequence
 xyzypr_W_L0 =[ 0,    0,   0.70,  43,  48, 0,
-              -0.35, -0.35, 0.5, -135, 0,  0 ]
+              -0.3, -0.3, 0.55, -134, 0,  0 ]
 
 def generate_launch_description():
     
@@ -61,7 +61,7 @@ def generate_launch_description():
             {"lidar_bag_file"  : lidar_bag_file},
             
             # Total number of clouds loaded
-            {'MAX_CLOUDS'      : -1},
+            {'MAX_CLOUDS'      : 310},
 
             # Time since first pointcloud to skip MAP Opt
             {'SKIPPED_TIME'    : 4.7},
@@ -71,7 +71,7 @@ def generate_launch_description():
             {'VIZ_ONLY'        : 0},
 
             # Lidar topics and their settings
-            {'lidar_topic'     : ['/lidar_0/points']},
+            {'lidar_topic'     : ['/lidar_0/points', '/lidar_1/points']},
             {'lidar_type'      : ['livox', 'livox']},
             {'stamp_time'      : ['start', 'start']},
 
@@ -98,18 +98,18 @@ def generate_launch_description():
             # GN MAP optimization params
             {'deltaT'          : deltaT},
             # Motion prior factors
-            {'mpCovROSJerk'    : 6.0},
-            {'mpCovPVAJerk'    : 6.0},
+            {'mpCovROSJerk'    : 2.0},
+            {'mpCovPVAJerk'    : 2.0},
             {"pose_type"       : pose_type}, # Choose 'SE3' or 'SO3xR3'
             {"use_approx_drv"  : use_approx_drv},
-            {"lie_epsilon"     : 5.0e-1},
+            {"lie_epsilon"     : 1.0e-2},
 
             {'lidar_ds_rate'   : 1},
             {'lidar_weight'    : 10.0},
 
             # Extrinsic factors
-            {'xtCovROSJerk'    : 1.0},
-            {'xtCovPVAJerk'    : 1.0},
+            {'xtCovROSJerk'    : 0.5},
+            {'xtCovPVAJerk'    : 0.5},
 
             # Loss function threshold
             {'ld_loss_thres'   : -1.0},
@@ -125,7 +125,7 @@ def generate_launch_description():
             # Extrinsic estimation
             {'SW_CLOUDNUM'     : PythonExpression(['int(1.2/', LaunchConfiguration('deltaT'), ' + 0.5)'])},
             {'SW_CLOUDSTEP'    : 1},
-            {'max_lidarcoefs'  : 2000},
+            {'max_lidarcoefs'  : 1000},
             {'XTRZ_DENSITY'    : 1},
             {'min_planarity'   : 0.5},
             {'max_plane_dis'   : 0.5},
@@ -134,14 +134,14 @@ def generate_launch_description():
             {'use_ceres'       : 1},
             {'max_ceres_iter'  : 50},
             {'max_outer_iter'  : 1},
-            {'max_inner_iter'  : 4},
-            {'min_inner_iter'  : 4},
-            {'conv_thres'      : 4},
+            {'max_inner_iter'  : 1},
+            {'min_inner_iter'  : 1},
+            {'conv_thres'      : 1},
             {'dJ_conv_thres'   : 10.0},
             {'conv_dX_thres'   : [-0.05, -0.5, -1.0, -0.05, -0.5, -1.0 ]},
             {'change_thres'    : [-15.0, -0.5, -1.0, -15.0, -8.0, -2.0 ]},
-            {'fix_time_begin'  : -0.125},
-            {'fix_time_end'    : -0.125},
+            {'fix_time_begin'  : 0.0125},
+            {'fix_time_end'    : 0.0},
             {'fuse_marg'       : 1},
             {'compute_cost'    : 0},
             {'lambda'          : 1.0},
