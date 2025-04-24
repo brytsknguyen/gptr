@@ -168,11 +168,11 @@ double uwb_noise = 0.05;
 
 
 // Creating the param info
-ParamInfoMap paramInfoMap;
+// ParamInfoMap paramInfoMap;
 
 
 
-void AddTrajParams(ceres::Problem &problem, GaussianProcessPtr &traj)
+void AddTrajParams(ceres::Problem &problem, GaussianProcessPtr &traj, ParamInfoMap &paramInfoMap)
 {
     for (int kidx = 0; kidx < traj->getNumKnots(); kidx++)
     {
@@ -192,7 +192,7 @@ void AddTrajParams(ceres::Problem &problem, GaussianProcessPtr &traj)
     }
 }
 
-void AddMP2KFactors(ceres::Problem &problem, GaussianProcessPtr &traj, FactorMeta &factorMeta)
+void AddMP2KFactors(ceres::Problem &problem, GaussianProcessPtr &traj, FactorMeta &factorMeta, ParamInfoMap &paramInfoMap)
 {
     for (int kidx = 0; kidx < traj->getNumKnots()-1; kidx++)
     {
@@ -231,11 +231,11 @@ void AddMP2KFactors(ceres::Problem &problem, GaussianProcessPtr &traj, FactorMet
 }
 
 template <typename T>
-void AddUWBFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T &trajGtr, FactorMeta &factorMeta)
+void AddUWBFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T &trajGtr, FactorMeta &factorMeta, ParamInfoMap &paramInfoMap)
 {
     // Random number generator with fixed seed for reproducibility
-    static std::mt19937 rng(571991);  
-    static std::normal_distribution<double> noise_dist(0.0, uwb_noise);
+    std::mt19937 rng(571991);  
+    std::normal_distribution<double> noise_dist(0.0, uwb_noise);
 
     for (double ts = traj->getMinTime(); ts < traj->getMaxTime(); ts+=(1.0/uwb_rate))
     {
@@ -346,7 +346,7 @@ void InitializeTrajEst(double t0, GaussianProcessPtr &traj, const T &gtTraj)
 template <typename T>
 string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double> &report)
 {
-    paramInfoMap.clear();
+    ParamInfoMap paramInfoMap;
 
     // Ceres problem
     ceres::Problem problem;
@@ -355,7 +355,7 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
 
     // Set up the ceres problem
     options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-    options.num_threads = MAX_THREADS;
+    options.num_threads = MAX_THREADS/2;
     options.max_num_iterations = max_ceres_iter;
     options.function_tolerance  = 0.0;
     options.gradient_tolerance  = 0.0;
@@ -364,7 +364,7 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
     // Add trajectory params
     TicToc tt_addparam;
     RINFO("Add params...");
-    AddTrajParams(problem, traj);
+    AddTrajParams(problem, traj, paramInfoMap);
     RINFO("Done, %.0fms", tt_addparam.Toc());
 
     // Add the motion prior factors
@@ -372,7 +372,7 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
     RINFO("Add mp2k...");
     FactorMeta mp2kFactorMeta;
     double cost_mp2k_init = -1, cost_mp2k_final = -1;
-    AddMP2KFactors(problem, traj, mp2kFactorMeta);
+    AddMP2KFactors(problem, traj, mp2kFactorMeta, paramInfoMap);
     RINFO("Done, %.0fms", tt_addmp2k.Toc());
 
     // Add the UWB factors
@@ -380,7 +380,7 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
     RINFO("Add uwb...");
     FactorMeta uwbFactorMeta;
     double cost_uwb_init = -1, cost_uwb_final = -1;
-    AddUWBFactors(problem, traj, trajGtr, uwbFactorMeta);
+    AddUWBFactors(problem, traj, trajGtr, uwbFactorMeta, paramInfoMap);
     RINFO("Done, %.0fms", tt_uwb.Toc());
 
     // RINFO(KYEL"Solving..."RESET);
@@ -505,6 +505,7 @@ int main(int argc, char **argv)
     Util::GetParam(nh_ptr, "mpCovROSJerk", mpCovROSJerk);
     Util::GetParam(nh_ptr, "mpCovPVAJerk", mpCovPVAJerk);
     Util::GetParam(nh_ptr, "lie_epsilon", lie_epsilon);
+    
     string pose_type_; Util::GetParam(nh_ptr, "pose_type", pose_type_); pose_type = pose_type_ == "SE3" ? POSE_GROUP::SE3 : POSE_GROUP::SO3xR3;
     bool use_approx_drv =  Util::GetBoolParam(nh_ptr, "use_approx_drv", true);
     bool random_start =  Util::GetBoolParam(nh_ptr, "random_start", true);
@@ -548,7 +549,7 @@ int main(int argc, char **argv)
     std::uniform_real_distribution<double> t0udist(-10, 10);
     
 
-    auto Experiment = [&](string logname, auto gtrTraj, string gtrTrajType, vector<double> &M, vector<long int> &N)
+    auto Experiment = [&](string logname, auto gtrTraj, string gtrTrajType, const vector<double> &M, const vector<long int> &N)
     {
         std::ofstream logfile(logname, std::ios::out);
         logfile << std::fixed << std::setprecision(6);
@@ -562,7 +563,7 @@ int main(int argc, char **argv)
                    "so3xr3ap_rmse,so3xr3cf_rmse,so3xr3rf_rmse,"
                    "se3ap_rmse,se3cf_rmse,se3rf_rmse\n";
 
-        for (double &m : M)
+        for (const double &m : M)
         {
             double deltaTm = m;
 
@@ -577,10 +578,10 @@ int main(int argc, char **argv)
             {
                 GaussianProcessPtr trajSO3xR3AP(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, true));
                 GaussianProcessPtr trajSO3xR3CF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, false));
-                GaussianProcessPtr trajSO3xR3RF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, false));
+                // GaussianProcessPtr trajSO3xR3RF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, false));
                 GaussianProcessPtr trajSE3AP(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, true));
                 GaussianProcessPtr trajSE3CF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, false));
-                GaussianProcessPtr trajSE3RF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, false));
+                // GaussianProcessPtr trajSE3RF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, false));
 
                 gtrTraj.setn(n);
 
@@ -590,10 +591,10 @@ int main(int argc, char **argv)
 
                 InitializeTrajEst(t0, trajSO3xR3AP, gtrTraj);
                 InitializeTrajEst(t0, trajSO3xR3CF, gtrTraj);
-                InitializeTrajEst(t0, trajSO3xR3RF, gtrTraj);
+                // InitializeTrajEst(t0, trajSO3xR3RF, gtrTraj);
                 InitializeTrajEst(t0, trajSE3AP, gtrTraj);
                 InitializeTrajEst(t0, trajSE3CF, gtrTraj);
-                InitializeTrajEst(t0, trajSE3RF, gtrTraj);
+                // InitializeTrajEst(t0, trajSE3RF, gtrTraj);
 
                 // double rmse = -1;
                 // Assess with the SO3xR3 trajectory
@@ -602,20 +603,20 @@ int main(int argc, char **argv)
                 string report_SE3AP___ = AssessTraj(trajSE3AP,    gtrTraj, se3ap_report);
                 string report_SE3CF___ = AssessTraj(trajSE3CF,    gtrTraj, se3cf_report);
 
-                for(int kidx = 0; kidx < trajSO3xR3AP->getNumKnots(); kidx++)
-                {
-                    trajSO3xR3RF->setKnot(kidx, trajSO3xR3AP->getKnot(kidx));
-                    trajSE3RF->setKnot(kidx, trajSE3AP->getKnot(kidx));
-                }
-                string report_SO3xR3RF = AssessTraj(trajSO3xR3RF, gtrTraj, so3xr3rf_report);
-                string report_SE3RF___ = AssessTraj(trajSE3RF,    gtrTraj, se3rf_report);
+                // for(int kidx = 0; kidx < trajSO3xR3AP->getNumKnots(); kidx++)
+                // {
+                //     trajSO3xR3RF->setKnot(kidx, trajSO3xR3AP->getKnot(kidx));
+                //     trajSE3RF->setKnot(kidx, trajSE3AP->getKnot(kidx));
+                // }
+                // string report_SO3xR3RF = AssessTraj(trajSO3xR3RF, gtrTraj, so3xr3rf_report);
+                // string report_SE3RF___ = AssessTraj(trajSE3RF,    gtrTraj, se3rf_report);
 
                 RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SO3xR3AP.c_str());
                 RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SO3xR3CF.c_str());
-                RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SO3xR3RF.c_str());
+                // RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SO3xR3RF.c_str());
                 RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SE3AP___.c_str());
                 RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SE3CF___.c_str());
-                RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SE3RF___.c_str());
+                // RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SE3RF___.c_str());
 
                 // Save the rmse result to the log
                 logfile << gtrTraj.getwqx() << ","
@@ -651,9 +652,13 @@ int main(int argc, char **argv)
 
 
     RINFO(KGRN "Experimenting with SO3xR3 gtr traj" RESET);
-    Experiment(log_dir + "/gtrTrajso3xr3.csv", gtTrajSO3xR3, string("gtTrajSO3xR3"), Dtstep, Wstep);
+    thread exp1(Experiment, log_dir + "/gtrTrajso3xr3.csv", gtTrajSO3xR3, string("gtTrajSO3xR3"), ref(Dtstep), ref(Wstep));
+
     RINFO(KGRN "Experimenting with SE3 gtr traj" RESET);
-    Experiment(log_dir + "/gtrTrajse3.csv",    gtTrajSE3,    string("gtTrajSE3"),    Dtstep, Wstep);
+    thread exp2(Experiment, log_dir + "/gtrTrajse3.csv", gtTrajSE3, string("gtTrajSE3"), ref(Dtstep), ref(Wstep));
+
+    exp1.join();
+    exp2.join();
 
     RINFO(KGRN"Program finished!"RESET);
 
