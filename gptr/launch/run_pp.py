@@ -17,7 +17,7 @@ from math import sqrt as sqrt
 # lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence_}'
 
 # # Direction to log the exp
-log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/uwb_mle_noise___/'
+log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/uwb_mle_noise_rdmt0/'
 
 # Type of pose
 # pose_type_ = 'SE3'
@@ -55,9 +55,9 @@ def generate_launch_description():
             # Gtr traj params
             
             # SO3xR3 trajectory
-            {"wqx1"            : 3*0.1},
-            {"wqy1"            : 3*0.1},
-            {"wqz1"            : 1*0.1},
+            {"wqx1"            : 3*0.05},
+            {"wqy1"            : 3*0.05},
+            {"wqz1"            : 1*0.05},
             {"rqx1"            : M_PI*0.5},
             {"rqy1"            : M_PI*0.5},
             {"rqz1"            : M_PI*sqrt(3)/2},
@@ -70,9 +70,9 @@ def generate_launch_description():
             {"rpz1"            : 5.0},
 
             # SE3 trajectory
-            {"wpx2"            : 3*0.15},
-            {"wpy2"            : 3*0.15},
-            {"wpz2"            : 1*0.15},
+            {"wpx2"            : 3*0.0725},
+            {"wpy2"            : 3*0.0725},
+            {"wpz2"            : 1*0.0725},
             {"rpx2"            : 5.0},
             {"rpy2"            : 5.0},
             {"rpz2"            : 5.0},
@@ -87,7 +87,7 @@ def generate_launch_description():
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
             {"lie_epsilon"     : 5e-2},
             {"max_ceres_iter"  : 50},
-            {"random_start"    : 0},
+            {"random_start"    : 1},
             
             
             # UWB param config
@@ -95,8 +95,8 @@ def generate_launch_description():
             {"uwb_noise"       : 0.05},
             
             # UWB param config
-            {"Dtstep"          : [0.05, 0.1]},
-            {"Wstep"           : [1, 20]},
+            {"Dtstep"          : [0.05, 0.1, 0.2]},
+            {"Wstep"           : [1, 25]},
 
         ]  # Optional: pass parameters if needed
     )
