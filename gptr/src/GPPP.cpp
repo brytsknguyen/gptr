@@ -155,9 +155,13 @@ vector<Vector3d> tags = {
 
 vector<Vector3d> anchors = {
     Vector3d( 12.0,  12.0, 0.5),
+    Vector3d(-12.0, -12.0, 2.5),
     Vector3d(-12.0,  12.0, 2.5),
+    Vector3d( 12.0, -12.0, 0.5),
     Vector3d(-12.0, -12.0, 0.5),
-    Vector3d( 12.0, -12.0, 2.5)};
+    Vector3d( 12.0,  12.0, 2.5),
+    Vector3d( 12.0, -12.0, 2.5),
+    Vector3d(-12.0,  12.0, 0.5)};
 
 double uwb_rate = 200.0;
 double uwb_noise = 0.05;
@@ -233,7 +237,7 @@ void AddUWBFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T &t
     static std::mt19937 rng(571991);  
     static std::normal_distribution<double> noise_dist(0.0, uwb_noise);
 
-    for (double ts = traj->getMinTime() + traj->getDt()/10.0; ts < traj->getMaxTime(); ts+=(1.0/uwb_rate))
+    for (double ts = traj->getMinTime(); ts < traj->getMaxTime(); ts+=(1.0/uwb_rate))
     {
         myTf tf_W_B = trajGtr.pose(ts);
 
@@ -241,23 +245,29 @@ void AddUWBFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T &t
         int    u  = us.first;
         double s  = us.second;
         
-        static vector<pair<int, int>> pairs(tags.size());
-        if (pairs.size() == 0) 
-            for(int tidx = 0; tidx < tags.size(); tidx++)
-                for(int aidx = 0; aidx < anchors.size(); aidx++)
-                    pairs.push_back(make_pair(tidx, aidx));
+        // static vector<vector<pair<int, int>>> pairs(tags.size());
+        // if (pairs[0].size() == 0)
+        // {
+        //     for(int tidx = 0; tidx < tags.size(); tidx++)
+        //     {
+        //         for(int aidx = 0; aidx < anchors.size(); aidx++)
+        //         {
+        //             int aidx_ = (aidx + tidx) % anchors.size();
+        //             pairs[tidx].push_back(make_pair(tidx, aidx_));
+        //             RINFO("Added ranging pair: %d -> %d\n", tidx, aidx_);
+        //         }
+        //     }
+        // }
                     
-        int curr_pair_idx = -1;
-        curr_pair_idx++;
-        if(curr_pair_idx == pairs.size())
-            curr_pair_idx = 0;
-        
-        int tidx = pairs[curr_pair_idx].first;
-        int aidx = pairs[curr_pair_idx].second;
-        
-        // for(int tidx = 0; tidx < tags.size(); tidx++)
+        // int curr_pair_idx = -1;
+        // curr_pair_idx = (curr_pair_idx + 1) % anchors.size();
+        for(int tidx = 0; tidx < tags.size(); tidx++)
         {
-            // for(int aidx = 0; aidx < anchors.size(); aidx++)
+            // int tidx = pairs[tidx][curr_pair_idx].first;
+            // int aidx = pairs[tidx][curr_pair_idx].second;
+            // ROS_ASSERT_MSG(tidx == pairs[tidx][curr_pair_idx].first, "Mismatch %d, %d\n", tidx, aidx);
+
+            for(int aidx = 0; aidx < anchors.size(); aidx++)
             {
                 Vector3d pos_tag = tags[tidx];
                 Vector3d pos_anc = anchors[aidx];
@@ -329,7 +339,7 @@ void InitializeTrajEst(double t0, GaussianProcessPtr &traj, const T &gtTraj)
         Vector3d posErr(pdist(rng), pdist(rng), pdist(rng));
         myTf pose_err(SO3d::exp(theErr).unit_quaternion(), posErr);
 
-        traj->setKnot(kidx, GPState(traj->getMaxTime(), (pose*pose_err).getSE3()));
+        traj->setKnot(kidx, GPState(traj->getKnotTime(kidx), (pose*pose_err).getSE3()));
     }
 }
 
