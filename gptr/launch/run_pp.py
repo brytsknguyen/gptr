@@ -55,9 +55,9 @@ def generate_launch_description():
             # Gtr traj params
             
             # SO3xR3 trajectory
-            {"wqx1"            : 3*0.05},
-            {"wqy1"            : 3*0.05},
-            {"wqz1"            : 1*0.05},
+            {"wqx1"            : 3*0.025},
+            {"wqy1"            : 3*0.025},
+            {"wqz1"            : 1*0.025},
             {"rqx1"            : M_PI*0.5},
             {"rqy1"            : M_PI*0.5},
             {"rqz1"            : M_PI*sqrt(3)/2},
@@ -70,9 +70,9 @@ def generate_launch_description():
             {"rpz1"            : 5.0},
 
             # SE3 trajectory
-            {"wpx2"            : 3*0.0725},
-            {"wpy2"            : 3*0.0725},
-            {"wpz2"            : 1*0.0725},
+            {"wpx2"            : 3*0.0725/2},
+            {"wpy2"            : 3*0.0725/2},
+            {"wpz2"            : 1*0.0725/2},
             {"rpx2"            : 5.0},
             {"rpy2"            : 5.0},
             {"rpz2"            : 5.0},
@@ -96,7 +96,7 @@ def generate_launch_description():
             
             # UWB param config
             {"Dtstep"          : [0.1, 0.05, 0.2]},
-            {"Wstep"           : [5, 25]},
+            {"Wstep"           : [5, 45]},
 
         ]  # Optional: pass parameters if needed
     )

@@ -32,7 +32,7 @@ def generate_launch_description():
             {"gpQr"              : 6.00},
             {"gpQc"              : 6.00},
             {"pose_type"         : "SO3xR3"}, # Choose 'SE3' or 'SO3xR3'
-            {"lie_epsilon"       : 5e-2},
+            {"lie_epsilon"       : 1e-2},
             {"use_approx_drv"    : 0},
 
             # Parameters for the solve
@@ -48,9 +48,9 @@ def generate_launch_description():
             
             # Time skewing factor
             {"tskew0"            : 1.0},
-            {"tskewmax"          : 6.5},
-            {"tskewstep"         : 0.3},
-            {"Dtstep"            : [0.2, 0.1]},
+            {"tskewmax"          : 4.5},
+            {"tskewstep"         : 0.1},
+            {"Dtstep"            : [0.1, 0.2, 0.05]},
             
         ]  # Optional: pass parameters if needed
     )

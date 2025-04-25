@@ -245,7 +245,7 @@ public:
         GaussianProcessPtr &traj, Vector3d &XBIG, Vector3d &XBIA, Vector3d &g, CameraCalibration *cam_calib,
         const vector<IMUData> &imuData, const vector<CornerData> &corner_data_cam0, const vector<CornerData> &corner_data_cam1, std::map<int, Eigen::Vector3d> &corner_pos_3d,
         double w_corner, double wGyro, double wAcce, double wBiasGyro, double wBiasAcce, double corner_loss_thres, double mp_loss_thres, bool do_marginalization,
-        CloudPosePtr &gtrPoseCloud, string &report_, map<string, double> &report)
+        const CloudPosePtr &gtrPoseCloud, map<string, double> &report_map, string &report_str)
     {
         static int cnt = 0;
         TicToc tt_build;
@@ -466,7 +466,7 @@ public:
         RINFO("Drafting report ...");
         TicToc tt_report;
 
-        report_ = myprintf(
+        report_str = myprintf(
             "Pose group: %s. Method: %s. Dt: %.3f. "
             "Tslv: %.0f. Iterations: %d.\n"
             "Factors: MP2K: %05d, IMU: %05d, Cam0Proj: %05d, Cam1Proj: %05d\n"
@@ -486,19 +486,19 @@ public:
 
         // cout << "yolo " << report_ << endl;
 
-        report["iter"]    = summary.iterations.size();
-        report["tslv"]    = summary.total_time_in_seconds;
-        report["rmse"]    = pos_rmse;
-        report["J0"]      = summary.initial_cost;
-        report["JK"]      = summary.final_cost;
-        report["MP2KJ0"]  = cost_mp2k_init;
-        report["IMUJ0"]   = cost_imu_init;
-        report["CAM0J0"]  = cost_proj_init0;
-        report["CAM1J0"]  = cost_proj_init1;
-        report["MP2KJK"]  = cost_mp2k_final;
-        report["IMUJK"]   = cost_imu_final;
-        report["CAM0JK"]  = cost_proj_final0;
-        report["CAM1JK"]  = cost_proj_final1;
+        report_map["iter"]    = summary.iterations.size();
+        report_map["tslv"]    = summary.total_time_in_seconds;
+        report_map["rmse"]    = pos_rmse;
+        report_map["J0"]      = summary.initial_cost;
+        report_map["JK"]      = summary.final_cost;
+        report_map["MP2KJ0"]  = cost_mp2k_init;
+        report_map["IMUJ0"]   = cost_imu_init;
+        report_map["CAM0J0"]  = cost_proj_init0;
+        report_map["CAM1J0"]  = cost_proj_init1;
+        report_map["MP2KJK"]  = cost_mp2k_final;
+        report_map["IMUJK"]   = cost_imu_final;
+        report_map["CAM0JK"]  = cost_proj_final0;
+        report_map["CAM1JK"]  = cost_proj_final1;
 
         RINFO(KGRN"Done. %fms\n"RESET, tt_report.Toc());
 

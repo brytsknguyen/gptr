@@ -155,13 +155,14 @@ vector<Vector3d> tags = {
 
 vector<Vector3d> anchors = {
     Vector3d( 12.0,  12.0, 0.5),
-    Vector3d(-12.0, -12.0, 2.5),
+    // Vector3d(-12.0, -12.0, 2.5),
     Vector3d(-12.0,  12.0, 2.5),
-    Vector3d( 12.0, -12.0, 0.5),
+    // Vector3d( 12.0, -12.0, 0.5),
     Vector3d(-12.0, -12.0, 0.5),
-    Vector3d( 12.0,  12.0, 2.5),
-    Vector3d( 12.0, -12.0, 2.5),
-    Vector3d(-12.0,  12.0, 0.5)};
+    // Vector3d( 12.0,  12.0, 2.5),
+    Vector3d( 12.0, -12.0, 2.5)
+    // Vector3d(-12.0,  12.0, 0.5)
+};
 
 double uwb_rate = 200.0;
 double uwb_noise = 0.05;

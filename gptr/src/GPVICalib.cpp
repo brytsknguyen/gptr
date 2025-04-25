@@ -490,7 +490,6 @@ int main(int argc, char **argv)
 
     CameraImuBuf CIBuf_ = CIBuf;
     CloudPosePtr gtrPoseCloud_(new CloudPose()); *gtrPoseCloud_  = *gtrPoseCloud;
-    GPMVICalibPtr gpmui(new GPMVICalib(nh_ptr));
 
     fs::create_directories(traj_save_path);
     std::ofstream logfile(traj_save_path + "/vicalib.csv", std::ios::out);
@@ -500,7 +499,8 @@ int main(int argc, char **argv)
                "so3xr3ap_JK,so3xr3cf_JK,se3ap_JK,se3cf_JK,"
                "so3xr3ap_rmse,so3xr3cf_rmse,se3ap_rmse,se3cf_rmse\n";
 
-    auto AssessTraj = [&corner_pos_3d, &cam_calib, &gpmui](CameraImuBuf &data, GaussianProcessPtr &traj, CloudPosePtr &gtrPoseCloud, map<string, double> &report) -> string
+    auto AssessTraj = [&corner_pos_3d, &cam_calib](const CameraImuBuf &data, GaussianProcessPtr &traj,
+                                                   const CloudPosePtr &gtrPoseCloud, map<string, double> &report_map, string &report_str)
     {
         // double t0 = CIBuf.minTime();
         double t0 = max(CIBuf.imu_data.front().t, CIBuf.corner_data_cam0.front().t);
@@ -543,14 +543,15 @@ int main(int argc, char **argv)
         double tmax = traj->getKnotTime(traj->getNumKnots() - 1) + 1e-3; // End time of the sliding window
         double tmid = tmin + SLIDE_SIZE * traj->getDt() + 1e-3;          // Next start time of the sliding window,
 
-        string report_;
+        // string report_;
+        GPMVICalibPtr gpmui(new GPMVICalib(nh_ptr));
         gpmui->Evaluate(tmin, tmax, tmid, traj, bg, ba, g, &cam_calib,
                         CIBuf.imu_data, CIBuf.corner_data_cam0, CIBuf.corner_data_cam1,
                         corner_pos_3d, w_corner,
                         GYR_N, ACC_N, GYR_W, ACC_W, corner_loss_thres, mp_loss_thres, false,
-                        gtrPoseCloud, report_, report);
+                        gtrPoseCloud, report_map, report_str);
 
-        return report_;
+        // return report_;
     };
 
     for(double tskew = tskew0; tskew <= tskewmax; tskew += tskewstep)
@@ -582,25 +583,35 @@ int main(int argc, char **argv)
 
             double deltaTm = m;
 
-            map<string, double> so3xr3ap_report;
-            map<string, double> so3xr3cf_report;
-            map<string, double> se3ap_report;
-            map<string, double> se3cf_report;
-
             GaussianProcessPtr trajSO3xR3AP(new GaussianProcess(deltaTm, gpQr, gpQc, false, POSE_GROUP::SO3xR3, lie_epsilon, true));
             GaussianProcessPtr trajSO3xR3CF(new GaussianProcess(deltaTm, gpQr, gpQc, false, POSE_GROUP::SO3xR3, lie_epsilon, false));
             GaussianProcessPtr trajSE3AP(new GaussianProcess(deltaTm, gpQr, gpQc, false, POSE_GROUP::SE3, lie_epsilon, true));
             GaussianProcessPtr trajSE3CF(new GaussianProcess(deltaTm, gpQr, gpQc, false, POSE_GROUP::SE3, lie_epsilon, false));
 
-            string report_SO3xR3_by_SO3xR3AP = AssessTraj(CIBuf, trajSO3xR3AP, gtrPoseCloud, so3xr3ap_report);
-            string report_SO3xR3_by_SO3xR3CF = AssessTraj(CIBuf, trajSO3xR3CF, gtrPoseCloud, so3xr3cf_report);
-            string report_SO3xR3_by_SE3AP___ = AssessTraj(CIBuf, trajSE3AP,    gtrPoseCloud, se3ap_report);
-            string report_SO3xR3_by_SE3CF___ = AssessTraj(CIBuf, trajSE3CF,    gtrPoseCloud, se3cf_report);
+            map<string, double> so3xr3ap_report;
+            map<string, double> so3xr3cf_report;
+            map<string, double> se3ap_report;
+            map<string, double> se3cf_report;
+            
+            string report_SO3xR3_by_SO3xR3AP;
+            string report_SO3xR3_by_SO3xR3CF;
+            string report_SO3xR3_by_SE3AP   ;
+            string report_SO3xR3_by_SE3CF   ;
+
+            thread exp1(AssessTraj, ref(CIBuf), ref(trajSO3xR3AP), ref(gtrPoseCloud), ref(so3xr3ap_report), ref(report_SO3xR3_by_SO3xR3AP));
+            thread exp2(AssessTraj, ref(CIBuf), ref(trajSO3xR3CF), ref(gtrPoseCloud), ref(so3xr3cf_report), ref(report_SO3xR3_by_SO3xR3CF));
+            thread exp3(AssessTraj, ref(CIBuf), ref(trajSE3AP   ), ref(gtrPoseCloud), ref(se3ap_report   ), ref(report_SO3xR3_by_SE3AP   ));
+            thread exp4(AssessTraj, ref(CIBuf), ref(trajSE3CF   ), ref(gtrPoseCloud), ref(se3cf_report   ), ref(report_SO3xR3_by_SE3CF   ));
+
+            exp1.join();
+            exp2.join();
+            exp3.join();
+            exp4.join();
 
             RINFO("VICalibTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SO3xR3AP.c_str());
             RINFO("VICalibTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SO3xR3CF.c_str());
-            RINFO("VICalibTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SE3AP___.c_str());
-            RINFO("VICalibTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SE3CF___.c_str());
+            RINFO("VICalibTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SE3AP.c_str());
+            RINFO("VICalibTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SE3CF.c_str());
             RINFO("");
 
             // Save the rmse result to the log
