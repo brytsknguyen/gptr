@@ -8,23 +8,23 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 # Sequence
-sequence_ = 'cloud_avia_mid_dynamic_extrinsics'
+sequence_ = 'cloud_avia_mid_dynamic_extrinsics_w25_e05'
 
 # Bag file
 lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/{sequence_}'
 
 # Direction to log the exp
-log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/sim_{sequence_}_gptr_two_lidar_W/'
+log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/sim_{sequence_}_gptr_two_lidar/'
 
 # Type of pose
-pose_type_ = 'SE3'
-# pose_type_ = 'SO3xR3'
+# pose_type_ = 'SE3'
+pose_type_ = 'SO3xR3'
 
 # Type of pose
-use_approx_drv_ = '1'
+use_approx_drv_ = '0'
 
 # Knot length
-deltaT_ = '0.1'
+deltaT_ = '0.04357'
 
 # Initial pose in each sequence
 xyzypr_W_L0 =[ 0,    0,   0.70,  43,  48, 0,
@@ -98,18 +98,18 @@ def generate_launch_description():
             # GN MAP optimization params
             {'deltaT'          : deltaT},
             # Motion prior factors
-            {'mpCovROSJerk'    : 2.0},
-            {'mpCovPVAJerk'    : 2.0},
+            {'mpCovROSJerk'    : 1.0},
+            {'mpCovPVAJerk'    : 1.0},
             {"pose_type"       : pose_type}, # Choose 'SE3' or 'SO3xR3'
             {"use_approx_drv"  : use_approx_drv},
             {"lie_epsilon"     : 1.0e-2},
 
             {'lidar_ds_rate'   : 1},
-            {'lidar_weight'    : 10.0},
+            {'lidar_weight'    : 50.0},
 
             # Extrinsic factors
-            {'xtCovROSJerk'    : 0.5},
-            {'xtCovPVAJerk'    : 0.5},
+            {'xtCovROSJerk'    : 10.0},
+            {'xtCovPVAJerk'    : 10.0},
 
             # Loss function threshold
             {'ld_loss_thres'   : -1.0},
@@ -125,11 +125,11 @@ def generate_launch_description():
             # Extrinsic estimation
             {'SW_CLOUDNUM'     : PythonExpression(['int(1.2/', LaunchConfiguration('deltaT'), ' + 0.5)'])},
             {'SW_CLOUDSTEP'    : 1},
-            {'max_lidarcoefs'  : 1000},
+            {'max_lidarcoefs'  : 500},
             {'XTRZ_DENSITY'    : 1},
-            {'min_planarity'   : 0.5},
+            {'min_planarity'   : 0.85},
             {'max_plane_dis'   : 0.5},
-            {'knnsize'         : 6},
+            {'knnsize'         : 10},
             
             {'use_ceres'       : 1},
             {'max_ceres_iter'  : 50},

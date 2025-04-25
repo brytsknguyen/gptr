@@ -10,14 +10,11 @@ from ament_index_python.packages import get_package_share_directory
 from math import pi as M_PI
 from math import sqrt as sqrt
 
-# # Sequence
-# sequence_ = 'cathhs_07'
-
-# # Bag file
-# lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence_}'
+import numpy as np
+import shutil, os
 
 # # Direction to log the exp
-log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/uwb_mle_noise_randomt0/'
+log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/uwb_mle_noise_fixedt0/'
 
 # Type of pose
 # pose_type_ = 'SE3'
@@ -32,6 +29,12 @@ deltaT_ = '0.05'
 # Initial pose in each sequence
 xyzypr_W_L0 =[ 0,   0,  0,   0, 0,  0,
                0.2, 0, -0.2, 0, 90, 0 ]
+
+# Copy the current file to the log file
+os.makedirs(log_dir_, exist_ok=True)
+launch_file_name = os.path.realpath(__file__)
+shutil.copy(launch_file_name, log_dir_)
+print(launch_file_name)
 
 def generate_launch_description():
     
@@ -79,15 +82,15 @@ def generate_launch_description():
             
             
             # GN optimization params
-            {"maxTime"         : 6.8},
+            {"maxTime"         : 10.0},
             {'deltaT'          : LaunchConfiguration('deltaT')},
             {'mpCovROSJerk'    : 10.0},
             {'mpCovPVAJerk'    : 10.0},
             {"pose_type"       : LaunchConfiguration('pose_type')}, # Choose 'SE3' or 'SO3xR3'
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
-            {"lie_epsilon"     : 1e-2},
+            {"lie_epsilon"     : 5e-2},
             {"max_ceres_iter"  : 50},
-            {"random_start"    : 1},
+            {"random_start"    : 0},
             
             
             # UWB param config

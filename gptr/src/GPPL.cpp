@@ -181,7 +181,7 @@ double lidar_noise = 0.05;
 
 
 // Creating the param info
-ParamInfoMap paramInfoMap;
+// ParamInfoMap paramInfoMap;
 
 // Find the hit point from position p and the ray e
 bool findHitpoint(const Vector3d &p, const Vector3d &e, Vector3d &h, Vector4d &normal, double eta=0)
@@ -214,7 +214,7 @@ bool findHitpoint(const Vector3d &p, const Vector3d &e, Vector3d &h, Vector4d &n
     return false;
 }
 
-void AddTrajParams(ceres::Problem &problem, GaussianProcessPtr &traj)
+void AddTrajParams(ceres::Problem &problem, GaussianProcessPtr &traj, ParamInfoMap &paramInfoMap)
 {
     for (int kidx = 0; kidx < traj->getNumKnots(); kidx++)
     {
@@ -234,7 +234,7 @@ void AddTrajParams(ceres::Problem &problem, GaussianProcessPtr &traj)
     }
 }
 
-void AddMP2KFactors(ceres::Problem &problem, GaussianProcessPtr &traj, FactorMeta &factorMeta)
+void AddMP2KFactors(ceres::Problem &problem, GaussianProcessPtr &traj, FactorMeta &factorMeta, ParamInfoMap &paramInfoMap)
 {
     for (int kidx = 0; kidx < traj->getNumKnots()-1; kidx++)
     {
@@ -273,11 +273,11 @@ void AddMP2KFactors(ceres::Problem &problem, GaussianProcessPtr &traj, FactorMet
 }
 
 template <typename T>
-void AddLidarFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T &trajGtr, FactorMeta &factorMeta)
+void AddLidarFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T &trajGtr, FactorMeta &factorMeta, ParamInfoMap &paramInfoMap)
 {
     // Random number generator with fixed seed for reproducibility
-    static std::mt19937 rng(57);
-    static std::normal_distribution<double> noise_dist(0.0, lidar_noise);
+    std::mt19937 rng(57);
+    std::normal_distribution<double> noise_dist(0.0, lidar_noise);
 
     for (double ts = traj->getMinTime() + traj->getDt()/10.0; ts < traj->getMaxTime(); ts+=(1.0/lidar_rate))
     {
@@ -375,9 +375,9 @@ void InitializeTrajEst(double t0, GaussianProcessPtr &traj, const T &gtTraj)
 }
 
 template <typename T>
-string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double> &report)
+void AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double> &report_map, string &report_str)
 {
-    paramInfoMap.clear();
+    ParamInfoMap paramInfoMap;
 
     // Ceres problem
     ceres::Problem problem;
@@ -396,7 +396,7 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
     // Add trajectory params
     TicToc tt_addparam;
     RINFO("Add params...");
-    AddTrajParams(problem, traj);
+    AddTrajParams(problem, traj, paramInfoMap);
     RINFO("Done, %.0fms", tt_addparam.Toc());
 
     // Add the motion prior factors
@@ -404,7 +404,7 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
     RINFO("Add mp2k...");
     FactorMeta mp2kFactorMeta;
     double cost_mp2k_init = -1, cost_mp2k_final = -1;
-    AddMP2KFactors(problem, traj, mp2kFactorMeta);
+    AddMP2KFactors(problem, traj, mp2kFactorMeta, paramInfoMap);
     RINFO("Done, %.0fms", tt_addmp2k.Toc());
 
     // Add the lidar factors
@@ -412,7 +412,7 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
     RINFO("Add lidar...");
     FactorMeta lidarFactorMeta;
     double cost_lidar_init = -1, cost_lidar_final = -1;
-    AddLidarFactors(problem, traj, trajGtr, lidarFactorMeta);
+    AddLidarFactors(problem, traj, trajGtr, lidarFactorMeta, paramInfoMap);
     RINFO("Done, %.0fms", tt_lidar.Toc());
 
     RINFO(KYEL"Solving..."RESET);
@@ -458,7 +458,7 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
     RINFO("Drafting report ...");
     TicToc tt_report;
 
-    string report_ = myprintf(
+    report_str = myprintf(
         "Pose group: %s. Method: %s. Dt: %.3f."
         "Tslv: %.0f. Iterations: %d.\n"
         "Factors: MP2K: %05d, lidar: %05d.\n"
@@ -476,20 +476,17 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
         pos_rmse, se3_rmse
     );
 
-    report["iter"]    = summary.iterations.size();
-    report["tslv"]    = summary.total_time_in_seconds;
-    report["rmse"]    = pos_rmse;
-    report["J0"]      = summary.initial_cost;
-    report["JK"]      = summary.final_cost;
-    report["MP2KJ0"]  = cost_mp2k_init;
-    report["LidarJ0"]   = cost_lidar_init;
-    report["MP2KJK"]  = cost_mp2k_final;
-    report["LidarJK"]   = cost_lidar_final;
+    report_map["iter"]    = summary.iterations.size();
+    report_map["tslv"]    = summary.total_time_in_seconds;
+    report_map["rmse"]    = pos_rmse;
+    report_map["J0"]      = summary.initial_cost;
+    report_map["JK"]      = summary.final_cost;
+    report_map["MP2KJ0"]  = cost_mp2k_init;
+    report_map["LidarJ0"] = cost_lidar_init;
+    report_map["MP2KJK"]  = cost_mp2k_final;
+    report_map["LidarJK"] = cost_lidar_final;
     
     RINFO(KGRN"Done. %fms\n"RESET, tt_report.Toc());
-
-
-    return report_;
 }
 
 
@@ -607,14 +604,14 @@ int main(int argc, char **argv)
 
             for (int n = N.front(); n <= N.back(); n++)
             {
+                gtrTraj.setn(n);
+
                 GaussianProcessPtr trajSO3xR3AP(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, true));
                 GaussianProcessPtr trajSO3xR3CF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, false));
-                GaussianProcessPtr trajSO3xR3RF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, false));
+                // GaussianProcessPtr trajSO3xR3RF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SO3xR3, lie_epsilon, false));
                 GaussianProcessPtr trajSE3AP(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, true));
                 GaussianProcessPtr trajSE3CF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, false));
-                GaussianProcessPtr trajSE3RF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, false));
-
-                gtrTraj.setn(n);
+                // GaussianProcessPtr trajSE3RF(new GaussianProcess(deltaTm, CovROSJerk, CovPVAJerk, true, POSE_GROUP::SE3, lie_epsilon, false));
 
                 double t0 = 0;
                 if (random_start)
@@ -622,32 +619,46 @@ int main(int argc, char **argv)
 
                 InitializeTrajEst(t0, trajSO3xR3AP, gtrTraj);
                 InitializeTrajEst(t0, trajSO3xR3CF, gtrTraj);
-                InitializeTrajEst(t0, trajSO3xR3RF, gtrTraj);
+                // InitializeTrajEst(t0, trajSO3xR3RF, gtrTraj);
                 InitializeTrajEst(t0, trajSE3AP, gtrTraj);
                 InitializeTrajEst(t0, trajSE3CF, gtrTraj);
-                InitializeTrajEst(t0, trajSE3RF, gtrTraj);
+                // InitializeTrajEst(t0, trajSE3RF, gtrTraj);
 
                 // double rmse = -1;
                 // Assess with the SO3xR3 trajectory
-                string report_SO3xR3AP = AssessTraj(trajSO3xR3AP, gtrTraj, so3xr3ap_report);
-                string report_SO3xR3CF = AssessTraj(trajSO3xR3CF, gtrTraj, so3xr3cf_report);
-                string report_SE3AP___ = AssessTraj(trajSE3AP,    gtrTraj, se3ap_report);
-                string report_SE3CF___ = AssessTraj(trajSE3CF,    gtrTraj, se3cf_report);
+                string report_SO3xR3AP;
+                string report_SO3xR3CF;
+                string report_SE3AP___;
+                string report_SE3CF___;
 
-                for(int kidx = 0; kidx < trajSO3xR3AP->getNumKnots(); kidx++)
-                {
-                    trajSO3xR3RF->setKnot(kidx, trajSO3xR3AP->getKnot(kidx));
-                    trajSE3RF->setKnot(kidx, trajSE3AP->getKnot(kidx));
-                }
-                string report_SO3xR3RF = AssessTraj(trajSO3xR3RF, gtrTraj, so3xr3rf_report);
-                string report_SE3RF___ = AssessTraj(trajSE3RF,    gtrTraj, se3rf_report);
+                thread exp1([&](){AssessTraj(trajSO3xR3AP, gtrTraj, so3xr3ap_report, report_SO3xR3AP);});
+                thread exp2([&](){AssessTraj(trajSO3xR3CF, gtrTraj, so3xr3cf_report, report_SO3xR3CF);});
+                thread exp3([&](){AssessTraj(trajSE3AP   , gtrTraj, se3ap_report   , report_SE3AP___);});
+                thread exp4([&](){AssessTraj(trajSE3CF   , gtrTraj, se3cf_report   , report_SE3CF___);});
+                
+                // thread exp2(AssessTraj, ref(trajSO3xR3CF), ref(gtrTraj), ref(so3xr3cf_report), ref(report_SO3xR3CF));
+                // thread exp3(AssessTraj, ref(trajSE3AP   ), ref(gtrTraj), ref(se3ap_report   ), ref(report_SE3AP___));
+                // thread exp4(AssessTraj, ref(trajSE3CF   ), ref(gtrTraj), ref(se3cf_report   ), ref(report_SE3CF___));
+
+                exp1.join();
+                exp2.join();
+                exp3.join();
+                exp4.join();
+
+                // for(int kidx = 0; kidx < trajSO3xR3AP->getNumKnots(); kidx++)
+                // {
+                //     trajSO3xR3RF->setKnot(kidx, trajSO3xR3AP->getKnot(kidx));
+                //     trajSE3RF->setKnot(kidx, trajSE3AP->getKnot(kidx));
+                // }
+                // string report_SO3xR3RF = AssessTraj(trajSO3xR3RF, gtrTraj, so3xr3rf_report);
+                // string report_SE3RF___ = AssessTraj(trajSE3RF,    gtrTraj, se3rf_report);
 
                 RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SO3xR3AP.c_str());
                 RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SO3xR3CF.c_str());
-                RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SO3xR3RF.c_str());
+                // RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SO3xR3RF.c_str());
                 RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SE3AP___.c_str());
                 RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SE3CF___.c_str());
-                RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SE3RF___.c_str());
+                // RINFO("%s n: %2d, Omega: %.3f, %s", gtrTrajType.c_str(), n, n*wqx1, report_SE3RF___.c_str());
 
                 // Save the rmse result to the log
                 logfile << gtrTraj.getwqx() << ","

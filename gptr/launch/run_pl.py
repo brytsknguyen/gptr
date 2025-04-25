@@ -11,15 +11,10 @@ from math import pi as M_PI
 from math import sqrt as sqrt
 
 import numpy as np
-
-# # Sequence
-# sequence_ = 'cathhs_07'
-
-# # Bag file
-# lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence_}'
+import shutil, os
 
 # # Direction to log the exp
-log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lidar_mle_noise/'
+log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lidar_mle_noise_300x6Hz_/'
 
 # Type of pose
 # pose_type_ = 'SE3'
@@ -34,6 +29,12 @@ deltaT_ = '0.05'
 # Initial pose in each sequence
 xyzypr_W_L0 =[ 0,   0,  0,   0, 0,  0,
                0.2, 0, -0.2, 0, 90, 0 ]
+
+# Copy the current file to the log file
+os.makedirs(log_dir_, exist_ok=True)
+launch_file_name = os.path.realpath(__file__)
+shutil.copy(launch_file_name, log_dir_)
+print(launch_file_name)
 
 def generate_launch_description():
     
@@ -57,9 +58,9 @@ def generate_launch_description():
             # Gtr traj params
             
             # SO3xR3 trajectory
-            {"wqx1"            : 3*0.3},
-            {"wqy1"            : 3*0.3},
-            {"wqz1"            : 1*0.3},
+            {"wqx1"            : 3*0.05},
+            {"wqy1"            : 3*0.05},
+            {"wqz1"            : 1*0.05},
             {"rqx1"            : M_PI*0.5},
             {"rqy1"            : M_PI*0.5},
             {"rqz1"            : M_PI*sqrt(3)/2},
@@ -72,9 +73,9 @@ def generate_launch_description():
             {"rpz1"            : 5.0},
 
             # SE3 trajectory
-            {"wpx2"            : 3*0.45},
-            {"wpy2"            : 3*0.45},
-            {"wpz2"            : 1*0.45},
+            {"wpx2"            : 3*0.15},
+            {"wpy2"            : 3*0.15},
+            {"wpz2"            : 1*0.15},
             {"rpx2"            : 5.0},
             {"rpy2"            : 5.0},
             {"rpz2"            : 5.0},
@@ -83,22 +84,22 @@ def generate_launch_description():
             # GN MAP optimization params
             {"maxTime"         : 20.0},
             {'deltaT'          : LaunchConfiguration('deltaT')},
-            {'mpCovROSJerk'    : 20.0},
-            {'mpCovPVAJerk'    : 20.0},
+            {'mpCovROSJerk'    : 10.0},
+            {'mpCovPVAJerk'    : 10.0},
             {"pose_type"       : LaunchConfiguration('pose_type')}, # Choose 'SE3' or 'SO3xR3'
             {"use_approx_drv"  : LaunchConfiguration('use_approx_drv')},
-            {"lie_epsilon"     : 5e-2},
+            {"lie_epsilon"     : 1e-2},
             {"max_ceres_iter"  : 50},
             {"random_start"    : 0},
             
             
             # UWB param config
-            {"lidar_rate"      : 300.0},
+            {"lidar_rate"      : 200.0},
             {"lidar_noise"     : 0.05},
             
             # UWB param config
-            {"Dtstep"          : [0.05, 0.1, 0.3]},
-            {"Wstep"           : [1, 10]},
+            {"Dtstep"          : [0.1, 0.3, 0.05]},
+            {"Wstep"           : [1, 30]},
 
         ]  # Optional: pass parameters if needed
     )

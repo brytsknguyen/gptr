@@ -154,14 +154,10 @@ vector<Vector3d> tags = {
 };
 
 vector<Vector3d> anchors = {
-    Vector3d( 12.0,  12.0, 0.5),
-    // Vector3d(-12.0, -12.0, 2.5),
-    Vector3d(-12.0,  12.0, 2.5),
-    // Vector3d( 12.0, -12.0, 0.5),
-    Vector3d(-12.0, -12.0, 0.5),
-    // Vector3d( 12.0,  12.0, 2.5),
-    Vector3d( 12.0, -12.0, 2.5)
-    // Vector3d(-12.0,  12.0, 0.5)
+    Vector3d( 10.0,  10.0, 0.5),
+    Vector3d(-10.0,  10.0, 2.5),
+    Vector3d(-10.0, -10.0, 0.5),
+    Vector3d( 10.0, -10.0, 2.5)
 };
 
 double uwb_rate = 200.0;

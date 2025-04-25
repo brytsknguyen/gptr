@@ -4,12 +4,19 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 import numpy as np
+import shutil, os
 
 # Save path
 result_save_path = '/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/vicalib_/'
 
 # Data path
 vi_data_path = '/home/tmn/ros2_ws/src/gptr/gptr/dataVICalib/'
+
+# Copy the current file to the log file
+os.makedirs(result_save_path, exist_ok=True)
+launch_file_name = os.path.realpath(__file__)
+shutil.copy(launch_file_name, result_save_path)
+print(launch_file_name)
 
 def generate_launch_description():
     
