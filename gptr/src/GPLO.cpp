@@ -1040,8 +1040,15 @@ int main(int argc, char **argv)
             {
                 traj_curr_knots[lidx] = trajs[lidx]->getNumKnots();
                 while(trajs[lidx]->getMaxTime() < tmax)
+                {
                     // trajs[lidx]->extendOneKnot();
-                    trajs[lidx]->extendOneKnot(trajs[lidx]->getKnot(trajs[lidx]->getNumKnots()-1));
+                    GPState Xt = trajs[lidx]->predictState(1);
+                    Xt.O = Vector3d(0, 0, 0);
+                    Xt.S = Vector3d(0, 0, 0);
+                    Xt.V = Vector3d(0, 0, 0);
+                    Xt.A = Vector3d(0, 0, 0);
+                    trajs[lidx]->extendOneKnot(Xt);
+                }
             }
 
             // Estimation change

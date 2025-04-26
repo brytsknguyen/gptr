@@ -2242,12 +2242,13 @@ public:
         Vec3 Vc = V.back();
         Vec3 Ac = A.back();
         
+        double DtSqHalf = 0.5*Dt*Dt;
         for(int k = 0; k < steps; k++)
         {
             SO3d Rpred = Rc*SO3d::exp(Dt*Oc);
-            Vec3 Opred = Oc + Dt*Sc;
+            Vec3 Opred = Oc + Dt*Sc + DtSqHalf*Sc;
             Vec3 Spred = Sc;
-            Vec3 Ppred = Pc + Dt*Vc;
+            Vec3 Ppred = Pc + Dt*Vc + DtSqHalf*Ac;
             Vec3 Vpred = Vc + Dt*Ac;
             Vec3 Apred = Ac;
 
