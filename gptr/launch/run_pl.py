@@ -94,7 +94,7 @@ def generate_launch_description():
             
             
             # UWB param config
-            {"lidar_rate"      : 200.0},
+            {"lidar_rate"      : 300.0},
             {"lidar_noise"     : 0.05},
             
             # UWB param config

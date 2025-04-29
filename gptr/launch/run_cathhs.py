@@ -11,7 +11,7 @@ from ament_index_python.packages import get_package_share_directory
 sequence_ = 'cathhs_07'
 
 # Bag file
-lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr/{sequence_}'
+lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/{sequence_}'
 
 # Direction to log the exp
 log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/cathhs_exp/cathhs_{sequence_}_gptr_two_lidar/'
@@ -24,7 +24,7 @@ pose_type_ = 'SO3xR3'
 use_approx_drv_ = '0'
 
 # Knot length
-deltaT_ = '0.02204'
+deltaT_ = '0.04357'
 
 # Initial pose in each sequence
 xyzypr_W_L0 =[ 0,   0,  0,   0, 0,  0,
@@ -55,7 +55,7 @@ def generate_launch_description():
         parameters  =
         [
             # Location of the prior map
-            {"priormap_file"   : "/media/tmn/mySataSSD1/Experiments/gptr/cathhs_iot_prior_2cm.pcd"},
+            {"priormap_file"   : "/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/cathhs_07/cathhs_iot_prior_2cm.pcd"},
             
             # Location of bag file
             {"lidar_bag_file"  : lidar_bag_file},
@@ -95,8 +95,8 @@ def generate_launch_description():
                                     0.018040371221108277,   -0.005781886649251375, -0.6659410499572929, 177.8095334058065,  -0.6988913250237251, -0.4278818562418 ]},
 
             # Leaf size to downsample priormap
-            {'pmap_leaf_size'  : 0.1},
-            {'cloud_ds'        : [0.2, 0.2]},
+            {'pmap_leaf_size'  : 0.15},
+            {'cloud_ds'        : [0.1, 0.1]},
 
             # GN MAP optimization params
             {'deltaT'          : deltaT},
@@ -108,7 +108,7 @@ def generate_launch_description():
             {"lie_epsilon"     : 1.0e-2},
 
             {'lidar_ds_rate'   : 1},
-            {'lidar_weight'    : 10.0},
+            {'lidar_weight'    : 20.0},
 
             # Extrinsic factors
             {'xtCovROSJerk'    : 1.0},
@@ -128,22 +128,22 @@ def generate_launch_description():
             # Extrinsic estimation
             {'SW_CLOUDNUM'     : PythonExpression(['int(0.6/', LaunchConfiguration('deltaT'), ' + 0.5)'])},
             {'SW_CLOUDSTEP'    : 1},
-            {'max_lidarcoefs'  : 2000},
+            {'max_lidarcoefs'  : 1000},
             {'XTRZ_DENSITY'    : 1},
-            {'min_planarity'   : 0.5},
+            {'min_planarity'   : 0.8},
             {'max_plane_dis'   : 0.5},
-            {'knnsize'         : 6},
+            {'knnsize'         : 10},
             
             {'use_ceres'       : 1},
             {'max_ceres_iter'  : 50},
-            {'max_outer_iter'  : 1},
-            {'max_inner_iter'  : 2},
-            {'min_inner_iter'  : 2},
-            {'conv_thres'      : 2},
+            {'max_outer_iter'  : 2},
+            {'max_inner_iter'  : 1},
+            {'min_inner_iter'  : 1},
+            {'conv_thres'      : 1},
             {'dJ_conv_thres'   : 10.0},
             {'conv_dX_thres'   : [-0.05, -0.5, -1.0, -0.05, -0.5, -1.0 ]},
             {'change_thres'    : [-15.0, -0.5, -1.0, -15.0, -8.0, -2.0 ]},
-            {'fix_time_begin'  : -0.0125},
+            {'fix_time_begin'  : 0.0125},
             {'fix_time_end'    : -0.0},
             {'fuse_marg'       : 1},
             {'compute_cost'    : 0},

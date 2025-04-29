@@ -64,6 +64,14 @@ runexp()
     done
 }
 
+runexp cloud_avia_mid_w95_dynxtrz_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/gptr/ 0.04357
+runexp cloud_avia_mid_w85_dynxtrz_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/gptr/ 0.04357
+runexp cloud_avia_mid_w75_dynxtrz_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/gptr/ 0.04357
+runexp cloud_avia_mid_w65_dynxtrz_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/gptr/ 0.04357
+runexp cloud_avia_mid_w55_dynxtrz_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/gptr/ 0.04357
+runexp cloud_avia_mid_w45_dynxtrz_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/gptr/ 0.04357
+runexp cloud_avia_mid_w35_dynxtrz_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/gptr/ 0.04357
+runexp cloud_avia_mid_w25_dynxtrz_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/gptr/ 0.04357
 
 # runexp cloud_ousterx2_w75_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_A/Dt_100/lio/ 0.10
 # runexp cloud_ousterx2_w75_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_A/Dt_150/lio/ 0.15
@@ -118,5 +126,3 @@ runexp()
 # runexp cloud_ousterx2_w35_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_A/Dt_200/lio/ 0.20
 # runexp cloud_ousterx2_w35_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_A/Dt_250/lio/ 0.25
 # runexp cloud_ousterx2_w35_e5 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs_A/Dt_300/lio/ 0.30
-
-runexp cloud_avia_mid_dynamic_extrinsics /media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/sim_cloud_avia_mid_dynamic_extrinsics_gptr_two_lidar_200 0.2
