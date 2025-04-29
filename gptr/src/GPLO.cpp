@@ -364,8 +364,8 @@ int main(int argc, char **argv)
     
     Util::GetParam(nh_ptr, "MAX_CLOUDS", MAX_CLOUDS);
     Util::GetParam(nh_ptr, "SKIPPED_TIME", SKIPPED_TIME);
-    Util::GetBoolParam(nh_ptr, "RECURRENT_SKIP", RECURRENT_SKIP);
-    
+    RECURRENT_SKIP = Util::GetBoolParam(nh_ptr, "RECURRENT_SKIP", true);
+
     Util::GetParam(nh_ptr, "imu_topic", imu_topic);
     Util::GetParam(nh_ptr, "lidar_topic", lidar_topic);
     Util::GetParam(nh_ptr, "lidar_type", lidar_type);
