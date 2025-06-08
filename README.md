@@ -1,18 +1,4 @@
-# GPTR: Gaussian Process Trajectory Representation for Continuous-Time Motion Estimation
-
-## Preresiquite
-
-### ROS 1 User
-* Install Ubuntu 20.04 and ROS NOETIC
-* Checkout the master branch
-* Please catkin build [SFUISE](https://github.com/ASIG-X/SFUISE) in your workspace to have the cf_msg, which is required in gptr.
-* Please install Ceres 2.0 and sophus
-  ```
-  sudo apt install libfmt-dev # may be required as a dependency of sophus
-  sudo apt install ros-noetic-sophus
-  sudo apt install libceres-dev
-  ```
-* Git clone and catkin build the repo.
+# A Gaussian Process Trajectory Representation with Closed-Form Kinematics for Continuous-Time Motion Estimation
 
 ### ROS 2 User
 * Install Ubuntu 22.04 and ROS HUMBLE
@@ -25,16 +11,6 @@
   sudo apt install libceres-dev
   ```
 * Git clone and colcon build the repo.
-
-### Ceres 2.2
-
-Ceres 2.2 replaces LocalParameterization class with Manifold. We have also did some tests on ceres.2.2 on Ubuntu 22.04 and ROS HUMBLE. 
-* Install ceres from source.
-* Install sophus from source. Do `git checkout 1.24.6`. If there is a complaint about cmake version, you can manual change the cmake version in CMakeLists.txt file, for example `cmake_minimum_required(VERSION 3.22)` instead of 3.24.
-* Make sure `libfmt-dev` is installed.
-* Checkout the ceres.2.2 branch of this repo and colcon build the repo.
-
-Please raise an issue should you encounter any issue with the compilation of the package.
 
 ## Testing the lidar pipeline:
 
@@ -78,7 +54,7 @@ Below is an exemplary run on sequence `const2-trial4-tdoa2`
 <img src="/docs/ui_video.gif" width="600"/>
 
 ### Evaluation
-Please set `if_save_traj` in `gptr/launch/run_util.launch` to `1` and change `result_save_path` accordingly. 
+Please set `if_save_traj` in `gptr/launch/run_util.launch` to `1` and change `result_save_path` accordingly.
 
 ```
 evo_ape tum /traj_save_path/gt.txt /traj_save_path/traj.txt -a --plot
@@ -106,18 +82,3 @@ The toolkit contains three main examples:
 * Visual-Inertial Calibration: a batch optimization problem where visual-inertial factors are combined to estimate the trajectory and extrinsics of a camera-imu pair, encapsulated in the `GPVICalib.cpp` file.
 * UWB-Inertial Localization: a sliding-window Maximum A Posteriori (MAP) optimization problem featuring TDOA UWB measurements and IMU, presented in the `GPUI.cpp` file.
 * Multi-lidar Coupled-Motion Estimation: a sliding-window MAP optimization problem with lidar-only observation, featuring multiple trajectories with extrinsic factors providing a connection between these trajectories, implemented in the `GPLO.cpp` trajectory.
-
-## Publication
-
-For the theorectical foundation, please find our paper at [arxiv](https://arxiv.org/pdf/2410.22931)
-
-If you use the source code of our work, please cite us as follows:
-
-```
-@article{nguyen2024gptr,
-  title     = {GPTR: Gaussian Process Trajectory Representation for Continuous-Time Motion Estimation},
-  author    = {Nguyen, Thien-Minh, and Cao, Ziyu, and Li, Kailai, and Yuan, Shenghai and Xie, Lihua},
-  journal   = {arXiv preprint arXiv:2410.22931},
-  year      = {2024}
-}
-```
