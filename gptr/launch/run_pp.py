@@ -14,7 +14,7 @@ import numpy as np
 import shutil, os
 
 # # Direction to log the exp
-log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/uwb_mle_noise_fixedt0/'
+log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/uwb_mle_noise_fixedt0_temp/'
 
 # Type of pose
 # pose_type_ = 'SE3'
@@ -37,7 +37,7 @@ shutil.copy(launch_file_name, log_dir_)
 print(launch_file_name)
 
 def generate_launch_description():
-    
+
     # lidar_bag_file  = DeclareLaunchArgument('lidar_bag_file', default_value=lidar_bag_file_, description='')   # Bag file
     log_dir         = DeclareLaunchArgument('log_dir', default_value=log_dir_, description='')                 # Direction to log the exp
     pose_type       = DeclareLaunchArgument('pose_type', default_value=pose_type_, description='')             # Variant of kinematics
@@ -54,9 +54,9 @@ def generate_launch_description():
         # prefix      = 'sleep 3;',
         parameters  =
         [
-            {"log_dir"         : LaunchConfiguration('log_dir')}, 
+            {"log_dir"         : LaunchConfiguration('log_dir')},
             # Gtr traj params
-            
+
             # SO3xR3 trajectory
             {"wqx1"            : 3*0.025},
             {"wqy1"            : 3*0.025},
@@ -64,7 +64,7 @@ def generate_launch_description():
             {"rqx1"            : M_PI*0.5},
             {"rqy1"            : M_PI*0.5},
             {"rqz1"            : M_PI*sqrt(3)/2},
-            
+
             {"wpx1"            : 3*0.15},
             {"wpy1"            : 3*0.15},
             {"wpz1"            : 1*0.15},
@@ -79,8 +79,8 @@ def generate_launch_description():
             {"rpx2"            : 5.0},
             {"rpy2"            : 5.0},
             {"rpz2"            : 5.0},
-            
-            
+
+
             # GN optimization params
             {"maxTime"         : 10.0},
             {'deltaT'          : LaunchConfiguration('deltaT')},
@@ -91,12 +91,12 @@ def generate_launch_description():
             {"lie_epsilon"     : 5e-2},
             {"max_ceres_iter"  : 50},
             {"random_start"    : 0},
-            
-            
+
+
             # UWB param config
             {"uwb_rate"        : 20.0},
             {"uwb_noise"       : 0.05},
-            
+
             # UWB param config
             {"Dtstep"          : [0.1, 0.05, 0.2]},
             {"Wstep"           : [5, 45]},
@@ -117,7 +117,7 @@ def generate_launch_description():
                                           target_action=gptr_lo_node,
                                           on_exit=[Shutdown()])
                                          )
-    
+
     # launch_arg = DeclareLaunchArgument('cartinbot_viz', required=True, description='Testing')
 
     return LaunchDescription([log_dir, deltaT, pose_type, use_approx_drv,

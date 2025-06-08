@@ -79,11 +79,11 @@ public:
 
     // Destructor
     ~GPState(){};
-    
+
     // Constructor
     GPState()
         : t(0), R(SO3T()), O(Vec3T(0, 0, 0)), S(Vec3T(0, 0, 0)), P(Vec3T(0, 0, 0)), V(Vec3T(0, 0, 0)), A(Vec3T(0, 0, 0)) {}
-    
+
     GPState(double t_)
         : t(t_), R(SO3T()), O(Vec3T()), S(Vec3T()), P(Vec3T()), V(Vec3T()), A(Vec3T()) {}
 
@@ -98,7 +98,7 @@ public:
 
     GPState(double t_, const GPState<T> &other)
         : t(t_), R(other.R), O(other.O), S(other.S), P(other.P), V(other.V), A(other.A) {}
-    
+
     GPState(double t_, const SE3T &Tf, const Vec6T &Tw, const Vec6T &Wr)
     {
         t = t_;
@@ -252,7 +252,7 @@ public:
         else if(pose_representation == POSE_GROUP::SE3)
             Fmat = kron(Fbase(Dt, 3), Matrix<double, 6, 6>::Identity(6, 6)).sparseView();
         Fmat.makeCompressed();
-        
+
         // Calculate the information matrix for motion prior
         Matrix3d Qtilde = Qbase(Dt, 3);
         Matrix<double, STATE_DIM, STATE_DIM> Info; Info.setZero();
@@ -311,10 +311,10 @@ public:
     }
 
     // Gaussian Process covariance, Q = \int{Phi*F*CovPVAJerk*F'*Phi'}
-    MatrixXd Qbase(const double Dtau, int N) const 
+    MatrixXd Qbase(const double Dtau, int N) const
     {
         std::function<int(int)> factorial = [&factorial](int n) -> int {return (n <= 1) ? 1 : n * factorial(n - 1);};
-        
+
         MatrixXd Q(N, N);
         for(int n = 0; n < N; n++)
             for(int m = 0; m < N; m++)
@@ -323,12 +323,12 @@ public:
         return Q;
     }
 
-    MatrixXd Qga(const double s, int N) const 
+    MatrixXd Qga(const double s, int N) const
     {
         double Dtau = s*Dt;
 
         std::function<int(int)> factorial = [&factorial](int n) -> int {return (n <= 1) ? 1 : n * factorial(n - 1);};
-        
+
         MatrixXd Q(N, N);
         for(int n = 0; n < N; n++)
             for(int m = 0; m < N; m++)
@@ -337,12 +337,12 @@ public:
         return kron(Qbase(Dt, 3), CovROSJerk);
     }
 
-    MatrixXd Qnu(const double s, int N) const 
+    MatrixXd Qnu(const double s, int N) const
     {
         double Dtau = s*Dt;
 
         std::function<int(int)> factorial = [&factorial](int n) -> int {return (n <= 1) ? 1 : n * factorial(n - 1);};
-        
+
         MatrixXd Q(N, N);
         for(int n = 0; n < N; n++)
             for(int m = 0; m < N; m++)
@@ -355,7 +355,7 @@ public:
     {
         Matrix<double, STATE_DIM, STATE_DIM> F; F.setZero();
         Matrix<double, STATE_DIM, STATE_DIM> Q; Q.setZero();
-        
+
         F.block<9, 9>(0, 0) = kron(Fbase(Dt, 3), Eye);
         F.block<9, 9>(9, 9) = kron(Fbase(Dt, 3), Eye);
 
@@ -396,7 +396,7 @@ public:
         MatrixXd PSIDtau = PSI(Dtau, Q);
         MatrixXd FDtau = kron(Fbase(Dtau, 3), Eye);
         MatrixXd FDt = kron(Fbase(Dt, 3), Eye);
-        
+
         return FDtau - PSIDtau*FDt;
     }
 
@@ -427,7 +427,7 @@ public:
         Fu_ << uy*vy +     uz*vz, ux*vy - 2.0*uy*vx, ux*vz - 2.0*uz*vx,
                uy*vx - 2.0*ux*vy, ux*vx +     uz*vz, uy*vz - 2.0*uz*vy,
                uz*vx - 2.0*ux*vz, uz*vy - 2.0*uy*vz, ux*vx +     uy*vy;
-        return Fu_; 
+        return Fu_;
     }
 
     template <class T = double>
@@ -447,8 +447,8 @@ public:
         Eigen::Matrix<T, 3, 3> Fuu_;
         Fuu_ << ay*vy +     az*vz, ax*vy - 2.0*ay*vx, ax*vz - 2.0*az*vx,
                 ay*vx - 2.0*ax*vy, ax*vx +     az*vz, ay*vz - 2.0*az*vy,
-                az*vx - 2.0*ax*vz, az*vy - 2.0*ay*vz, ax*vx +     ay*vy; 
-        return Fuu_; 
+                az*vx - 2.0*ax*vz, az*vy - 2.0*ay*vz, ax*vx +     ay*vy;
+        return Fuu_;
     }
 
     template <class T = double>
@@ -463,7 +463,7 @@ public:
         Fuv_ << -2.0*ay*uy - 2.0*az*uz,      ax*uy +     ay*ux,      ax*uz +     az*ux,
                      ax*uy +     ay*ux, -2.0*ax*ux - 2.0*az*uz,      ay*uz +     az*uy,
                      ax*uz +     az*ux,      ay*uz +     az*uy, -2.0*ax*ux - 2.0*ay*uy;
-        return Fuv_; 
+        return Fuv_;
     }
 
 
@@ -513,7 +513,7 @@ public:
 
         T Un = U.norm();
 
-        if(use_approx_drv || Un < lie_epsilon)
+        if(Un < lie_epsilon)
         {
             // cout << "approx form" << endl;
             return 0.5*SO3T::hat(V);
@@ -530,10 +530,10 @@ public:
 
         T sUn = sin(Un);
         // T sUnp2 = sUn*sUn;
-        
+
         T cUn = cos(Un);
         // T cUnp2 = cUn*cUn;
-        
+
         T gUn = (1.0 - cUn)/Unp2;
         T DgUn_DUn = sUn/Unp2 - 2.0*(1.0 - cUn)/Unp3;
 
@@ -541,7 +541,7 @@ public:
         T DhUn_DUn = (1.0 - cUn)/Unp3 - 3.0*(Un - sUn)/Unp4;
 
         Vec3T Ub = U/Un;
-        
+
         Vec3T UsksqV = SO3T::hat(U)*SO3T::hat(U)*V;
         Mat3T DUsksqV_DU = Fu<T>(U, V);
 
@@ -557,7 +557,7 @@ public:
 
         T Un = U.norm();
 
-        if(use_approx_drv || Un < lie_epsilon)
+        if(Un < lie_epsilon)
         {
             // cout << "approx form" << endl;
             return Mat3T::Zero(3, 3);
@@ -575,10 +575,10 @@ public:
 
         T sUn = sin(Un);
         // T sUnp2 = sUn*sUn;
-        
+
         T cUn = cos(Un);
         // T cUnp2 = cUn*cUn;
-        
+
         // T gUn = (1.0 - cUn)/Unp2;
         T DgUn_DUn = sUn/Unp2 - 2.0*(1.0 - cUn)/Unp3;
         T DDgUn_DUnDUn = cUn/Unp2 - 4.0*sUn/Unp3 + 6.0*(1.0 - cUn)/Unp4;
@@ -621,7 +621,7 @@ public:
 
         T Un = U.norm();
 
-        if(use_approx_drv || Un < lie_epsilon)
+        if(Un < lie_epsilon)
         {
             // cout << "approx form" << endl;
             return -0.5*SO3T::hat(W);
@@ -639,10 +639,10 @@ public:
 
         T sUn = sin(Un);
         // T sUnp2 = sUn*sUn;
-        
+
         T cUn = cos(Un);
         // T cUnp2 = cUn*cUn;
-        
+
         T gUn = (1.0 - cUn)/Unp2;
         T DgUn_DUn = sUn/Unp2 - 2.0*(1.0 - cUn)/Unp3;
         // T DDgUn_DUnDUn = cUn/Unp2 - 4.0*sUn/Unp3 + 6.0*(1.0 - cUn)/Unp4;
@@ -671,7 +671,7 @@ public:
 
         T Un = U.norm();
 
-        if(use_approx_drv || Un < lie_epsilon)
+        if(Un < lie_epsilon)
         {
             // cout << "approx form" << endl;
             return -0.5*SO3T::hat(V);
@@ -684,13 +684,13 @@ public:
 
         T Unp2 = Un*Un;
         T Unp3 = Unp2*Un;
-        
+
         T sUn = sin(Un);
         T sUnp2 = sUn*sUn;
-        
+
         T cUn = cos(Un);
         // T cUnp2 = cUn*cUn;
-        
+
         T gUn = (1.0/Unp2 - (1.0 + cUn)/(2.0*Un*sUn));
         T DgUn_DUn = -2.0/Unp3 + (Un*sUnp2 + (sUn + Un*cUn)*(1.0 + cUn))/(2.0*Unp2*sUnp2);
 
@@ -711,7 +711,7 @@ public:
 
         T Un = U.norm();
 
-        if(use_approx_drv || Un < lie_epsilon)
+        if(Un < lie_epsilon)
         {
             // cout << "approx form" << endl;
             return Mat3T::Zero();
@@ -730,11 +730,11 @@ public:
         T sUn = sin(Un);
         T sUnp2 = sUn*sUn;
         // T s2Un = sin(2.0*Un);
-        
+
         T cUn = cos(Un);
         // T cUnp2 = cUn*cUn;
         T c2Un = cos(2.0*Un);
-        
+
         T gUn = 1.0/Unp2 - (1.0 + cUn)/(2.0*Un*sUn);
         T DgUn_DUn = -2.0/Unp3 + (sUn + Un)*(1.0 + cUn)/(2.0*Unp2*sUnp2);
         // T DDgUn_DUnDUn = 6.0/Unp4 + (1.0 - c2Un + Unp2*cUn + 2.0*Un*sUn + Unp2)/(Unp3*2.0*sUn*(cUn - 1.0));
@@ -768,7 +768,7 @@ public:
 
         T Un = U.norm();
 
-        if(use_approx_drv || Un < lie_epsilon)
+        if(Un < lie_epsilon)
         {
             // cout << "approx form" << endl;
             return 0.5*SO3T::hat(W);
@@ -787,11 +787,11 @@ public:
         T sUn = sin(Un);
         T sUnp2 = sUn*sUn;
         // T s2Un = sin(2*Un);
-        
+
         T cUn = cos(Un);
         // T cUnp2 = cUn*cUn;
         // T c2Un = cos(2*Un);
-        
+
         T gUn = (1.0/Unp2 - (1.0 + cUn)/(2.0*Un*sUn));
         T DgUn_DUn = -2.0/Unp3 + (Un*sUnp2 + (sUn + Un*cUn)*(1.0 + cUn))/(2.0*Unp2*sUnp2);
         // T DDgUn_DUnDUn = (Un + 6.0*s2Un - 12.0*sUn - Un*c2Un + Unp3*cUn + 2.0*Unp2*sUn + Unp3)/(Unp4*(s2Un - 2.0*sUn));
@@ -903,10 +903,10 @@ public:
 
         T sUn = sin(Un);
         // T sUnp2 = sUn*sUn;
-        
+
         T cUn = cos(Un);
         // T cUnp2 = cUn*cUn;
-        
+
         T gUn = (1.0 - cUn)/Unp2;
         T DgUn_DUn = sUn/Unp2 - 2.0*(1.0 - cUn)/Unp3;
 
@@ -914,7 +914,7 @@ public:
         T DhUn_DUn = (1.0 - cUn)/Unp3 - 3.0*(Un - sUn)/Unp4;
 
         Vec3T Ub = U/Un;
-        
+
         Vec3T UsksqV = SO3T::hat(U)*SO3T::hat(U)*V;
         Mat3T DUsksqV_DU = Fu<T>(U, V);
 
@@ -927,7 +927,7 @@ public:
     {
         Eigen::Matrix<T, 3, 1> The = Xi.template head<3>();
         Eigen::Matrix<T, 3, 1> Rho = Xi.template tail<3>();
-        
+
         Eigen::Matrix<T, 6, 6> Jr_Xi;
         Eigen::Matrix<T, 3, 3> Jr_The = Jr(The);
         Eigen::Matrix<T, 3, 3> Qr = SE3Qr(Xi);
@@ -994,7 +994,7 @@ public:
 
         Jr_Xi = Jr(Xi);
 
-        if (The.norm() < lie_epsilon || use_approx_drv)
+        if (The.norm() < lie_epsilon)
         {
             // cout << "approx form " << The.transpose() << endl;
 
@@ -1009,10 +1009,10 @@ public:
 
             SE3Q<T> myQ_XiXid;
             myQ_XiXid.ComputeQSC(The, Rho, Thed, Rhod);
-            
+
             SE3Q<T> myQ_XiXidd;
             myQ_XiXidd.ComputeS(The, Rho, Thedd);
-            
+
             Mat3T Zero = Mat3T::Zero(3, 3);
             Mat3T Jr_The = Jr(The);
             Mat3T H1_TheThed = DJrUV_DU(The, Thed);
@@ -1023,7 +1023,7 @@ public:
             Mat3T L11_TheRhodThed = DDJrUVW_DUDU(The, Rhod, Thed);
             Mat3T L12_TheThedThed = DDJrUVW_DUDV(The, Thed, Thed);
             Mat3T L12_TheRhodThed = DDJrUVW_DUDV(The, Rhod, Thed);
-        
+
             H1_XiXid
                 << H1_TheThed, Zero,
                    myQ_XiXid.S1 + H1_TheRhod, myQ_XiXid.S2;
@@ -1093,7 +1093,7 @@ public:
         Vec3T Thed = Xid.template head(3);
         Vec3T Rhod = Xid.template tail(3);
 
-        if (The.norm() < lie_epsilon || use_approx_drv)
+        if (The.norm() < lie_epsilon)
         {
             // cout << "approxed form " << The.transpose() << endl;
 
@@ -1105,16 +1105,16 @@ public:
         else
         {
             // cout << "closed form" << endl;
-            
+
             SE3Qp<T> myQp_XiTw;
             myQp_XiTw.ComputeQSC(The, Rho, Thed, Rhod, Omg);
-            
+
             SE3Qp<T> myQp_XiWr;
             myQp_XiWr.ComputeS(The, Rho, Alp);
-            
+
             Mat3T Zero = Mat3T::Zero(3, 3);
             Mat3T JrInv_The = JrInv(The);
-            
+
             Mat3T Hp1_TheOmg = DJrInvUV_DU(The, Omg);
             Mat3T Hp1_TheNuy = DJrInvUV_DU(The, Nuy);
             Mat3T Hp1_TheAlp = DJrInvUV_DU(The, Alp);
@@ -1149,10 +1149,10 @@ public:
             // assert(!myQp_XiTw.C21.array().isNaN().any());
             // assert(!myQp_XiTw.C22.array().isNaN().any());
             // assert(!myQp_XiTw.C23.array().isNaN().any());
-            
+
             // assert(!myQp_XiWr.S1.array().isNaN().any());
             // assert(!myQp_XiWr.S2.array().isNaN().any());
-            
+
             // assert(!Hp1_XiTw.array().isNaN().any());
             // assert(!Hp1_XiWr.array().isNaN().any());
             // assert(!Lp11_XiTwXid.array().isNaN().any());
@@ -1223,155 +1223,314 @@ public:
         Vec3T  &Pt =  Xt.P;
         Vec3T  &Vt =  Xt.V;
         Vec3T  &At =  Xt.A;
-        
-        /* #region Processing the RO3 states ------------------------------------------------------------------------*/
 
-        // Prepare the the mixer matrixes
-        Matrix<T, 9, 9> LAM_ROSt = LMD(Dtau, CovROSJerk).cast<T>();
-        Matrix<T, 9, 9> PSI_ROSt = PSI(Dtau, CovROSJerk).cast<T>();
+        /* #region Processing the RO3 states ------------------------------------------------------------------------*/
 
         // Find the relative rotation
         SO3T Rab = Xa.R.inverse()*Xb.R;
 
-        // Calculate the SO3 knots in relative form
-        Vec3T Thead0 = Vec3T::Zero();
-        Vec3T Thead1 = Xa.O;
-        Vec3T Thead2 = Xa.S;
-
-        // Find the local variable at tb and the associated Jacobians
-        Vec3T Theb = Rab.log();
-        Mat3T JrInv_Theb = JrInv<T>(Theb);
-        Mat3T Hp1_ThebOb = DJrInvUV_DU(Theb, Xb.O);
-
-        Vec3T Thebd0 = Theb;
-        Vec3T Thebd1 = JrInv_Theb*Xb.O;
-        Vec3T Thebd2 = JrInv_Theb*Xb.S + Hp1_ThebOb*Thebd1;
-        
-        Mat3T Hp1_ThebSb = DJrInvUV_DU(Theb, Xb.S);
-        Mat3T Lp11_ThebObThebd1 = DDJrInvUVW_DUDU(Theb, Xb.O, Thebd1);
-        Mat3T Lp12_ThebObThebd1 = DDJrInvUVW_DUDV(Theb, Xb.O, Thebd1);
-
-        // Put them in vector form
-        Vec9T gammaa; gammaa << Thead0, Thead1, Thead2;
-        Vec9T gammab; gammab << Thebd0, Thebd1, Thebd2;
-        // Mix the knots to get the interpolated states
-        Vec9T gammat = LAM_ROSt*gammaa + PSI_ROSt*gammab;
-
-        // Retrive the interpolated SO3 in relative form
-        Vec3T Thetd0 = gammat.block(0, 0, 3, 1);
-        Vec3T Thetd1 = gammat.block(3, 0, 3, 1);
-        Vec3T Thetd2 = gammat.block(6, 0, 3, 1);
-
-        // Do all jacobians needed for L4-L3 interface 
-        Mat3T Jr_Thet = Jr<T>(Thetd0);
-        Mat3T H1_ThetThetd1 = DJrUV_DU(Thetd0, Thetd1);
-        Mat3T H1_ThetThetd2 = DJrUV_DU(Thetd0, Thetd2);
-        Mat3T L11_ThetThetd1Thetd1 = DDJrUVW_DUDU(Thetd0, Thetd1, Thetd1);
-        Mat3T L12_ThetThetd1Thetd1 = DDJrUVW_DUDV(Thetd0, Thetd1, Thetd1);
-        
-        SO3T Exp_Thet = SO3T::exp(Thetd0);
-
-        // Calculate the interpolated global states from the interpolated local
-        Rt = Xa.R*Exp_Thet;
-        Ot = Jr_Thet*Thetd1;
-        St = Jr_Thet*Thetd2 + H1_ThetThetd1*Thetd1;
-
-        // If calculating the Jacobian
-        if(find_jacobian)
+        if(!use_approx_drv)
         {
-            // Calculate the Jacobian
-            DXt_DXa = vector<vector<Mat3T>>(6, vector<Mat3T>(6, Mat3T::Zero()));
-            DXt_DXb = vector<vector<Mat3T>>(6, vector<Mat3T>(6, Mat3T::Zero()));
+            // Prepare the the mixer matrixes
+            Matrix<T, 9, 9> LAM_ROSt = LMD(Dtau, CovROSJerk).cast<T>();
+            Matrix<T, 9, 9> PSI_ROSt = PSI(Dtau, CovROSJerk).cast<T>();
+
+            // Calculate the SO3 knots in relative form
+            Vec3T Thead0 = Vec3T::Zero();
+            Vec3T Thead1 = Xa.O;
+            Vec3T Thead2 = Xa.S;
+
+            // Find the local variable at tb and the associated Jacobians
+            Vec3T Theb = Rab.log();
+            Mat3T JrInv_Theb = JrInv<T>(Theb);
+            Mat3T Hp1_ThebOb = DJrInvUV_DU(Theb, Xb.O);
+
+            Vec3T Thebd0 = Theb;
+            Vec3T Thebd1 = JrInv_Theb*Xb.O;
+            Vec3T Thebd2 = JrInv_Theb*Xb.S + Hp1_ThebOb*Thebd1;
+
+            Mat3T Hp1_ThebSb = DJrInvUV_DU(Theb, Xb.S);
+            Mat3T Lp11_ThebObThebd1 = DDJrInvUVW_DUDU(Theb, Xb.O, Thebd1);
+            Mat3T Lp12_ThebObThebd1 = DDJrInvUVW_DUDV(Theb, Xb.O, Thebd1);
+
+            // Put them in vector form
+            Vec9T gammaa; gammaa << Thead0, Thead1, Thead2;
+            Vec9T gammab; gammab << Thebd0, Thebd1, Thebd2;
+            // Mix the knots to get the interpolated states
+            Vec9T gammat = LAM_ROSt*gammaa + PSI_ROSt*gammab;
+
+            // Retrive the interpolated SO3 in relative form
+            Vec3T Thetd0 = gammat.block(0, 0, 3, 1);
+            Vec3T Thetd1 = gammat.block(3, 0, 3, 1);
+            Vec3T Thetd2 = gammat.block(6, 0, 3, 1);
+
+            // Do all jacobians needed for L4-L3 interface
+            Mat3T Jr_Thet = Jr<T>(Thetd0);
+            Mat3T H1_ThetThetd1 = DJrUV_DU(Thetd0, Thetd1);
+            Mat3T H1_ThetThetd2 = DJrUV_DU(Thetd0, Thetd2);
+            Mat3T L11_ThetThetd1Thetd1 = DDJrUVW_DUDU(Thetd0, Thetd1, Thetd1);
+            Mat3T L12_ThetThetd1Thetd1 = DDJrUVW_DUDV(Thetd0, Thetd1, Thetd1);
+
+            SO3T Exp_Thet = SO3T::exp(Thetd0);
+
+            // Calculate the interpolated global states from the interpolated local
+            Rt = Xa.R*Exp_Thet;
+            Ot = Jr_Thet*Thetd1;
+            St = Jr_Thet*Thetd2 + H1_ThetThetd1*Thetd1;
+
+            // If calculating the Jacobian
+            if(find_jacobian)
+            {
+                // Calculate the Jacobian
+                DXt_DXa = vector<vector<Mat3T>>(6, vector<Mat3T>(6, Mat3T::Zero()));
+                DXt_DXb = vector<vector<Mat3T>>(6, vector<Mat3T>(6, Mat3T::Zero()));
 
 
-            // Jacobians from L2 to L1
-            Mat3T  J_Thead1_Oa = Mat3T::Identity(); Mat3T J_Thead2_Sa = Mat3T::Identity();
+                // Jacobians from L2 to L1
+                Mat3T  J_Thead1_Oa = Mat3T::Identity(); Mat3T J_Thead2_Sa = Mat3T::Identity();
 
-            Mat3T  J_Thebd0_Ra = -JrInv_Theb*Rab.inverse().matrix();
-            Mat3T &J_Thebd0_Rb =  JrInv_Theb;
+                Mat3T  J_Thebd0_Ra = -JrInv_Theb*Rab.inverse().matrix();
+                Mat3T &J_Thebd0_Rb =  JrInv_Theb;
 
-            Mat3T  J_Thebd1_Ra = Hp1_ThebOb*J_Thebd0_Ra;
-            Mat3T  J_Thebd1_Rb = Hp1_ThebOb*J_Thebd0_Rb;
-            Mat3T &J_Thebd1_Ob = JrInv_Theb;
+                Mat3T  J_Thebd1_Ra = Hp1_ThebOb*J_Thebd0_Ra;
+                Mat3T  J_Thebd1_Rb = Hp1_ThebOb*J_Thebd0_Rb;
+                Mat3T &J_Thebd1_Ob = JrInv_Theb;
 
-            Mat3T  J_Thebd2_Ra = Hp1_ThebSb*J_Thebd0_Ra + Hp1_ThebOb*J_Thebd1_Ra + Lp11_ThebObThebd1*J_Thebd0_Ra;
-            Mat3T  J_Thebd2_Rb = Hp1_ThebSb*J_Thebd0_Rb + Hp1_ThebOb*J_Thebd1_Rb + Lp11_ThebObThebd1*J_Thebd0_Rb;
-            Mat3T  J_Thebd2_Ob = Lp12_ThebObThebd1 + Hp1_ThebOb*J_Thebd1_Ob;
-            Mat3T &J_Thebd2_Sb = JrInv_Theb;
-
-
-            // Jacobians from L3 to L2
-            Mat3T J_Thetd0_Thead0 = LAM_ROSt.block(0, 0, 3, 3); Mat3T J_Thetd0_Thead1 = LAM_ROSt.block(0, 3, 3, 3); Mat3T J_Thetd0_Thead2 = LAM_ROSt.block(0, 6, 3, 3);
-            Mat3T J_Thetd1_Thead0 = LAM_ROSt.block(3, 0, 3, 3); Mat3T J_Thetd1_Thead1 = LAM_ROSt.block(3, 3, 3, 3); Mat3T J_Thetd1_Thead2 = LAM_ROSt.block(3, 6, 3, 3);
-            Mat3T J_Thetd2_Thead0 = LAM_ROSt.block(6, 0, 3, 3); Mat3T J_Thetd2_Thead1 = LAM_ROSt.block(6, 3, 3, 3); Mat3T J_Thetd2_Thead2 = LAM_ROSt.block(6, 6, 3, 3);
-            Mat3T J_Thetd0_Thebd0 = PSI_ROSt.block(0, 0, 3, 3); Mat3T J_Thetd0_Thebd1 = PSI_ROSt.block(0, 3, 3, 3); Mat3T J_Thetd0_Thebd2 = PSI_ROSt.block(0, 6, 3, 3);
-            Mat3T J_Thetd1_Thebd0 = PSI_ROSt.block(3, 0, 3, 3); Mat3T J_Thetd1_Thebd1 = PSI_ROSt.block(3, 3, 3, 3); Mat3T J_Thetd1_Thebd2 = PSI_ROSt.block(3, 6, 3, 3);
-            Mat3T J_Thetd2_Thebd0 = PSI_ROSt.block(6, 0, 3, 3); Mat3T J_Thetd2_Thebd1 = PSI_ROSt.block(6, 3, 3, 3); Mat3T J_Thetd2_Thebd2 = PSI_ROSt.block(6, 6, 3, 3);
+                Mat3T  J_Thebd2_Ra = Hp1_ThebSb*J_Thebd0_Ra + Hp1_ThebOb*J_Thebd1_Ra + Lp11_ThebObThebd1*J_Thebd0_Ra;
+                Mat3T  J_Thebd2_Rb = Hp1_ThebSb*J_Thebd0_Rb + Hp1_ThebOb*J_Thebd1_Rb + Lp11_ThebObThebd1*J_Thebd0_Rb;
+                Mat3T  J_Thebd2_Ob = Lp12_ThebObThebd1 + Hp1_ThebOb*J_Thebd1_Ob;
+                Mat3T &J_Thebd2_Sb = JrInv_Theb;
 
 
-            // Jacobians from L3 to L1
-            Mat3T J_Thetd0_Ra = J_Thetd0_Thebd0*J_Thebd0_Ra + J_Thetd0_Thebd1*J_Thebd1_Ra + J_Thetd0_Thebd2*J_Thebd2_Ra;
-            Mat3T J_Thetd0_Rb = J_Thetd0_Thebd0*J_Thebd0_Rb + J_Thetd0_Thebd1*J_Thebd1_Rb + J_Thetd0_Thebd2*J_Thebd2_Rb;
-            Mat3T J_Thetd0_Oa = J_Thetd0_Thead1*J_Thead1_Oa;
-            Mat3T J_Thetd0_Ob = J_Thetd0_Thebd1*J_Thebd1_Ob + J_Thetd0_Thebd2*J_Thebd2_Ob;
-            Mat3T J_Thetd0_Sa = J_Thetd0_Thead2*J_Thead2_Sa;
-            Mat3T J_Thetd0_Sb = J_Thetd0_Thebd2*J_Thebd2_Sb;
-
-            Mat3T J_Thetd1_Ra = J_Thetd1_Thebd0*J_Thebd0_Ra + J_Thetd1_Thebd1*J_Thebd1_Ra + J_Thetd1_Thebd2*J_Thebd2_Ra;
-            Mat3T J_Thetd1_Rb = J_Thetd1_Thebd0*J_Thebd0_Rb + J_Thetd1_Thebd1*J_Thebd1_Rb + J_Thetd1_Thebd2*J_Thebd2_Rb;
-            Mat3T J_Thetd1_Oa = J_Thetd1_Thead1*J_Thead1_Oa;
-            Mat3T J_Thetd1_Ob = J_Thetd1_Thebd1*J_Thebd1_Ob + J_Thetd1_Thebd2*J_Thebd2_Ob;
-            Mat3T J_Thetd1_Sa = J_Thetd1_Thead2*J_Thead2_Sa;
-            Mat3T J_Thetd1_Sb = J_Thetd1_Thebd2*J_Thebd2_Sb;
-
-            Mat3T J_Thetd2_Ra = J_Thetd2_Thebd0*J_Thebd0_Ra + J_Thetd2_Thebd1*J_Thebd1_Ra + J_Thetd2_Thebd2*J_Thebd2_Ra;
-            Mat3T J_Thetd2_Rb = J_Thetd2_Thebd0*J_Thebd0_Rb + J_Thetd2_Thebd1*J_Thebd1_Rb + J_Thetd2_Thebd2*J_Thebd2_Rb;
-            Mat3T J_Thetd2_Oa = J_Thetd2_Thead1*J_Thead1_Oa;
-            Mat3T J_Thetd2_Ob = J_Thetd2_Thebd1*J_Thebd1_Ob + J_Thetd2_Thebd2*J_Thebd2_Ob;
-            Mat3T J_Thetd2_Sa = J_Thetd2_Thead2*J_Thead2_Sa;
-            Mat3T J_Thetd2_Sb = J_Thetd2_Thebd2*J_Thebd2_Sb;
+                // Jacobians from L3 to L2
+                Mat3T J_Thetd0_Thead0 = LAM_ROSt.block(0, 0, 3, 3); Mat3T J_Thetd0_Thead1 = LAM_ROSt.block(0, 3, 3, 3); Mat3T J_Thetd0_Thead2 = LAM_ROSt.block(0, 6, 3, 3);
+                Mat3T J_Thetd1_Thead0 = LAM_ROSt.block(3, 0, 3, 3); Mat3T J_Thetd1_Thead1 = LAM_ROSt.block(3, 3, 3, 3); Mat3T J_Thetd1_Thead2 = LAM_ROSt.block(3, 6, 3, 3);
+                Mat3T J_Thetd2_Thead0 = LAM_ROSt.block(6, 0, 3, 3); Mat3T J_Thetd2_Thead1 = LAM_ROSt.block(6, 3, 3, 3); Mat3T J_Thetd2_Thead2 = LAM_ROSt.block(6, 6, 3, 3);
+                Mat3T J_Thetd0_Thebd0 = PSI_ROSt.block(0, 0, 3, 3); Mat3T J_Thetd0_Thebd1 = PSI_ROSt.block(0, 3, 3, 3); Mat3T J_Thetd0_Thebd2 = PSI_ROSt.block(0, 6, 3, 3);
+                Mat3T J_Thetd1_Thebd0 = PSI_ROSt.block(3, 0, 3, 3); Mat3T J_Thetd1_Thebd1 = PSI_ROSt.block(3, 3, 3, 3); Mat3T J_Thetd1_Thebd2 = PSI_ROSt.block(3, 6, 3, 3);
+                Mat3T J_Thetd2_Thebd0 = PSI_ROSt.block(6, 0, 3, 3); Mat3T J_Thetd2_Thebd1 = PSI_ROSt.block(6, 3, 3, 3); Mat3T J_Thetd2_Thebd2 = PSI_ROSt.block(6, 6, 3, 3);
 
 
-            // Jacobians from L4 to L3
-            Mat3T &J_Rt_Thetd0 = Jr_Thet;
-            Mat3T &J_Ot_Thetd0 = H1_ThetThetd1;
-            Mat3T &J_Ot_Thetd1 = Jr_Thet;
-            Mat3T  J_St_Thetd0 = H1_ThetThetd2 + L11_ThetThetd1Thetd1;
-            Mat3T  J_St_Thetd1 = L12_ThetThetd1Thetd1 + H1_ThetThetd1;
-            Mat3T &J_St_Thetd2 = Jr_Thet;
+                // Jacobians from L3 to L1
+                Mat3T J_Thetd0_Ra = J_Thetd0_Thebd0*J_Thebd0_Ra + J_Thetd0_Thebd1*J_Thebd1_Ra + J_Thetd0_Thebd2*J_Thebd2_Ra;
+                Mat3T J_Thetd0_Rb = J_Thetd0_Thebd0*J_Thebd0_Rb + J_Thetd0_Thebd1*J_Thebd1_Rb + J_Thetd0_Thebd2*J_Thebd2_Rb;
+                Mat3T J_Thetd0_Oa = J_Thetd0_Thead1*J_Thead1_Oa;
+                Mat3T J_Thetd0_Ob = J_Thetd0_Thebd1*J_Thebd1_Ob + J_Thetd0_Thebd2*J_Thebd2_Ob;
+                Mat3T J_Thetd0_Sa = J_Thetd0_Thead2*J_Thead2_Sa;
+                Mat3T J_Thetd0_Sb = J_Thetd0_Thebd2*J_Thebd2_Sb;
+
+                Mat3T J_Thetd1_Ra = J_Thetd1_Thebd0*J_Thebd0_Ra + J_Thetd1_Thebd1*J_Thebd1_Ra + J_Thetd1_Thebd2*J_Thebd2_Ra;
+                Mat3T J_Thetd1_Rb = J_Thetd1_Thebd0*J_Thebd0_Rb + J_Thetd1_Thebd1*J_Thebd1_Rb + J_Thetd1_Thebd2*J_Thebd2_Rb;
+                Mat3T J_Thetd1_Oa = J_Thetd1_Thead1*J_Thead1_Oa;
+                Mat3T J_Thetd1_Ob = J_Thetd1_Thebd1*J_Thebd1_Ob + J_Thetd1_Thebd2*J_Thebd2_Ob;
+                Mat3T J_Thetd1_Sa = J_Thetd1_Thead2*J_Thead2_Sa;
+                Mat3T J_Thetd1_Sb = J_Thetd1_Thebd2*J_Thebd2_Sb;
+
+                Mat3T J_Thetd2_Ra = J_Thetd2_Thebd0*J_Thebd0_Ra + J_Thetd2_Thebd1*J_Thebd1_Ra + J_Thetd2_Thebd2*J_Thebd2_Ra;
+                Mat3T J_Thetd2_Rb = J_Thetd2_Thebd0*J_Thebd0_Rb + J_Thetd2_Thebd1*J_Thebd1_Rb + J_Thetd2_Thebd2*J_Thebd2_Rb;
+                Mat3T J_Thetd2_Oa = J_Thetd2_Thead1*J_Thead1_Oa;
+                Mat3T J_Thetd2_Ob = J_Thetd2_Thebd1*J_Thebd1_Ob + J_Thetd2_Thebd2*J_Thebd2_Ob;
+                Mat3T J_Thetd2_Sa = J_Thetd2_Thead2*J_Thead2_Sa;
+                Mat3T J_Thetd2_Sb = J_Thetd2_Thebd2*J_Thebd2_Sb;
 
 
-            // Jacobians from L4 to L1
-            DXt_DXa[RIDX][RIDX] = Exp_Thet.Adj().inverse() + J_Rt_Thetd0*J_Thetd0_Ra;                          // DRt_DRa
-            DXt_DXa[RIDX][OIDX] = J_Rt_Thetd0*J_Thetd0_Oa;                                                     // DRt_DOa
-            DXt_DXa[RIDX][SIDX] = J_Rt_Thetd0*J_Thetd0_Sa;                                                     // DRt_DSa
-            //-----------------------------------------------------------------------------------------------------------
-            DXt_DXa[OIDX][RIDX] = J_Ot_Thetd0*J_Thetd0_Ra + J_Ot_Thetd1*J_Thetd1_Ra;                           // DOt_DRa
-            DXt_DXa[OIDX][OIDX] = J_Ot_Thetd0*J_Thetd0_Oa + J_Ot_Thetd1*J_Thetd1_Oa;                           // DOt_DOa
-            DXt_DXa[OIDX][SIDX] = J_Ot_Thetd0*J_Thetd0_Sa + J_Ot_Thetd1*J_Thetd1_Sa;                           // DOt_DSa
-            //-----------------------------------------------------------------------------------------------------------
-            DXt_DXa[SIDX][RIDX] = J_St_Thetd0*J_Thetd0_Ra + J_St_Thetd1*J_Thetd1_Ra + J_St_Thetd2*J_Thetd2_Ra; // DSt_DRa
-            DXt_DXa[SIDX][OIDX] = J_St_Thetd0*J_Thetd0_Oa + J_St_Thetd1*J_Thetd1_Oa + J_St_Thetd2*J_Thetd2_Oa; // DSt_DOa
-            DXt_DXa[SIDX][SIDX] = J_St_Thetd0*J_Thetd0_Sa + J_St_Thetd1*J_Thetd1_Sa + J_St_Thetd2*J_Thetd2_Sa; // DSt_DSa
-            //-----------------------------------------------------------------------------------------------------------
-            DXt_DXb[RIDX][RIDX] = J_Rt_Thetd0*J_Thetd0_Rb;                                                     // DRt_DRb
-            DXt_DXb[RIDX][OIDX] = J_Rt_Thetd0*J_Thetd0_Ob;                                                     // DRt_DOb
-            DXt_DXb[RIDX][SIDX] = J_Rt_Thetd0*J_Thetd0_Sb;                                                     // DRt_DSb
-            //-----------------------------------------------------------------------------------------------------------
-            DXt_DXb[OIDX][RIDX] = J_Ot_Thetd0*J_Thetd0_Rb + J_Ot_Thetd1*J_Thetd1_Rb;                           // DOt_DRb
-            DXt_DXb[OIDX][OIDX] = J_Ot_Thetd0*J_Thetd0_Ob + J_Ot_Thetd1*J_Thetd1_Ob;                           // DOt_DOb
-            DXt_DXb[OIDX][SIDX] = J_Ot_Thetd0*J_Thetd0_Sb + J_Ot_Thetd1*J_Thetd1_Sb;                           // DOt_DSb
-            //-----------------------------------------------------------------------------------------------------------
-            DXt_DXb[SIDX][RIDX] = J_St_Thetd0*J_Thetd0_Rb + J_St_Thetd1*J_Thetd1_Rb + J_St_Thetd2*J_Thetd2_Rb; // DSt_DRb
-            DXt_DXb[SIDX][OIDX] = J_St_Thetd0*J_Thetd0_Ob + J_St_Thetd1*J_Thetd1_Ob + J_St_Thetd2*J_Thetd2_Ob; // DSt_DOb
-            DXt_DXb[SIDX][SIDX] = J_St_Thetd0*J_Thetd0_Sb + J_St_Thetd1*J_Thetd1_Sb + J_St_Thetd2*J_Thetd2_Sb; // DSt_DSb
+                // Jacobians from L4 to L3
+                Mat3T &J_Rt_Thetd0 = Jr_Thet;
+                Mat3T &J_Ot_Thetd0 = H1_ThetThetd1;
+                Mat3T &J_Ot_Thetd1 = Jr_Thet;
+                Mat3T  J_St_Thetd0 = H1_ThetThetd2 + L11_ThetThetd1Thetd1;
+                Mat3T  J_St_Thetd1 = L12_ThetThetd1Thetd1 + H1_ThetThetd1;
+                Mat3T &J_St_Thetd2 = Jr_Thet;
+
+
+                // Jacobians from L4 to L1
+                DXt_DXa[RIDX][RIDX] = Exp_Thet.Adj().inverse() + J_Rt_Thetd0*J_Thetd0_Ra;                          // DRt_DRa
+                DXt_DXa[RIDX][OIDX] = J_Rt_Thetd0*J_Thetd0_Oa;                                                     // DRt_DOa
+                DXt_DXa[RIDX][SIDX] = J_Rt_Thetd0*J_Thetd0_Sa;                                                     // DRt_DSa
+                //-----------------------------------------------------------------------------------------------------------
+                DXt_DXa[OIDX][RIDX] = J_Ot_Thetd0*J_Thetd0_Ra + J_Ot_Thetd1*J_Thetd1_Ra;                           // DOt_DRa
+                DXt_DXa[OIDX][OIDX] = J_Ot_Thetd0*J_Thetd0_Oa + J_Ot_Thetd1*J_Thetd1_Oa;                           // DOt_DOa
+                DXt_DXa[OIDX][SIDX] = J_Ot_Thetd0*J_Thetd0_Sa + J_Ot_Thetd1*J_Thetd1_Sa;                           // DOt_DSa
+                //-----------------------------------------------------------------------------------------------------------
+                DXt_DXa[SIDX][RIDX] = J_St_Thetd0*J_Thetd0_Ra + J_St_Thetd1*J_Thetd1_Ra + J_St_Thetd2*J_Thetd2_Ra; // DSt_DRa
+                DXt_DXa[SIDX][OIDX] = J_St_Thetd0*J_Thetd0_Oa + J_St_Thetd1*J_Thetd1_Oa + J_St_Thetd2*J_Thetd2_Oa; // DSt_DOa
+                DXt_DXa[SIDX][SIDX] = J_St_Thetd0*J_Thetd0_Sa + J_St_Thetd1*J_Thetd1_Sa + J_St_Thetd2*J_Thetd2_Sa; // DSt_DSa
+                //-----------------------------------------------------------------------------------------------------------
+                DXt_DXb[RIDX][RIDX] = J_Rt_Thetd0*J_Thetd0_Rb;                                                     // DRt_DRb
+                DXt_DXb[RIDX][OIDX] = J_Rt_Thetd0*J_Thetd0_Ob;                                                     // DRt_DOb
+                DXt_DXb[RIDX][SIDX] = J_Rt_Thetd0*J_Thetd0_Sb;                                                     // DRt_DSb
+                //-----------------------------------------------------------------------------------------------------------
+                DXt_DXb[OIDX][RIDX] = J_Ot_Thetd0*J_Thetd0_Rb + J_Ot_Thetd1*J_Thetd1_Rb;                           // DOt_DRb
+                DXt_DXb[OIDX][OIDX] = J_Ot_Thetd0*J_Thetd0_Ob + J_Ot_Thetd1*J_Thetd1_Ob;                           // DOt_DOb
+                DXt_DXb[OIDX][SIDX] = J_Ot_Thetd0*J_Thetd0_Sb + J_Ot_Thetd1*J_Thetd1_Sb;                           // DOt_DSb
+                //-----------------------------------------------------------------------------------------------------------
+                DXt_DXb[SIDX][RIDX] = J_St_Thetd0*J_Thetd0_Rb + J_St_Thetd1*J_Thetd1_Rb + J_St_Thetd2*J_Thetd2_Rb; // DSt_DRb
+                DXt_DXb[SIDX][OIDX] = J_St_Thetd0*J_Thetd0_Ob + J_St_Thetd1*J_Thetd1_Ob + J_St_Thetd2*J_Thetd2_Ob; // DSt_DOb
+                DXt_DXb[SIDX][SIDX] = J_St_Thetd0*J_Thetd0_Sb + J_St_Thetd1*J_Thetd1_Sb + J_St_Thetd2*J_Thetd2_Sb; // DSt_DSb
+            }
+        }
+        else
+        {
+            // Prepare the the mixer matrixes
+            Matrix<T, 9, 9> LAM_ROSt = LMD(Dtau, CovROSJerk).cast<T>();
+            Matrix<T, 9, 9> PSI_ROSt = PSI(Dtau, CovROSJerk).cast<T>();
+
+            Mat3T Obhat = SO3T::hat(Xb.O);
+            Mat3T Sbhat = SO3T::hat(Xb.S);
+
+            // Calculate the SO3 knots in relative form
+            Vec3T Thead0 = Vec3T::Zero();
+            Vec3T Thead1 = Xa.O;
+            Vec3T Thead2 = Xa.S;
+
+            // Find the local variable at tb and the associated Jacobians
+            Vec3T Theb = Rab.log();
+            Mat3T JrInv_Theb = JrInv<T>(Theb);
+            Mat3T Hp1_ThebOb = -0.5*Obhat;
+
+            Vec3T Thebd0 = Theb;
+            Vec3T Thebd1 = JrInv_Theb*Xb.O;
+            Vec3T Thebd2 = JrInv_Theb*Xb.S + Hp1_ThebOb*Thebd1;
+
+            // Mat3T Lp11_ThebObThebd1 = DDJrInvUVW_DUDU(Theb, Xb.O, Thebd1);
+            // Mat3T Lp12_ThebObThebd1 = DDJrInvUVW_DUDV(Theb, Xb.O, Thebd1);
+
+            // Put them in vector form
+            Vec9T gammaa; gammaa << Thead0, Thead1, Thead2;
+            Vec9T gammab; gammab << Thebd0, Thebd1, Thebd2;
+            // Mix the knots to get the interpolated states
+            Vec9T gammat = LAM_ROSt*gammaa + PSI_ROSt*gammab;
+
+            // Retrive the interpolated SO3 in relative form
+            Vec3T Thetd0 = gammat.block(0, 0, 3, 1);
+            Vec3T Thetd1 = gammat.block(3, 0, 3, 1);
+            Vec3T Thetd2 = gammat.block(6, 0, 3, 1);
+
+            // Do all jacobians needed for L4-L3 interface
+            Mat3T Jr_Thet = Jr<T>(Thetd0);
+            Vec3T Ot_ = Jr_Thet*Thetd1;
+            Mat3T Othat = SO3T::hat(Ot_);
+            Mat3T H1_ThetThetd1 = 0.5*Jr_Thet*Othat;
+            // Mat3T H1_ThetThetd2 = 0.5*Jr_Thet*Thetd2;
+            // Mat3T L11_ThetThetd1Thetd1 = DDJrUVW_DUDU(Thetd0, Thetd1, Thetd1);
+            // Mat3T L12_ThetThetd1Thetd1 = DDJrUVW_DUDV(Thetd0, Thetd1, Thetd1);
+
+            SO3T Exp_Thet = SO3T::exp(Thetd0);
+
+            // Calculate the interpolated global states from the interpolated local
+            Rt = Xa.R*Exp_Thet;
+            Ot = Ot_;
+            St = Jr_Thet*Thetd2 + H1_ThetThetd1*Thetd1;
+
+            // If calculating the Jacobian
+            if(find_jacobian)
+            {
+                // Calculate the Jacobian
+                DXt_DXa = vector<vector<Mat3T>>(6, vector<Mat3T>(6, Mat3T::Zero()));
+                DXt_DXb = vector<vector<Mat3T>>(6, vector<Mat3T>(6, Mat3T::Zero()));
+
+
+                // Jacobians from L2 to L1
+                Mat3T  J_Thead1_Oa = Mat3T::Identity();
+                Mat3T  J_Thead2_Sa = Mat3T::Identity();
+
+                Mat3T  J_Thebd0_Ra = -JrInv_Theb*Rab.inverse().matrix();
+                Mat3T &J_Thebd0_Rb =  JrInv_Theb;
+
+                Mat3T  J_Thebd1_Ra = Hp1_ThebOb*J_Thebd0_Ra;
+                Mat3T  J_Thebd1_Rb = Hp1_ThebOb*J_Thebd0_Rb;
+                Mat3T &J_Thebd1_Ob = JrInv_Theb;
+
+                Mat3T Thebd0hat = SO3T::hat(Thebd0);
+                Mat3T Thebd1hat = SO3T::hat(Thebd1);
+
+                Mat3T Jr_Theb = Jr<T>(Theb);
+                // Vec3T Thebd2 = JrInv_Theb*Xb.S - 0.5*Obhat*Thebd1 = JrInv_Theb*Xb.S + 0.5*Thebd1hat*Jr_Theb*Thebd1;
+                Mat3T J_Thebd2_Thebd0 = -0.5*Sbhat + 0.25*Thebd1hat*Thebd1hat;
+                Mat3T J_Thebd2_Thebd1 = -0.5*Obhat + 0.50*Thebd1hat*Jr_Theb;
+
+                Mat3T  J_Thebd2_Ra = J_Thebd2_Thebd0*J_Thebd0_Ra + J_Thebd2_Thebd1*J_Thebd1_Ra;
+                Mat3T  J_Thebd2_Rb = J_Thebd2_Thebd0*J_Thebd0_Rb + J_Thebd2_Thebd1*J_Thebd1_Rb;
+                Mat3T  J_Thebd2_Ob = 0.5*Thebd1hat - 0.5*Obhat*JrInv_Theb;
+                Mat3T &J_Thebd2_Sb = JrInv_Theb;
+
+
+                // Jacobians from L3 to L2
+                Mat3T J_Thetd0_Thead0 = LAM_ROSt.block(0, 0, 3, 3); Mat3T J_Thetd0_Thead1 = LAM_ROSt.block(0, 3, 3, 3); Mat3T J_Thetd0_Thead2 = LAM_ROSt.block(0, 6, 3, 3);
+                Mat3T J_Thetd1_Thead0 = LAM_ROSt.block(3, 0, 3, 3); Mat3T J_Thetd1_Thead1 = LAM_ROSt.block(3, 3, 3, 3); Mat3T J_Thetd1_Thead2 = LAM_ROSt.block(3, 6, 3, 3);
+                Mat3T J_Thetd2_Thead0 = LAM_ROSt.block(6, 0, 3, 3); Mat3T J_Thetd2_Thead1 = LAM_ROSt.block(6, 3, 3, 3); Mat3T J_Thetd2_Thead2 = LAM_ROSt.block(6, 6, 3, 3);
+                Mat3T J_Thetd0_Thebd0 = PSI_ROSt.block(0, 0, 3, 3); Mat3T J_Thetd0_Thebd1 = PSI_ROSt.block(0, 3, 3, 3); Mat3T J_Thetd0_Thebd2 = PSI_ROSt.block(0, 6, 3, 3);
+                Mat3T J_Thetd1_Thebd0 = PSI_ROSt.block(3, 0, 3, 3); Mat3T J_Thetd1_Thebd1 = PSI_ROSt.block(3, 3, 3, 3); Mat3T J_Thetd1_Thebd2 = PSI_ROSt.block(3, 6, 3, 3);
+                Mat3T J_Thetd2_Thebd0 = PSI_ROSt.block(6, 0, 3, 3); Mat3T J_Thetd2_Thebd1 = PSI_ROSt.block(6, 3, 3, 3); Mat3T J_Thetd2_Thebd2 = PSI_ROSt.block(6, 6, 3, 3);
+
+
+                // Jacobians from L3 to L1
+                Mat3T J_Thetd0_Ra = J_Thetd0_Thebd0*J_Thebd0_Ra + J_Thetd0_Thebd1*J_Thebd1_Ra + J_Thetd0_Thebd2*J_Thebd2_Ra;
+                Mat3T J_Thetd0_Rb = J_Thetd0_Thebd0*J_Thebd0_Rb + J_Thetd0_Thebd1*J_Thebd1_Rb + J_Thetd0_Thebd2*J_Thebd2_Rb;
+                Mat3T J_Thetd0_Oa = J_Thetd0_Thead1*J_Thead1_Oa;
+                Mat3T J_Thetd0_Ob = J_Thetd0_Thebd1*J_Thebd1_Ob + J_Thetd0_Thebd2*J_Thebd2_Ob;
+                Mat3T J_Thetd0_Sa = J_Thetd0_Thead2*J_Thead2_Sa;
+                Mat3T J_Thetd0_Sb = J_Thetd0_Thebd2*J_Thebd2_Sb;
+
+                Mat3T J_Thetd1_Ra = J_Thetd1_Thebd0*J_Thebd0_Ra + J_Thetd1_Thebd1*J_Thebd1_Ra + J_Thetd1_Thebd2*J_Thebd2_Ra;
+                Mat3T J_Thetd1_Rb = J_Thetd1_Thebd0*J_Thebd0_Rb + J_Thetd1_Thebd1*J_Thebd1_Rb + J_Thetd1_Thebd2*J_Thebd2_Rb;
+                Mat3T J_Thetd1_Oa = J_Thetd1_Thead1*J_Thead1_Oa;
+                Mat3T J_Thetd1_Ob = J_Thetd1_Thebd1*J_Thebd1_Ob + J_Thetd1_Thebd2*J_Thebd2_Ob;
+                Mat3T J_Thetd1_Sa = J_Thetd1_Thead2*J_Thead2_Sa;
+                Mat3T J_Thetd1_Sb = J_Thetd1_Thebd2*J_Thebd2_Sb;
+
+                Mat3T J_Thetd2_Ra = J_Thetd2_Thebd0*J_Thebd0_Ra + J_Thetd2_Thebd1*J_Thebd1_Ra + J_Thetd2_Thebd2*J_Thebd2_Ra;
+                Mat3T J_Thetd2_Rb = J_Thetd2_Thebd0*J_Thebd0_Rb + J_Thetd2_Thebd1*J_Thebd1_Rb + J_Thetd2_Thebd2*J_Thebd2_Rb;
+                Mat3T J_Thetd2_Oa = J_Thetd2_Thead1*J_Thead1_Oa;
+                Mat3T J_Thetd2_Ob = J_Thetd2_Thebd1*J_Thebd1_Ob + J_Thetd2_Thebd2*J_Thebd2_Ob;
+                Mat3T J_Thetd2_Sa = J_Thetd2_Thead2*J_Thead2_Sa;
+                Mat3T J_Thetd2_Sb = J_Thetd2_Thebd2*J_Thebd2_Sb;
+
+
+                // Jacobians from L4 to L3
+                Mat3T Thetd1hat = SO3T::hat(Thetd1);
+                Mat3T Thetd2hat = SO3T::hat(Thetd2);
+
+                Mat3T &J_Rt_Thetd0 = Jr_Thet;
+                Mat3T  J_Ot_Thetd0 = 0.5*Thetd1hat;
+                Mat3T &J_Ot_Thetd1 = Jr_Thet;
+                Mat3T  J_St_Thetd0 = Jr_Thet*(0.5*Thetd2hat + 0.25*SO3T::hat(Othat*Thetd1) - 0.25*Jr_Thet*Thetd1hat*Thetd1hat);
+                Mat3T  J_St_Thetd1 = 0.5*Jr_Thet*Othat - 0.25*Jr_Thet*Thetd1hat*Jr_Thet;
+                Mat3T &J_St_Thetd2 = Jr_Thet;
+
+
+                // Jacobians from L4 to L1
+                DXt_DXa[RIDX][RIDX] = Exp_Thet.Adj().inverse() + J_Rt_Thetd0*J_Thetd0_Ra;                          // DRt_DRa
+                DXt_DXa[RIDX][OIDX] = J_Rt_Thetd0*J_Thetd0_Oa;                                                     // DRt_DOa
+                DXt_DXa[RIDX][SIDX] = J_Rt_Thetd0*J_Thetd0_Sa;                                                     // DRt_DSa
+                //-----------------------------------------------------------------------------------------------------------
+                DXt_DXa[OIDX][RIDX] = J_Ot_Thetd0*J_Thetd0_Ra + J_Ot_Thetd1*J_Thetd1_Ra;                           // DOt_DRa
+                DXt_DXa[OIDX][OIDX] = J_Ot_Thetd0*J_Thetd0_Oa + J_Ot_Thetd1*J_Thetd1_Oa;                           // DOt_DOa
+                DXt_DXa[OIDX][SIDX] = J_Ot_Thetd0*J_Thetd0_Sa + J_Ot_Thetd1*J_Thetd1_Sa;                           // DOt_DSa
+                //-----------------------------------------------------------------------------------------------------------
+                DXt_DXa[SIDX][RIDX] = J_St_Thetd0*J_Thetd0_Ra + J_St_Thetd1*J_Thetd1_Ra + J_St_Thetd2*J_Thetd2_Ra; // DSt_DRa
+                DXt_DXa[SIDX][OIDX] = J_St_Thetd0*J_Thetd0_Oa + J_St_Thetd1*J_Thetd1_Oa + J_St_Thetd2*J_Thetd2_Oa; // DSt_DOa
+                DXt_DXa[SIDX][SIDX] = J_St_Thetd0*J_Thetd0_Sa + J_St_Thetd1*J_Thetd1_Sa + J_St_Thetd2*J_Thetd2_Sa; // DSt_DSa
+                //-----------------------------------------------------------------------------------------------------------
+                DXt_DXb[RIDX][RIDX] = J_Rt_Thetd0*J_Thetd0_Rb;                                                     // DRt_DRb
+                DXt_DXb[RIDX][OIDX] = J_Rt_Thetd0*J_Thetd0_Ob;                                                     // DRt_DOb
+                DXt_DXb[RIDX][SIDX] = J_Rt_Thetd0*J_Thetd0_Sb;                                                     // DRt_DSb
+                //-----------------------------------------------------------------------------------------------------------
+                DXt_DXb[OIDX][RIDX] = J_Ot_Thetd0*J_Thetd0_Rb + J_Ot_Thetd1*J_Thetd1_Rb;                           // DOt_DRb
+                DXt_DXb[OIDX][OIDX] = J_Ot_Thetd0*J_Thetd0_Ob + J_Ot_Thetd1*J_Thetd1_Ob;                           // DOt_DOb
+                DXt_DXb[OIDX][SIDX] = J_Ot_Thetd0*J_Thetd0_Sb + J_Ot_Thetd1*J_Thetd1_Sb;                           // DOt_DSb
+                //-----------------------------------------------------------------------------------------------------------
+                DXt_DXb[SIDX][RIDX] = J_St_Thetd0*J_Thetd0_Rb + J_St_Thetd1*J_Thetd1_Rb + J_St_Thetd2*J_Thetd2_Rb; // DSt_DRb
+                DXt_DXb[SIDX][OIDX] = J_St_Thetd0*J_Thetd0_Ob + J_St_Thetd1*J_Thetd1_Ob + J_St_Thetd2*J_Thetd2_Ob; // DSt_DOb
+                DXt_DXb[SIDX][SIDX] = J_St_Thetd0*J_Thetd0_Sb + J_St_Thetd1*J_Thetd1_Sb + J_St_Thetd2*J_Thetd2_Sb; // DSt_DSb
+            }
         }
 
         /* #endregion Processing the RO3 states ---------------------------------------------------------------------*/
 
 
         /* #region Processing the R3 states -------------------------------------------------------------------------*/
-        
+
         // Performing interpolation on R3
         Matrix<T, 9, 9> LAM_PVAt = LMD(Dtau, CovPVAJerk).cast<T>();
         Matrix<T, 9, 9> PSI_PVAt = PSI(Dtau, CovPVAJerk).cast<T>();
@@ -1402,7 +1561,7 @@ public:
             DXt_DXa[PIDX][VIDX] = LAM_PVA12;
             // DPt_DAa
             DXt_DXa[PIDX][AIDX] = LAM_PVA13;
-            
+
             // DVt_DPa
             DXt_DXa[VIDX][PIDX] = LAM_PVA21;
             // DVt_DVa
@@ -1430,7 +1589,7 @@ public:
             DXt_DXb[VIDX][VIDX] = PSI_PVA22;
             // DVt_DAb
             DXt_DXb[VIDX][AIDX] = PSI_PVA23;
-            
+
             // DAt_DPb
             DXt_DXb[AIDX][PIDX] = PSI_PVA31;
             // DAt_DVb
@@ -1440,7 +1599,7 @@ public:
         }
 
         /* #endregion Processing the R3 states ----------------------------------------------------------------------*/
-    
+
     }
 
     template <class T = double>
@@ -1515,7 +1674,7 @@ public:
         Vec6T Xitd1 = gammat.block(6,  0, 6, 1);
         Vec6T Xitd2 = gammat.block(12, 0, 6, 1);
 
-        // Do all jacobians needed for L4-L3 interface 
+        // Do all jacobians needed for L4-L3 interface
         Mat6T Jr_Xit;
         Mat6T H1_XitXitd1;
         Mat6T H1_XitXitd2;
@@ -1588,7 +1747,7 @@ public:
             Mat6T J_Xitd2_Wra = J_Xitd2_Xiad2*J_Xiad2_Wra;
             Mat6T J_Xitd2_Wrb = J_Xitd2_Xibd2*J_Xibd2_Wrb;
 
-            
+
             // Jacobians from L4 to L3
             Mat6T &J_Tft_Xitd0 = Jr_Xit;
             Mat6T &J_Twt_Xitd0 = H1_XitXitd1;
@@ -1623,7 +1782,7 @@ public:
             Mat6T J_Wrt_Twb = J_Wrt_Xitd0*J_Xitd0_Twb + J_Wrt_Xitd1*J_Xitd1_Twb + J_Wrt_Xitd2*J_Xitd2_Twb; // DTwt_DTwb
             Mat6T J_Wrt_Wrb = J_Wrt_Xitd0*J_Xitd0_Wrb + J_Wrt_Xitd1*J_Xitd1_Wrb + J_Wrt_Xitd2*J_Xitd2_Wrb; // DTwt_DWrb
 
-            
+
             // Jacobian from L5 to L4
             MatLT U; U.setZero(); U.block(0, 0, 3, 3) = Mat3T::Identity();
             MatLT D; D.setZero(); D.block(0, 3, 3, 3) = Mat3T::Identity();
@@ -1652,29 +1811,29 @@ public:
 
             Mat3T  J_At_Rt  = -Rtmat*(SO3T::hat(Bt) + SO3T::hat(SO3T::hat(Ot)*Nt));
             MatLT  J_At_Tft =  J_At_Rt*J_Rt_Tft;
-            
+
             Mat3T &J_At_Ot  =  J_Vt_Rt;
             MatLT  J_At_Twt =  J_At_Ot*J_Ot_Twt + Rtmat*SO3T::hat(Ot)*D;
-            
+
 
             // Jacobian from L1 to L0
-            Mat3T hat_Oa = SO3T::hat(Oa);                                                       Mat3T hat_Ob = SO3T::hat(Ob);                           
-            Mat3T Ratp = Ra.inverse().matrix();                                                 Mat3T Rbtp = Rb.inverse().matrix();                     
-            Mat3T hat_RatpVa = SO3T::hat(Ratp*Va);                                              Mat3T hat_RbtpVb = SO3T::hat(Rbtp*Vb);                  
-            Mat3T hat_RatpAa = SO3T::hat(Ratp*Aa);                                              Mat3T hat_RbtpAb = SO3T::hat(Rbtp*Ab);                  
-                                                                                                                                                        
-            MatTT J_Tfa_Ra =  Utp;                                                              MatTT J_Tfb_Rb =  Utp;                                  
-            MatTT J_Tfa_Pa =  Dtp*Ratp;                                                         MatTT J_Tfb_Pb =  Dtp*Rbtp;                             
-                                                                                                                                                        
-            MatTT J_Twa_Oa =  Utp;                                                              MatTT J_Twb_Ob =  Utp;                                  
-            MatTT J_Twa_Ra =  Dtp*hat_RatpVa;                                                   MatTT J_Twb_Rb =  Dtp*hat_RbtpVb;                       
-            MatTT J_Twa_Va =  Dtp*Ratp;                                                         MatTT J_Twb_Vb =  Dtp*Rbtp;                             
-                                                                                                                                                        
-            MatTT J_Wra_Sa =  Utp;                                                              MatTT J_Wrb_Sb =  Utp;                                  
-            MatTT J_Wra_Ra =  Dtp*(hat_RatpAa - hat_Oa*hat_RatpVa);                             MatTT J_Wrb_Rb =  Dtp*(hat_RbtpAb - hat_Ob*hat_RbtpVb); 
-            MatTT J_Wra_Aa =  Dtp*Ratp;                                                         MatTT J_Wrb_Ab =  Dtp*Rbtp;                             
-            MatTT J_Wra_Oa =  Dtp*hat_RatpVa;                                                   MatTT J_Wrb_Ob =  Dtp*hat_RbtpVb;                       
-            MatTT J_Wra_Va = -Dtp*hat_Oa*Ratp;                                                  MatTT J_Wrb_Vb = -Dtp*hat_Ob*Rbtp;                      
+            Mat3T hat_Oa = SO3T::hat(Oa);                                                       Mat3T hat_Ob = SO3T::hat(Ob);
+            Mat3T Ratp = Ra.inverse().matrix();                                                 Mat3T Rbtp = Rb.inverse().matrix();
+            Mat3T hat_RatpVa = SO3T::hat(Ratp*Va);                                              Mat3T hat_RbtpVb = SO3T::hat(Rbtp*Vb);
+            Mat3T hat_RatpAa = SO3T::hat(Ratp*Aa);                                              Mat3T hat_RbtpAb = SO3T::hat(Rbtp*Ab);
+
+            MatTT J_Tfa_Ra =  Utp;                                                              MatTT J_Tfb_Rb =  Utp;
+            MatTT J_Tfa_Pa =  Dtp*Ratp;                                                         MatTT J_Tfb_Pb =  Dtp*Rbtp;
+
+            MatTT J_Twa_Oa =  Utp;                                                              MatTT J_Twb_Ob =  Utp;
+            MatTT J_Twa_Ra =  Dtp*hat_RatpVa;                                                   MatTT J_Twb_Rb =  Dtp*hat_RbtpVb;
+            MatTT J_Twa_Va =  Dtp*Ratp;                                                         MatTT J_Twb_Vb =  Dtp*Rbtp;
+
+            MatTT J_Wra_Sa =  Utp;                                                              MatTT J_Wrb_Sb =  Utp;
+            MatTT J_Wra_Ra =  Dtp*(hat_RatpAa - hat_Oa*hat_RatpVa);                             MatTT J_Wrb_Rb =  Dtp*(hat_RbtpAb - hat_Ob*hat_RbtpVb);
+            MatTT J_Wra_Aa =  Dtp*Ratp;                                                         MatTT J_Wrb_Ab =  Dtp*Rbtp;
+            MatTT J_Wra_Oa =  Dtp*hat_RatpVa;                                                   MatTT J_Wrb_Ob =  Dtp*hat_RbtpVb;
+            MatTT J_Wra_Va = -Dtp*hat_Oa*Ratp;                                                  MatTT J_Wrb_Vb = -Dtp*hat_Ob*Rbtp;
 
 
             // Jacobians from L4 to L0
@@ -1792,6 +1951,8 @@ public:
         // Find the relative rotation
         SO3T Rab = Xa.R.inverse()*Xb.R;
 
+        if(!use_approx_drv)
+        {
         // Calculate the SO3 knots in relative form
         Vec3T Thead0 = Vec3T::Zero();
         Vec3T Thead1 = Xa.O;
@@ -1836,7 +1997,7 @@ public:
 
             Mat3T DJrInvThebSb_DTheb = DJrInvUV_DU(Theb, Xb.S);
             Mat3T DDJrInvThebObThebd1_DThebDTheb = DDJrInvUVW_DUDU(Theb, Xb.O, Thebd1);
-            
+
             Mat3T DThebd2_DTheb = DJrInvThebSb_DTheb + DDJrInvThebObThebd1_DThebDTheb + DJrInvThebOb_DTheb*DJrInvThebOb_DTheb;
             Mat3T DThebd2_DRa = DThebd2_DTheb*DTheb_DRa;
             Mat3T DThebd2_DRb = DThebd2_DTheb*DTheb_DRb;
@@ -1859,8 +2020,8 @@ public:
             Dr_DXa[SIDX].template block<3, 3>(0, 0) = -DtsqDiv2I;        Dr_DXb[SIDX].template block<3, 3>(6, 0) = JrInvTheb;
             Dr_DXa[SIDX].template block<3, 3>(3, 0) = -DtI;              Dr_DXb[SIDX] = sqrtW*Dr_DXb[SIDX];
             Dr_DXa[SIDX].template block<3, 3>(6, 0) = -Eye;
-            Dr_DXa[SIDX] = sqrtW*Dr_DXa[SIDX];    
-        
+            Dr_DXa[SIDX] = sqrtW*Dr_DXa[SIDX];
+
             // Set the jacobian on Pa                                    // Set the jacobian on Pb
             Dr_DXa[PIDX].template block<3, 3>(9,  0) = -Eye;             Dr_DXb[PIDX].template block<3, 3>(9, 0) = Eye;
             Dr_DXa[PIDX] = sqrtW*Dr_DXa[PIDX];                           Dr_DXb[PIDX] = sqrtW*Dr_DXb[PIDX];
@@ -1868,13 +2029,111 @@ public:
             // Set the jacobian on Va                                    // Set the jacobian on Vb
             Dr_DXa[VIDX].template block<3, 3>(9,  0) = -DtI;             Dr_DXb[VIDX].template block<3, 3>(12, 0) = Eye;
             Dr_DXa[VIDX].template block<3, 3>(12, 0) = -Eye;             Dr_DXb[VIDX] = sqrtW*Dr_DXb[VIDX];
-            Dr_DXa[VIDX] = sqrtW*Dr_DXa[VIDX];                             
+            Dr_DXa[VIDX] = sqrtW*Dr_DXa[VIDX];
 
             // Set the jacobian on Aa                                    // Set the jacobian on Ab
             Dr_DXa[AIDX].template block<3, 3>(9,  0) = -DtsqDiv2I;       Dr_DXb[AIDX].template block<3, 3>(15, 0) = Eye;
             Dr_DXa[AIDX].template block<3, 3>(12, 0) = -DtI;             Dr_DXb[AIDX] = sqrtW*Dr_DXb[AIDX];
             Dr_DXa[AIDX].template block<3, 3>(15, 0) = -Eye;
             Dr_DXa[AIDX] = sqrtW*Dr_DXa[AIDX];
+        }
+        }
+        else
+        {
+            // Calculate the SO3 knots in relative form
+            Vec3T Thead0 = Vec3T::Zero();
+            Vec3T Thead1 = Xa.O;
+            Vec3T Thead2 = Xa.S;
+
+            // Skewsym matrices
+            Mat3T Obhat = SO3T::hat(Xb.O);
+            Mat3T Sbhat = SO3T::hat(Xb.S);
+
+            // Find the local variable at tb and the associated Jacobians
+            Vec3T Theb = Rab.log();
+            Mat3T JrInvTheb = JrInv<T>(Theb);
+            Mat3T Hp1ThebOb = -0.5*Obhat;
+
+            Vec3T Thebd0 = Theb;
+            Vec3T Thebd1 = JrInvTheb*Xb.O;
+            Vec3T Thebd2 = JrInvTheb*Xb.S + Hp1ThebOb*Thebd1;
+
+            // Mat3T Thebd0hat = SO3T::hat(Thebd0);
+            Mat3T Thebd1hat = SO3T::hat(Thebd1);
+            Mat3T JrTheb = Jr<T>(Theb);
+
+            // Put them in vector form
+            Vec9T gammaa; gammaa << Thead0, Thead1, Thead2;
+            Vec9T gammab; gammab << Thebd0, Thebd1, Thebd2;
+
+            Vec9T PVAa; PVAa << Xa.P, Xa.V, Xa.A;
+            Vec9T PVAb; PVAb << Xb.P, Xb.V, Xb.A;
+
+            // Calculate the residual
+            residual << gammab - Fmat*gammaa, PVAb - Fmat*PVAa;
+            residual = sqrtW*residual;
+
+            if (find_jacobian)
+            {
+                T Dtsq = T(Dt*Dt);
+                Mat3T Eye = Mat3T::Identity();
+                Mat3T DtI = Vec3T(T(Dt), T(Dt), T(Dt)).asDiagonal();
+                T     DtsqDiv2 = 0.5*Dtsq;
+                Mat3T DtsqDiv2I = Vec3T(DtsqDiv2, DtsqDiv2, DtsqDiv2).asDiagonal();
+
+                // Reusable Jacobians
+                Mat3T DTheb_DRa = -JrInvTheb*Rab.inverse().matrix();
+                Mat3T DTheb_DRb =  JrInvTheb;
+
+                Mat3T &DThebd1_DTheb = Hp1ThebOb;
+                Mat3T &DJrInvThebOb_DTheb = Hp1ThebOb;
+                Mat3T DThebd1_DRa = DThebd1_DTheb*DTheb_DRa;
+                Mat3T DThebd1_DRb = DThebd1_DTheb*DTheb_DRb;
+
+                Mat3T DJrInvThebSb_DTheb = DJrInvUV_DU(Theb, Xb.S);
+                Mat3T DDJrInvThebObThebd1_DThebDTheb = DDJrInvUVW_DUDU(Theb, Xb.O, Thebd1);
+
+                Mat3T DThebd2_DTheb   = -0.5*Sbhat + 0.25*Thebd1hat*Thebd1hat;
+                Mat3T DThebd2_DThebd1 = -0.5*Obhat + 0.50*Thebd1hat*JrTheb;
+
+                Mat3T DThebd2_DRa = (DThebd2_DTheb + DThebd2_DThebd1)*DTheb_DRa;
+                Mat3T DThebd2_DRb = (DThebd2_DTheb + DThebd2_DThebd1)*DTheb_DRb;
+
+                Mat3T DDJrInvThebObThebd1_DThebDOb = DDJrInvUVW_DUDV(Theb, Xb.O, Thebd1);
+                Mat3T DThebd2_DOb = 0.5*Thebd1hat - 0.5*Obhat*JrInvTheb;
+
+                // Set the jacobian on Ra                                    // Set the jacobian on Rb
+                Dr_DXa[RIDX].template block<3, 3>(0, 0) = DTheb_DRa;         Dr_DXb[RIDX].template block<3, 3>(0, 0) = DTheb_DRb;
+                Dr_DXa[RIDX].template block<3, 3>(3, 0) = DThebd1_DRa;       Dr_DXb[RIDX].template block<3, 3>(3, 0) = DThebd1_DRb;
+                Dr_DXa[RIDX].template block<3, 3>(6, 0) = DThebd2_DRa;       Dr_DXb[RIDX].template block<3, 3>(6, 0) = DThebd2_DRb;
+                Dr_DXa[RIDX] = sqrtW*Dr_DXa[RIDX];                           Dr_DXb[RIDX] = sqrtW*Dr_DXb[RIDX];
+
+                // Set the jacobian on Oa                                    // Set the jacobian on Ob
+                Dr_DXa[OIDX].template block<3, 3>(0, 0) = -DtI;              Dr_DXb[OIDX].template block<3, 3>(3, 0) = JrInvTheb;
+                Dr_DXa[OIDX].template block<3, 3>(3, 0) = -Eye;              Dr_DXb[OIDX].template block<3, 3>(6, 0) = DThebd2_DOb;
+                Dr_DXa[OIDX] = sqrtW*Dr_DXa[OIDX];                           Dr_DXb[OIDX] = sqrtW*Dr_DXb[OIDX];
+
+                // Set the jacobian on Sa                                    // Set the jacobian on Sb
+                Dr_DXa[SIDX].template block<3, 3>(0, 0) = -DtsqDiv2I;        Dr_DXb[SIDX].template block<3, 3>(6, 0) = JrInvTheb;
+                Dr_DXa[SIDX].template block<3, 3>(3, 0) = -DtI;              Dr_DXb[SIDX] = sqrtW*Dr_DXb[SIDX];
+                Dr_DXa[SIDX].template block<3, 3>(6, 0) = -Eye;
+                Dr_DXa[SIDX] = sqrtW*Dr_DXa[SIDX];
+
+                // Set the jacobian on Pa                                    // Set the jacobian on Pb
+                Dr_DXa[PIDX].template block<3, 3>(9,  0) = -Eye;             Dr_DXb[PIDX].template block<3, 3>(9, 0) = Eye;
+                Dr_DXa[PIDX] = sqrtW*Dr_DXa[PIDX];                           Dr_DXb[PIDX] = sqrtW*Dr_DXb[PIDX];
+
+                // Set the jacobian on Va                                    // Set the jacobian on Vb
+                Dr_DXa[VIDX].template block<3, 3>(9,  0) = -DtI;             Dr_DXb[VIDX].template block<3, 3>(12, 0) = Eye;
+                Dr_DXa[VIDX].template block<3, 3>(12, 0) = -Eye;             Dr_DXb[VIDX] = sqrtW*Dr_DXb[VIDX];
+                Dr_DXa[VIDX] = sqrtW*Dr_DXa[VIDX];
+
+                // Set the jacobian on Aa                                    // Set the jacobian on Ab
+                Dr_DXa[AIDX].template block<3, 3>(9,  0) = -DtsqDiv2I;       Dr_DXb[AIDX].template block<3, 3>(15, 0) = Eye;
+                Dr_DXa[AIDX].template block<3, 3>(12, 0) = -DtI;             Dr_DXb[AIDX] = sqrtW*Dr_DXb[AIDX];
+                Dr_DXa[AIDX].template block<3, 3>(15, 0) = -Eye;
+                Dr_DXa[AIDX] = sqrtW*Dr_DXa[AIDX];
+            }
         }
     }
 
@@ -1904,7 +2163,7 @@ public:
         using Mat6T  = Eigen::Matrix<T, 6, 6>;
         using MatLT  = Eigen::Matrix<T, 3, 6>;   // L is for long T is for tall
         using MatTT  = Eigen::Matrix<T, 6, 3>;   // L is for long T is for tall
-        
+
         // Find the global 6DOF states
         SE3T Tfa; Vec6T Twa; Vec6T Wra; Xa.GetTUW(Tfa, Twa, Wra);
         SE3T Tfb; Vec6T Twb; Vec6T Wrb; Xb.GetTUW(Tfb, Twb, Wrb);
@@ -1975,23 +2234,23 @@ public:
 
 
             // Jacobian from L1 to L0
-            Mat3T hat_Oa = SO3T::hat(Oa);                               Mat3T hat_Ob = SO3T::hat(Ob);                           
-            Mat3T Ratp = Ra.inverse().matrix();                         Mat3T Rbtp = Rb.inverse().matrix();                     
-            Mat3T hat_RatpVa = SO3T::hat(Ratp*Va);                      Mat3T hat_RbtpVb = SO3T::hat(Rbtp*Vb);                  
-            Mat3T hat_RatpAa = SO3T::hat(Ratp*Aa);                      Mat3T hat_RbtpAb = SO3T::hat(Rbtp*Ab);                  
-                                                                                                                                
-            MatTT J_Tfa_Ra =  Utp;                                      MatTT J_Tfb_Rb =  Utp;                                  
-            MatTT J_Tfa_Pa =  Dtp*Ratp;                                 MatTT J_Tfb_Pb =  Dtp*Rbtp;                                  
-                                                                                                                                
-            MatTT J_Twa_Oa =  Utp;                                      MatTT J_Twb_Ob =  Utp;                                  
-            MatTT J_Twa_Ra =  Dtp*hat_RatpVa;                           MatTT J_Twb_Rb =  Dtp*hat_RbtpVb;                       
-            MatTT J_Twa_Va =  Dtp*Ratp;                                 MatTT J_Twb_Vb =  Dtp*Rbtp;                             
-                                                                                                                                
-            MatTT J_Wra_Sa =  Utp;                                      MatTT J_Wrb_Sb =  Utp;                                  
-            MatTT J_Wra_Ra =  Dtp*(hat_RatpAa - hat_Oa*hat_RatpVa);     MatTT J_Wrb_Rb =  Dtp*(hat_RbtpAb - hat_Ob*hat_RbtpVb); 
-            MatTT J_Wra_Aa =  Dtp*Ratp;                                 MatTT J_Wrb_Ab =  Dtp*Rbtp;                             
-            MatTT J_Wra_Oa =  Dtp*hat_RatpVa;                           MatTT J_Wrb_Ob =  Dtp*hat_RbtpVb;                       
-            MatTT J_Wra_Va = -Dtp*hat_Oa*Ratp;                          MatTT J_Wrb_Vb = -Dtp*hat_Ob*Rbtp;                      
+            Mat3T hat_Oa = SO3T::hat(Oa);                               Mat3T hat_Ob = SO3T::hat(Ob);
+            Mat3T Ratp = Ra.inverse().matrix();                         Mat3T Rbtp = Rb.inverse().matrix();
+            Mat3T hat_RatpVa = SO3T::hat(Ratp*Va);                      Mat3T hat_RbtpVb = SO3T::hat(Rbtp*Vb);
+            Mat3T hat_RatpAa = SO3T::hat(Ratp*Aa);                      Mat3T hat_RbtpAb = SO3T::hat(Rbtp*Ab);
+
+            MatTT J_Tfa_Ra =  Utp;                                      MatTT J_Tfb_Rb =  Utp;
+            MatTT J_Tfa_Pa =  Dtp*Ratp;                                 MatTT J_Tfb_Pb =  Dtp*Rbtp;
+
+            MatTT J_Twa_Oa =  Utp;                                      MatTT J_Twb_Ob =  Utp;
+            MatTT J_Twa_Ra =  Dtp*hat_RatpVa;                           MatTT J_Twb_Rb =  Dtp*hat_RbtpVb;
+            MatTT J_Twa_Va =  Dtp*Ratp;                                 MatTT J_Twb_Vb =  Dtp*Rbtp;
+
+            MatTT J_Wra_Sa =  Utp;                                      MatTT J_Wrb_Sb =  Utp;
+            MatTT J_Wra_Ra =  Dtp*(hat_RatpAa - hat_Oa*hat_RatpVa);     MatTT J_Wrb_Rb =  Dtp*(hat_RbtpAb - hat_Ob*hat_RbtpVb);
+            MatTT J_Wra_Aa =  Dtp*Ratp;                                 MatTT J_Wrb_Ab =  Dtp*Rbtp;
+            MatTT J_Wra_Oa =  Dtp*hat_RatpVa;                           MatTT J_Wrb_Ob =  Dtp*hat_RbtpVb;
+            MatTT J_Wra_Va = -Dtp*hat_Oa*Ratp;                          MatTT J_Wrb_Vb = -Dtp*hat_Ob*Rbtp;
 
 
             // Jacobian from L2 to L0
@@ -2085,7 +2344,7 @@ class GaussianProcess
     using CovM = Eigen::Matrix<double, STATE_DIM, STATE_DIM>;
 
 private:
-    
+
     // The invalid covariance
     const CovM CovMZero = CovM::Zero();
 
@@ -2187,7 +2446,7 @@ public:
         int    u  = us.first;
         double s  = us.second;
 
-        int ua = u;  
+        int ua = u;
         int ub = u+1;
 
         if (ub >= R.size() && fabs(1.0 - s) < DOUBLE_EPSILON)
@@ -2241,7 +2500,7 @@ public:
         Vec3 Pc = P.back();
         Vec3 Vc = V.back();
         Vec3 Ac = A.back();
-        
+
         double DtSqHalf = 0.5*Dt*Dt;
         for(int k = 0; k < steps; k++)
         {
@@ -2290,12 +2549,12 @@ public:
             P = {Vec3(0, 0, 0)};
             V = {Vec3(0, 0, 0)};
             A = {Vec3(0, 0, 0)};
-            
+
             if (keepCov)
                 C = {CovMZero};
         }
     }
-    
+
     void propagateCovariance()
     {
         CovM Cn = CovMZero;
@@ -2317,7 +2576,7 @@ public:
                    "PLEASE CHECK, OR ELSE THE KNOT NUMBERS CAN BE VERY LARGE!");
             exit(-1);
         }
-        
+
         // double tmax = getMaxTime();
         // if (tmax > t)
         //     return;
@@ -2581,7 +2840,7 @@ public:
             vector<string> o; string p;
             while(std::getline(s, p, d))
                 o.push_back(p);
-            return o;    
+            return o;
         };
 
         double Dt_inLog;
@@ -2612,7 +2871,7 @@ public:
                     printf("Mstr[%d] = %s. S: %s\n", idx, Mstr[idx].c_str(), s.c_str());
 
                 vector<double> Mdbl = {stod(Mstr[0]), stod(Mstr[1]), stod(Mstr[2]),
-                                       stod(Mstr[3]), stod(Mstr[4]), stod(Mstr[5]), 
+                                       stod(Mstr[3]), stod(Mstr[4]), stod(Mstr[5]),
                                        stod(Mstr[6]), stod(Mstr[7]), stod(Mstr[8])};
 
                 Eigen::Map<Matrix3d, Eigen::RowMajor> M(&Mdbl[0]);
@@ -2691,11 +2950,11 @@ public:
         //     if (ridx == 10)
         //         exit(-1);
         // }
-        
+
         if(Dt == 0 || Dt_inLog == Dt)
         {
             printf("dt has not been set. Use log's dt %f.\n", Dt_inLog);
-            
+
             // Clear the knots
             R.clear(); O.clear(); S.clear(); P.clear(); V.clear(); A.clear(); C.clear();
 
@@ -2716,7 +2975,7 @@ public:
         else
         {
             printf(KYEL "Logged GPCT is has different knot length. Chosen: %f. Log: %f.\n" RESET, Dt, Dt_inLog);
-            
+
             // Create a trajectory
             GaussianProcess trajLog(Dt_inLog, gpm_inLog->getCovROSJerk(), gpm_inLog->getCovPVAJerk());
             trajLog.setStartTime(t0_inLog);
@@ -2778,7 +3037,7 @@ public:
     {
         Eigen::Map<Groupd const> T(T_raw);
         Eigen::Map<Eigen::Matrix<double, Groupd::num_parameters, Groupd::DoF, Eigen::RowMajor>>
-        
+
         jacobian(jacobian_raw);
         jacobian.setZero();
 

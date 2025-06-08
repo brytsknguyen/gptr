@@ -595,7 +595,7 @@ int main(int argc, char **argv)
 
             double sweeptime = (cloudRaw->points.back().t - cloudRaw->points.front().t)/1.0e9;
             if(fabs(sweeptime - 0.1) > 1e-3)
-                RINFO(KYEL "Irregular sweep time: %f, %f\n" RESET, sweeptime, fabs(sweeptime - 0.1));
+                RINFO(KYEL "Irregular sweep time: %f, %f, %f, %f\n" RESET, sweeptime, fabs(sweeptime - 0.1), cloudRaw->points.back().t/1.0e9, cloudRaw->points.front().t/1.0e9);
             double timebase = stamp_time[lidx] == "start" ? timestamp.seconds() : timestamp.seconds() - sweeptime;
 
             // Preserve the start point and end point

@@ -8,7 +8,7 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 # Sequence
-sequence_ = 'cloud_avia_mid_w155_dynxtrz_e5'
+sequence_ = 'cloud_avia_mid_w55_dynxtrz_e5'
 
 # Bag file
 lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/{sequence_}'
@@ -21,7 +21,7 @@ log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/sim_{seq
 pose_type_ = 'SO3xR3'
 
 # Type of pose
-use_approx_drv_ = '0'
+use_approx_drv_ = '1'
 
 # Knot length
 deltaT_ = '0.04357'
@@ -31,7 +31,7 @@ xyzypr_W_L0 =[ 0,    0,   0.70,  43,  48, 0,
               -0.3, -0.3, 0.55, -134, 0,  0 ]
 
 def generate_launch_description():
-    
+
     launcharg_lidar_bag_file  = DeclareLaunchArgument('lidar_bag_file', default_value=lidar_bag_file_, description='')   # Bag file
     launcharg_log_dir         = DeclareLaunchArgument('log_dir', default_value=log_dir_, description='')                 # Direction to log the exp
     launcharg_pose_type       = DeclareLaunchArgument('pose_type', default_value=pose_type_, description='')             # Variant of kinematics
@@ -39,10 +39,10 @@ def generate_launch_description():
     launcharg_deltaT          = DeclareLaunchArgument('deltaT', default_value=deltaT_, description='')                   # Variant of approximation
 
     lidar_bag_file  = LaunchConfiguration('lidar_bag_file')
-    log_dir         = LaunchConfiguration('log_dir')       
-    pose_type       = LaunchConfiguration('pose_type')     
+    log_dir         = LaunchConfiguration('log_dir')
+    pose_type       = LaunchConfiguration('pose_type')
     use_approx_drv  = LaunchConfiguration('use_approx_drv')
-    deltaT          = LaunchConfiguration('deltaT')        
+    deltaT          = LaunchConfiguration('deltaT')
 
     # GPTR LO node
     gptr_lo_node = Node(
@@ -56,10 +56,10 @@ def generate_launch_description():
         [
             # Location of the prior map
             {"priormap_file"   : "/media/tmn/mySataSSD1/Experiments/gptr/sim_priormap.pcd"},
-            
+
             # Location of bag file
             {"lidar_bag_file"  : lidar_bag_file},
-            
+
             # Total number of clouds loaded
             {'MAX_CLOUDS'      : -1},
 
@@ -130,7 +130,7 @@ def generate_launch_description():
             {'min_planarity'   : 0.85},
             {'max_plane_dis'   : 0.5},
             {'knnsize'         : 8},
-            
+
             {'use_ceres'       : 1},
             {'max_ceres_iter'  : 50},
             {'max_outer_iter'  : 2},
@@ -152,7 +152,7 @@ def generate_launch_description():
             {'log_dir'         : log_dir},
         ]  # Optional: pass parameters if needed
     )
-    
+
     # Visualization node for gptr
     cartinbot_viz = Node(
         package     = 'gptr',
@@ -168,14 +168,14 @@ def generate_launch_description():
         executable  = 'rviz2',
         name        = 'rviz2',
         output      = 'screen',
-        arguments   = ['-d', get_package_share_directory('gptr') + '/launch/gptr_lo_sim.rviz']
+        arguments   = ['-d', get_package_share_directory('gptr') + '/launch/gptr_sim.rviz']
     )
 
     on_exit_action = RegisterEventHandler(event_handler=OnProcessExit(
                                           target_action=gptr_lo_node,
                                           on_exit=[Shutdown()])
                                          )
-    
+
     # launch_arg = DeclareLaunchArgument('cartinbot_viz', required=True, description='Testing')
 
     return LaunchDescription([launcharg_lidar_bag_file,
