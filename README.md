@@ -1,5 +1,4 @@
-# GPTR: Gaussian Process Trajectory Representation for Continuous-Time Motion Estimation
-
+# A Gaussian Process Trajectory Representation with Closed-Form Kinematics for Continuous-Time Motion Estimation
 ## Preresiquite
 
 ### ROS 1 User
