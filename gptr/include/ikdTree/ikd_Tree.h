@@ -19,9 +19,6 @@
 
 using namespace std;
 
-// typedef pcl::PointXYZINormal PointType;
-// typedef vector<PointType, Eigen::aligned_allocator<PointType>>  PointVector;
-
 struct BoxPointType
 {
     float vertex_min[3];
@@ -50,12 +47,12 @@ class KD_TREE
 {
     // using MANUAL_Q_ = MANUAL_Q<typename PointType>;
     // using PointVector = std::vector<PointType>;
-    
+
     // using MANUAL_Q_ = MANUAL_Q<typename PointType>;
 public:
     using PointVector = std::vector<PointType, Eigen::aligned_allocator<PointType>>;
     using Ptr = std::shared_ptr<KD_TREE<PointType>>;
-    
+
     struct KD_TREE_NODE
     {
         PointType point;

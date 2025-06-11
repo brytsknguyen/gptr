@@ -1,28 +1,4 @@
-/**
-* This file is part of splio.
-* 
-* Copyright (C) 2020 Thien-Minh Nguyen <thienminh.nguyen at ntu dot edu dot sg>,
-* School of EEE
-* Nanyang Technological Univertsity, Singapore
-* 
-* For more information please see <https://britsknguyen.github.io>.
-* or <https://github.com/brytsknguyen/splio>.
-* If you use this code, please cite the respective publications as
-* listed on the above websites.
-* 
-* splio is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-* 
-* splio is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-* 
-* You should have received a copy of the GNU General Public License
-* along with splio.  If not, see <http://www.gnu.org/licenses/>.
-*/
+
 
 #include <ceres/ceres.h>
 #include "GaussianProcess.hpp"
@@ -89,9 +65,9 @@ public:
         // Map parameters to the control point states
         GPState Xa(0);  gpm->MapParamToState(parameters, RaIdx, Xa);
         GPState Xb(Dt); gpm->MapParamToState(parameters, RbIdx, Xb);
-        Sophus::SO3d R_i_c_so3 = Eigen::Map<Sophus::SO3d const>(parameters[RicIdx]);      
+        Sophus::SO3d R_i_c_so3 = Eigen::Map<Sophus::SO3d const>(parameters[RicIdx]);
         Eigen::Matrix3d R_i_c =  R_i_c_so3.matrix();
-        Eigen::Vector3d t_i_c = Eigen::Map<Eigen::Vector3d const>(parameters[ticIdx]);            
+        Eigen::Vector3d t_i_c = Eigen::Map<Eigen::Vector3d const>(parameters[ticIdx]);
 
         /* #endregion Map the memory to control points --------------------------------------------------------------*/
 
@@ -115,25 +91,25 @@ public:
                 p_c4 << p_c[0], p_c[1], p_c[2], 1;
 
                 Eigen::Vector2d proj2d;
-                bool success = cam_model.project(p_c4, proj2d);          
+                bool success = cam_model.project(p_c4, proj2d);
                 if (success) {
                     residuals[2 * i + 0] = proj2d[0] - proj[i][0];
-                    residuals[2 * i + 1] = proj2d[1] - proj[i][1];        
+                    residuals[2 * i + 1] = proj2d[1] - proj[i][1];
 
                     residuals[2 * i + 0] *= w;
-                    residuals[2 * i + 1] *= w;  
+                    residuals[2 * i + 1] *= w;
                 } else {
                     residuals[2 * i + 0] = 0;
-                    residuals[2 * i + 1] = 0;                      
+                    residuals[2 * i + 1] = 0;
                 }
             }
         } else {
 
             Matrix3d Rictp = R_i_c.transpose();
-            Matrix<double, 3, 3> Dp_DPt  = - Rictp * Xt.R.matrix().transpose();   
+            Matrix<double, 3, 3> Dp_DPt  = - Rictp * Xt.R.matrix().transpose();
             // Matrix<double, 3, 3> Dp_DRt  = - Dr_DPW * Xt.R.matrix() * SO3d::hat(offset);
-            // Matrix<double, 3, 3> Dp_DRic  = Dr_DPW;        
-            Matrix<double, 3, 3> Dp_Dtic  = - Rictp;   
+            // Matrix<double, 3, 3> Dp_DRic  = Dr_DPW;
+            Matrix<double, 3, 3> Dp_Dtic  = - Rictp;
 
             size_t num_proj = proj.size();
             SparseMatrix<double> Dr_DRt(num_proj*2, 3);
@@ -145,7 +121,7 @@ public:
 
                 auto iter = corner_pos_3d.find(id[i]);
                 assert(iter != corner_pos_3d.end());
-                Vector3d p_w = iter->second;              
+                Vector3d p_w = iter->second;
                 Vector3d p_i = Xt.R.matrix().transpose() * (p_w - Xt.P);
                 Vector3d p_c = Rictp * (p_i - t_i_c);
                 Vector4d p_c4;
@@ -161,8 +137,8 @@ public:
 
                 } else {
                     residuals[2 * i + 0] = 0;
-                    residuals[2 * i + 1] = 0;    
-                    d_r_d_p.setZero();                  
+                    residuals[2 * i + 1] = 0;
+                    d_r_d_p.setZero();
                 }
 
                 Util::SetSparseMatBlock<double>(Dr_DRt,  i * 2, 0, w * d_r_d_p.leftCols<3>() * Rictp * SO3d::hat(p_i), false);
@@ -219,7 +195,7 @@ public:
             //             idx_jac++;
             //         }
             //     }
-                
+
             // }
 
             // // Jacobian on Oa
@@ -232,14 +208,14 @@ public:
             //     Dr_DOa.setZero();
             //     for (size_t i = 0; i < num_proj; i++) {
             //         Dr_DOa.block<2, 3>(2 * i, 0) = w*vec_Dr_DRt[i]*DXt_DXa[Ridx][Oidx];
-            //     }                
+            //     }
             //     int idx_jac = 0;
             //     for (size_t i = 0; i < 2*num_proj; i++) {
             //         for (size_t j = 0; j < 3; j++) {
             //             jacobians[idx][idx_jac] = Dr_DOa.coeff(i,j);
             //             idx_jac++;
             //         }
-            //     }            
+            //     }
             // }
 
             // // Jacobian on Sa
@@ -252,14 +228,14 @@ public:
             //     Dr_DSa.setZero();
             //     for (size_t i = 0; i < num_proj; i++) {
             //         Dr_DSa.block<2, 3>(2 * i, 0) = w*vec_Dr_DRt[i]*DXt_DXa[Ridx][Sidx];
-            //     }                      
+            //     }
             //     int idx_jac = 0;
             //     for (size_t i = 0; i < 2*num_proj; i++) {
             //         for (size_t j = 0; j < 3; j++) {
             //             jacobians[idx][idx_jac] = Dr_DSa.coeff(i,j);
             //             idx_jac++;
             //         }
-            //     }            
+            //     }
             // }
 
             // // Jacobian on Pa
@@ -272,7 +248,7 @@ public:
             //     Dr_DPa.setZero();
             //     for (size_t i = 0; i < num_proj; i++) {
             //         Dr_DPa.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXa[Pidx][Pidx];
-            //     }                      
+            //     }
             //     int idx_jac = 0;
             //     for (size_t i = 0; i < 2*num_proj; i++) {
             //         for (size_t j = 0; j < 3; j++) {
@@ -292,7 +268,7 @@ public:
             //     Dr_DVa.setZero();
             //     for (size_t i = 0; i < num_proj; i++) {
             //         Dr_DVa.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXa[Pidx][Vidx];
-            //     }                       
+            //     }
             //     int idx_jac = 0;
             //     for (size_t i = 0; i < 2*num_proj; i++) {
             //         for (size_t j = 0; j < 3; j++) {
@@ -312,7 +288,7 @@ public:
             //     Dr_DAa.setZero();
             //     for (size_t i = 0; i < num_proj; i++) {
             //         Dr_DAa.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXa[Pidx][Aidx];
-            //     }                   
+            //     }
             //     int idx_jac = 0;
             //     for (size_t i = 0; i < 2*num_proj; i++) {
             //         for (size_t j = 0; j < 3; j++) {
@@ -332,7 +308,7 @@ public:
             //     Dr_DRb.setZero();
             //     for (size_t i = 0; i < num_proj; i++) {
             //         Dr_DRb.block<2, 3>(2 * i, 0) = w*vec_Dr_DRt[i]*DXt_DXb[Ridx][Ridx];
-            //     }                
+            //     }
             //     int idx_jac = 0;
             //     for (size_t i = 0; i < 2*num_proj; i++) {
             //         for (size_t j = 0; j < 4; j++) {
@@ -352,7 +328,7 @@ public:
             //     Dr_DOb.setZero();
             //     for (size_t i = 0; i < num_proj; i++) {
             //         Dr_DOb.block<2, 3>(2 * i, 0) = w*vec_Dr_DRt[i]*DXt_DXb[Ridx][Oidx];
-            //     }                        
+            //     }
             //     int idx_jac = 0;
             //     for (size_t i = 0; i < 2*num_proj; i++) {
             //         for (size_t j = 0; j < 3; j++) {
@@ -372,7 +348,7 @@ public:
             //     Dr_DSb.setZero();
             //     for (size_t i = 0; i < num_proj; i++) {
             //         Dr_DSb.block<2, 3>(2 * i, 0) = w*vec_Dr_DRt[i]*DXt_DXb[Ridx][Sidx];
-            //     }                        
+            //     }
             //     int idx_jac = 0;
             //     for (size_t i = 0; i < 2*num_proj; i++) {
             //         for (size_t j = 0; j < 3; j++) {
@@ -392,7 +368,7 @@ public:
             //     Dr_DPb.setZero();
             //     for (size_t i = 0; i < num_proj; i++) {
             //         Dr_DPb.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXb[Pidx][Pidx];
-            //     }                     
+            //     }
             //     int idx_jac = 0;
             //     for (size_t i = 0; i < 2*num_proj; i++) {
             //         for (size_t j = 0; j < 3; j++) {
@@ -412,7 +388,7 @@ public:
             //     Dr_DVb.setZero();
             //     for (size_t i = 0; i < num_proj; i++) {
             //         Dr_DVb.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXb[Pidx][Vidx];
-            //     }                      
+            //     }
             //     int idx_jac = 0;
             //     for (size_t i = 0; i < 2*num_proj; i++) {
             //         for (size_t j = 0; j < 3; j++) {
@@ -432,7 +408,7 @@ public:
             //     Dr_DAb.setZero();
             //     for (size_t i = 0; i < num_proj; i++) {
             //         Dr_DAb.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXb[Pidx][Aidx];
-            //     }                      
+            //     }
             //     int idx_jac = 0;
             //     for (size_t i = 0; i < 2*num_proj; i++) {
             //         for (size_t j = 0; j < 3; j++) {

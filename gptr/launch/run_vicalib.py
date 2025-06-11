@@ -7,10 +7,10 @@ import numpy as np
 import shutil, os
 
 # Save path
-result_save_path = '/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/vicalib_/'
+result_save_path = '/media/XXX/mySataSSD1/Experiments/gptr_v2/logs/vicalib_/'
 
 # Data path
-vi_data_path = '/home/tmn/ros2_ws/src/gptr/gptr/dataVICalib/'
+vi_data_path = '/home/XXX/ros2_ws/src/gptr/gptr/dataVICalib/'
 
 # Copy the current file to the log file
 os.makedirs(result_save_path, exist_ok=True)
@@ -19,7 +19,7 @@ shutil.copy(launch_file_name, result_save_path)
 print(launch_file_name)
 
 def generate_launch_description():
-    
+
     # GPTR LO node
     gptr_vicalib_node = Node(
         package     = 'gptr',
@@ -52,13 +52,13 @@ def generate_launch_description():
             {"ACC_W"             : 0.0},
             {"corner_loss_thres" :-1.0},
             {"mp_loss_thres"     :-1.0},
-            
+
             # Time skewing factor
             {"tskew0"            : 1.0},
             {"tskewmax"          : 4.5},
             {"tskewstep"         : 0.1},
             {"Dtstep"            : [0.1, 0.2, 0.05]},
-            
+
         ]  # Optional: pass parameters if needed
     )
 

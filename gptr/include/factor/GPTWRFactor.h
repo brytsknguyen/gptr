@@ -1,28 +1,4 @@
-/**
-* This file is part of splio.
-* 
-* Copyright (C) 2020 Thien-Minh Nguyen <thienminh.nguyen at ntu dot edu dot sg>,
-* School of EEE
-* Nanyang Technological Univertsity, Singapore
-* 
-* For more information please see <https://britsknguyen.github.io>.
-* or <https://github.com/brytsknguyen/splio>.
-* If you use this code, please cite the respective publications as
-* listed on the above websites.
-* 
-* splio is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-* 
-* splio is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-* 
-* You should have received a copy of the GNU General Public License
-* along with splio.  If not, see <http://www.gnu.org/licenses/>.
-*/
+
 
 #include <ceres/ceres.h>
 #include "GaussianProcess.hpp"
@@ -107,9 +83,9 @@ public:
 
         constexpr int RES_SIZE = 1;
 
-        Matrix<double, 1, 3> Dr_Dpat =  pat.normalized().transpose();   
+        Matrix<double, 1, 3> Dr_Dpat =  pat.normalized().transpose();
         Matrix<double, 1, 3> Dr_DRt  = -w*Dr_Dpat * Xt.R.matrix() * SO3d::hat(p_B_tag);
-        Matrix<double, 1, 3> Dr_DPt  =  w*Dr_Dpat;        
+        Matrix<double, 1, 3> Dr_DPt  =  w*Dr_Dpat;
 
         size_t idx;
 

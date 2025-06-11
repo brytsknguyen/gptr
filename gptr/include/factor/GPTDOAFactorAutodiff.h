@@ -1,28 +1,4 @@
-/**
-* This file is part of splio.
-* 
-* Copyright (C) 2020 Thien-Minh Nguyen <thienminh.nguyen at ntu dot edu dot sg>,
-* School of EEE
-* Nanyang Technological Univertsity, Singapore
-* 
-* For more information please see <https://britsknguyen.github.io>.
-* or <https://github.com/brytsknguyen/splio>.
-* If you use this code, please cite the respective publications as
-* listed on the above websites.
-* 
-* splio is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-* 
-* splio is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-* 
-* You should have received a copy of the GNU General Public License
-* along with splio.  If not, see <http://www.gnu.org/licenses/>.
-*/
+
 
 #include <ceres/ceres.h>
 #include "GaussianProcess.hpp"
@@ -64,7 +40,7 @@ public:
 
         /* #region Calculate the pose at sampling time --------------------------------------------------------------*/
 
-        GPState<T> Xt(s*Dt); 
+        GPState<T> Xt(s*Dt);
         vector<vector<Matrix<T, 3, 3>>> DXt_DXa; vector<vector<Matrix<T, 3, 3>>> DXt_DXb;
         gpm->ComputeXtAndJacobians<T>(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
 
@@ -72,7 +48,7 @@ public:
         Eigen::Map<Matrix<T, 1, 1>> residual(residuals);
         Eigen::Matrix<T, 3, 1> p_tag_W = Xt.R.matrix() * offset + Xt.P;
         Eigen::Matrix<T, 3, 1> diff_i = p_tag_W - pos_anchor_i;
-        Eigen::Matrix<T, 3, 1> diff_j = p_tag_W - pos_anchor_j;        
+        Eigen::Matrix<T, 3, 1> diff_j = p_tag_W - pos_anchor_j;
         residual[0] = w*(diff_j.norm() - diff_i.norm() - tdoa);
 
         return true;
@@ -92,7 +68,7 @@ private:
     double w = 10;
 
     // Gaussian process params
-    
+
     const int Ridx = 0;
     const int Oidx = 1;
     const int Sidx = 2;

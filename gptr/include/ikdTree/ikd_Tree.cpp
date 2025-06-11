@@ -1,11 +1,5 @@
 #include "ikd_Tree.h"
 
-/*
-Description: ikd-Tree: an incremental k-d tree for robotic applications 
-Author: Yixi Cai
-email: yixicai@connect.hku.hk
-*/
-
 template <typename PointType>
 KD_TREE<PointType>::KD_TREE(float delete_param, float balance_param, float box_length)
 {
@@ -1298,7 +1292,7 @@ void KD_TREE<PointType>::Search_by_radius(KD_TREE_NODE *root, PointType point, f
     range_center.z = (root->node_range_z[0] + root->node_range_z[1]) * 0.5;
     float dist = sqrt(calc_dist(range_center, point));
     if (dist > radius + sqrt(root->radius_sq)) return;
-    if (dist <= radius - sqrt(root->radius_sq)) 
+    if (dist <= radius - sqrt(root->radius_sq))
     {
         flatten(root, Storage, NOT_RECORD);
         return;
@@ -1325,7 +1319,7 @@ void KD_TREE<PointType>::Search_by_radius(KD_TREE_NODE *root, PointType point, f
         pthread_mutex_lock(&search_flag_mutex);
         Search_by_radius(root->right_son_ptr, point, radius, Storage);
         pthread_mutex_unlock(&search_flag_mutex);
-    }    
+    }
     return;
 }
 

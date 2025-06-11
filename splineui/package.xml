@@ -5,7 +5,7 @@
   <description>splineui</description>
   <license>TODO: License declaration</license>
 
-  <maintainer email="ziyu.cao@liu.se">Ziyu Cao</maintainer>
+  <maintainer email="xxx@yyy.com">XXX</maintainer>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
@@ -30,4 +30,3 @@
     <build_type>ament_cmake</build_type>
   </export>
 </package>
-

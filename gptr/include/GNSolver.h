@@ -4,8 +4,8 @@
 
 #include "utility.h"
 
-#include "factor/GPPointToPlaneFactorTMN.hpp"
-#include "factor/GPMotionPriorTwoKnotsFactorTMN.hpp"
+#include "factor/GPPointToPlaneFactorXXX.hpp"
+#include "factor/GPMotionPriorTwoKnotsFactorXXX.hpp"
 
 struct GNSolverReport
 {
@@ -56,7 +56,7 @@ private:
 
     // Matrix to solve the covariance
     SparseMatrix<double> InvCov;
-    
+
     // Value of the keep state for prior
     map<int, GPState<double>>  knots_keep_gbidx_state;
 
@@ -69,7 +69,7 @@ public:
 
     // Destructor
    ~GNSolver();
-   
+
     // Constructor
     GNSolver(NodeHandlePtr &nh_, int &LIDX_);
 

@@ -4,7 +4,7 @@
   <name>gptr</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="tmn@todo.todo">tmn</maintainer>
+  <maintainer email="XXX@todo.todo">XXX</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

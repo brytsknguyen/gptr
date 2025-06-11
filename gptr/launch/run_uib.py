@@ -5,9 +5,9 @@ from launch.actions import ExecuteProcess, DeclareLaunchArgument
 from ament_index_python.packages import get_package_share_directory
 from launch.substitutions import LaunchConfiguration
 
-bag_file_         = "/media/tmn/mySataSSD1/DATASETS/UTIL_DATASETS/dataset/flight-dataset/ros2bag-data/const4/const4-trial5-tdoa2-traj2"
-anchor_path_      = "/media/tmn/mySataSSD1/DATASETS/UTIL_DATASETS/dataset/flight-dataset/survey-results/anchor_const4_survey.txt"
-result_save_path_ = "/home/tmn/Documents/results/cmp4/"
+bag_file_         = "/media/XXX/mySataSSD1/DATASETS/UTIL_DATASETS/dataset/flight-dataset/ros2bag-data/const4/const4-trial5-tdoa2-traj2"
+anchor_path_      = "/media/XXX/mySataSSD1/DATASETS/UTIL_DATASETS/dataset/flight-dataset/survey-results/anchor_const4_survey.txt"
+result_save_path_ = "/home/XXX/Documents/results/cmp4/"
 
 def generate_launch_description():
 
@@ -17,13 +17,13 @@ def generate_launch_description():
 
     bag_file  = LaunchConfiguration('bag_file')
     anchor_path  = LaunchConfiguration('anchor_path')
-    result_save_path  = LaunchConfiguration('result_save_path')   
-    
+    result_save_path  = LaunchConfiguration('result_save_path')
+
     # GPTR UI node
     gptr_ui_node = Node(
         package     = 'gptr',
         executable  = 'gptr_uib',  # Name of the executable built by your package
-        name        = 'gptr_uib',  # Optional: gives the node instance a name 
+        name        = 'gptr_uib',  # Optional: gives the node instance a name
         # prefix      = ['gdb -ex run --args'],
         output      = 'screen',   # Print the node output to the screen
         parameters  =
@@ -54,7 +54,7 @@ def generate_launch_description():
         ]  # Optional: pass parameters if needed
     )
 
-    return LaunchDescription([launcharg_bag_file, 
-                              launcharg_anchor_path, 
-                              launcharg_result_save_path, 
+    return LaunchDescription([launcharg_bag_file,
+                              launcharg_anchor_path,
+                              launcharg_result_save_path,
                               gptr_ui_node])

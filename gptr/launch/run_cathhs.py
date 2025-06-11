@@ -11,10 +11,10 @@ from ament_index_python.packages import get_package_share_directory
 sequence_ = 'cathhs_07'
 
 # Bag file
-lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/{sequence_}'
+lidar_bag_file_ = f'/media/XXX/mySataSSD1/Experiments/gptr_v2/sequences/{sequence_}'
 
 # Direction to log the exp
-log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/cathhs_exp/cathhs_{sequence_}_gptr_two_lidar/'
+log_dir_ = f'/media/XXX/mySataSSD1/Experiments/gptr_v2/logs/lio/cathhs_exp/cathhs_{sequence_}_gptr_two_lidar/'
 
 # Type of pose
 # pose_type_ = 'SE3'
@@ -31,7 +31,7 @@ xyzypr_W_L0 =[ 0,   0,  0,   0, 0,  0,
                0.2, 0, -0.2, 0, 90, 0 ]
 
 def generate_launch_description():
-    
+
     launcharg_lidar_bag_file  = DeclareLaunchArgument('lidar_bag_file', default_value=lidar_bag_file_, description='')   # Bag file
     launcharg_log_dir         = DeclareLaunchArgument('log_dir', default_value=log_dir_, description='')                 # Direction to log the exp
     launcharg_pose_type       = DeclareLaunchArgument('pose_type', default_value=pose_type_, description='')             # Variant of kinematics
@@ -39,10 +39,10 @@ def generate_launch_description():
     launcharg_deltaT          = DeclareLaunchArgument('deltaT', default_value=deltaT_, description='')                   # Variant of approximation
 
     lidar_bag_file  = LaunchConfiguration('lidar_bag_file')
-    log_dir         = LaunchConfiguration('log_dir')       
-    pose_type       = LaunchConfiguration('pose_type')     
+    log_dir         = LaunchConfiguration('log_dir')
+    pose_type       = LaunchConfiguration('pose_type')
     use_approx_drv  = LaunchConfiguration('use_approx_drv')
-    deltaT          = LaunchConfiguration('deltaT')        
+    deltaT          = LaunchConfiguration('deltaT')
 
     # GPTR LO node
     gptr_lo_node = Node(
@@ -55,11 +55,11 @@ def generate_launch_description():
         parameters  =
         [
             # Location of the prior map
-            {"priormap_file"   : "/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/cathhs_07/cathhs_iot_prior_2cm.pcd"},
-            
+            {"priormap_file"   : "/media/XXX/mySataSSD1/Experiments/gptr_v2/sequences/cathhs_07/cathhs_iot_prior_2cm.pcd"},
+
             # Location of bag file
             {"lidar_bag_file"  : lidar_bag_file},
-            
+
             # Total number of clouds loaded
             {'MAX_CLOUDS'      : -1},
 
@@ -90,7 +90,7 @@ def generate_launch_description():
             # Groundtruth for evaluation
             {'xtrz_gndtr'      : [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ]},
-            
+
             {'T_E_G'           : [ -0.00037886633842519943, -0.011824967458688653, -0.6445255757936823, 177.41697100832081, -0.8380643201341046, -0.4324815049625096,
                                     0.018040371221108277,   -0.005781886649251375, -0.6659410499572929, 177.8095334058065,  -0.6988913250237251, -0.4278818562418 ]},
 
@@ -133,7 +133,7 @@ def generate_launch_description():
             {'min_planarity'   : 0.8},
             {'max_plane_dis'   : 0.5},
             {'knnsize'         : 10},
-            
+
             {'use_ceres'       : 1},
             {'max_ceres_iter'  : 50},
             {'max_outer_iter'  : 2},
@@ -155,7 +155,7 @@ def generate_launch_description():
             {'log_dir'         : log_dir},
         ]  # Optional: pass parameters if needed
     )
-    
+
     # Visualization node for gptr
     cartinbot_viz = Node(
         package     = 'gptr',
@@ -178,7 +178,7 @@ def generate_launch_description():
                                           target_action=gptr_lo_node,
                                           on_exit=[Shutdown()])
                                          )
-    
+
     # launch_arg = DeclareLaunchArgument('cartinbot_viz', required=True, description='Testing')
 
     return LaunchDescription([launcharg_lidar_bag_file,

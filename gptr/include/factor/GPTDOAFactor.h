@@ -1,28 +1,4 @@
-/**
-* This file is part of splio.
-* 
-* Copyright (C) 2020 Thien-Minh Nguyen <thienminh.nguyen at ntu dot edu dot sg>,
-* School of EEE
-* Nanyang Technological Univertsity, Singapore
-* 
-* For more information please see <https://britsknguyen.github.io>.
-* or <https://github.com/brytsknguyen/splio>.
-* If you use this code, please cite the respective publications as
-* listed on the above websites.
-* 
-* splio is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-* 
-* splio is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-* 
-* You should have received a copy of the GNU General Public License
-* along with splio.  If not, see <http://www.gnu.org/licenses/>.
-*/
+
 
 #include <ceres/ceres.h>
 #include "GaussianProcess.hpp"
@@ -99,7 +75,7 @@ public:
         Eigen::Map<Matrix<double, 1, 1>> residual(residuals);
         Eigen::Vector3d p_tag_W = Xt.R.matrix() * offset + Xt.P;
         Eigen::Vector3d diff_i = p_tag_W - pos_anchor_i;
-        Eigen::Vector3d diff_j = p_tag_W - pos_anchor_j;        
+        Eigen::Vector3d diff_j = p_tag_W - pos_anchor_j;
         residual[0] = w*(diff_j.norm() - diff_i.norm() - tdoa);
 
         /* #endregion Calculate the pose at sampling time -----------------------------------------------------------*/
@@ -109,7 +85,7 @@ public:
 
         constexpr int RES_SIZE = 1;
 
-        Matrix<double, RES_SIZE, 3> Dr_DPW =  (diff_j.normalized() - diff_i.normalized()).transpose();   
+        Matrix<double, RES_SIZE, 3> Dr_DPW =  (diff_j.normalized() - diff_i.normalized()).transpose();
         Matrix<double, RES_SIZE, 3> Dr_DRt = -w*Dr_DPW * Xt.R.matrix() * SO3d::hat(offset);
         Matrix<double, RES_SIZE, 3> Dr_DPt =  w*Dr_DPW;
 

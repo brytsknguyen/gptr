@@ -9,11 +9,11 @@ runexp()
     method=$4
 
     # Bag file
-    lidar_bag_file=/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/${sequence}
+    lidar_bag_file=/media/XXX/mySataSSD1/Experiments/gptr_v2/sequences/${sequence}
 
     # Copy the config
     mkdir -p ${logroot}/${sequence}/
-    cp -r /home/tmn/ros2_ws/src/gptr/gptr/launch ${logroot}/${sequence}/
+    cp -r /home/XXX/ros2_ws/src/gptr/gptr/launch ${logroot}/${sequence}/
 
     # Kinematic type and use/unuse of closed form
     pose_type=SO3xR3
@@ -64,6 +64,6 @@ runexp()
     done
 }
 
-runexp cathhs_07 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/cathhs_exp/gptr/ 0.02204
-runexp cathhs_08 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/cathhs_exp/gptr/ 0.02204
-runexp cathhs_09 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/cathhs_exp/gptr/ 0.02204
+runexp cathhs_07 /media/XXX/mySataSSD1/Experiments/gptr_v2/logs/lio/cathhs_exp/gptr/ 0.02204
+runexp cathhs_08 /media/XXX/mySataSSD1/Experiments/gptr_v2/logs/lio/cathhs_exp/gptr/ 0.02204
+runexp cathhs_09 /media/XXX/mySataSSD1/Experiments/gptr_v2/logs/lio/cathhs_exp/gptr/ 0.02204

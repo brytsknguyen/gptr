@@ -4,12 +4,12 @@ from launch_ros.actions import Node
 from launch.actions import ExecuteProcess
 from ament_index_python.packages import get_package_share_directory
 
-bag_file         = "/media/tmn/mySataSSD1/DATASETS/UTIL_DATASETS/dataset/flight-dataset/ros2bag-data/const1/const1-trial1-tdoa2"
-anchor_path      = "/media/tmn/mySataSSD1/DATASETS/UTIL_DATASETS/dataset/flight-dataset/survey-results/anchor_const1_survey.txt"
-result_save_path = "/home/tmn/Documents/results/gptr/c1/"
+bag_file         = "/media/XXX/mySataSSD1/DATASETS/UTIL_DATASETS/dataset/flight-dataset/ros2bag-data/const1/const1-trial1-tdoa2"
+anchor_path      = "/media/XXX/mySataSSD1/DATASETS/UTIL_DATASETS/dataset/flight-dataset/survey-results/anchor_const1_survey.txt"
+result_save_path = "/home/XXX/Documents/results/gptr/c1/"
 
 def generate_launch_description():
-    
+
     # GPTR UI node
     gptr_ui_node = Node(
         package     = 'gptr',
@@ -54,8 +54,8 @@ def generate_launch_description():
         ]  # Optional: pass parameters if needed
     )
 
-    # ros2 bag 
-    bag_node = ExecuteProcess( cmd=["ros2", "bag", "play", bag_file, "-r", "0.5"], output="screen", )     
+    # ros2 bag
+    bag_node = ExecuteProcess( cmd=["ros2", "bag", "play", bag_file, "-r", "0.5"], output="screen", )
 
     # Rviz node
     rviz_node = Node(

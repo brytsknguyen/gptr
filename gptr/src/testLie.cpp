@@ -35,7 +35,7 @@ namespace Sophus
                 Vector3d dThe = delta.head<3>();
                 Vector3d dRho = delta.tail<3>();
                 Vector6d delta_; delta_ << dThe, dRho;
-                
+
                 Eigen::Map<SE3d> T_plus_delta(T_plus_delta_raw);
                 T_plus_delta = T * SE3d::exp(delta_);
                 return true;
@@ -99,7 +99,7 @@ public:
 
         GPState<T> Xt(s*Dt); vector<vector<Mat3T>> DXt_DXa; vector<vector<Mat3T>> DXt_DXb;
         gpm->ComputeXtAndJacobians<T>(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
-        
+
         // Residual
         Eigen::Map<Matrix<T, RESITRZ_SIZE, 1>> residual(residuals);
         residual << Xt.R.log(), Xt.O, Xt.S, Xt.P, Xt.V, Xt.A;
@@ -114,7 +114,7 @@ public:
 private:
 
     // Gaussian process params
-    
+
     const int Ridx = 0;
     const int Oidx = 1;
     const int Sidx = 2;
@@ -194,7 +194,7 @@ public:
         using Mat3d = Eigen::Matrix<double, 3, 3>;
 
         /* #region Map the memory to control points -----------------------------------------------------------------*/
-        
+
         double Dt = gpm->getDt();
 
         // Map parameters to the control point states
@@ -229,7 +229,7 @@ public:
         Matrix<double, RESITRZ_SIZE, 3> Dr_DPt; Dr_DPt.setZero(); Dr_DPt.block<3, 3>(Pidx*3, 0) = Eye;
         Matrix<double, RESITRZ_SIZE, 3> Dr_DVt; Dr_DVt.setZero(); Dr_DVt.block<3, 3>(Vidx*3, 0) = Eye;
         Matrix<double, RESITRZ_SIZE, 3> Dr_DAt; Dr_DAt.setZero(); Dr_DAt.block<3, 3>(Aidx*3, 0) = Eye;
-        
+
         for(size_t idx = Ridx; idx <= Aidx; idx++)
         {
             if (!jacobians[idx])
@@ -613,7 +613,7 @@ void testUnifiedJacobians()
     Vec3 Pt = residual.block<3, 1>(9,  0);
     Vec3 Vt = residual.block<3, 1>(12, 0);
     Vec3 At = residual.block<3, 1>(15, 0);
-    
+
     double Un = The.norm();
     Vec3 Ub = The / Un;
     Un = Util::wrapTo180(Un / M_PI * 180) / 180 * M_PI;
@@ -632,12 +632,12 @@ void testUnifiedJacobians()
     Vec3 Nuy = RtInvm*Vt;
     Vec3 Bta = RtInvm*At - Othat*Nuy;
     Mat3 Nuyhat = SO3d::hat(Nuy);
-    
+
     Mat3 J_The_Tft = GPMixer::JrInv(The);
-   
+
     MatL J_Rt_Tft  =  U;
     MatL J_Pt_Tft  =  Rtm*D;
-    
+
     MatL J_Ot_Twt  =  U;
     Mat3 J_Vt_Rt   = -Rtm*Nuyhat;
     MatL J_Vt_Tft  =  J_Vt_Rt*J_Rt_Tft;
@@ -661,7 +661,7 @@ void testUnifiedJacobians()
     cout << "J_At_Tft :\n" << J_At_Tft << endl;
     cout << "J_At_Twt :\n" << J_At_Twt << endl;
     cout << "J_At_Wrt :\n" << J_At_Wrt << endl;
-    
+
 
     // // Set solver options (precision / method)
     // ceres::Solver::Options options;
@@ -827,7 +827,7 @@ int main(int argc, char **argv)
     0.65473164041046005845458921612590,
     -0.08499188899123681639746763494259;
     /* #endregion */
-    
+
     compare("Q    numerical error: ", myQ.Q  , Q_  );
     compare("S1   numerical error: ", myQ.S1 , S1_ );
     compare("C11  numerical error: ", myQ.C11, C11_);
@@ -1104,7 +1104,7 @@ int main(int argc, char **argv)
         tt_myJr_avr /= 20;
 
         cout << "Sophus right Jacobian time: " << tt_sophusJr_avr << endl;
-        cout << "TMN right Jacobian time   : " << tt_myJr_avr << endl;
+        cout << "XXX right Jacobian time   : " << tt_myJr_avr << endl;
 
         compare("JrXiuo 11 block error: ", JrXiuo.block(0, 0, 3, 3), JrXi.block(0, 0, 3, 3));
         compare("JrXiuo 12 block error: ", JrXiuo.block(0, 3, 3, 3), JrXi.block(3, 0, 3, 3));
