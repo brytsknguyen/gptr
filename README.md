@@ -3,15 +3,25 @@
 
 ### ROS 1 User
 * Install Ubuntu 20.04 and ROS NOETIC
-* Checkout the master branch
-* Please catkin build [SFUISE](https://github.com/ASIG-X/SFUISE) in your workspace to have the cf_msg, which is required in gptr.
-* Please install Ceres 2.0 and sophus
+* Please install depencies, including Ceres Solver (1.14) and sophus
   ```
   sudo apt install libfmt-dev # may be required as a dependency of sophus
   sudo apt install ros-noetic-sophus
   sudo apt install libceres-dev
   ```
-* Git clone and catkin build the repo.
+* Create a catkin workspace with [SFUISE](https://github.com/ASIG-X/SFUISE) (main branch) for the `cf_msgs` dependency, and [GPTR](https://github.com/brytsknguyen/gptr) (master branch)
+  ```
+  mkdir -p ~/gptr_ws/src && cd ~/gptr_ws
+  catkin init
+  cd src
+  git clone git@github.com:ASIG-X/SFUISE.git
+  git clone git@github.com:brytsknguyen/gptr.git
+  ```
+* Build the repo:
+  ```
+  cd ~/gptr_ws
+  catkin build gptr
+  ```
 
 ### ROS 2 User
 * Install Ubuntu 22.04 and ROS HUMBLE
@@ -41,7 +51,13 @@ Please raise an issue should you encounter any issue with the compilation of the
 
 You can download and unzip the file `cloud_avia_mid_dynamic_extrinsics` from [here](https://drive.google.com/file/d/1Q5fTn5OvWd_I2RvVfiUKir90q5HshzQM/view?usp=sharing). It contains the pointclouds and the prior map for the experiment.
 
-After that, modify the path to the data and prior map in `run_sim.launch` and launch it. You should see the following visualization from rviz.
+Launch the experiment with `run_lio_sim.launch`, ensuring that you set the path to the extracted folder correctly.
+```
+source ~/gptr_ws/devel/setup.bash
+roslaunch gptr run_lio_sim.launch path:=/path/to/cloud_avia_mid_dynamic_extrinsics
+```
+
+You should see the following visualization in rviz.
 
 <img src="docs/sim.gif" alt="synthetic_exp" width="600"/>
 
@@ -49,7 +65,13 @@ After that, modify the path to the data and prior map in `run_sim.launch` and la
 
 Similar to the synthetic dataset, please download the data and the prior map from [here](https://drive.google.com/file/d/1QId8X4LFxYdYewHSBXiDEAvpIFD8w-ei/view?usp=sharing).
 
-Then specify the paths to the data and prior map in `gptr/launch/run_lio_cathhs_iot.launch` before roslaunch. You should see the following illustration.
+Launch the experiment with `run_lio_cathhs_iot.launch`, ensuring that you set the path to the extracted folder correctly.
+```
+source ~/gptr_ws/devel/setup.bash
+roslaunch gptr run_lio_cathhs_iot.launch path:=/path/to/cathhs_07
+```
+
+You should see the following visualization in rviz.
 
 <img src="docs/cathhs.gif" alt="cathhs_exp" width="600"/>
 
@@ -63,11 +85,9 @@ Please use the scripts `analysis_cathhs.ipynb` and `analysis_sim.ipynb` to evalu
 
 Please download the [UTIL](https://utiasdsl.github.io/util-uwb-dataset/) (TDoA-inertial) dataset.
 
-Change `bag_file` and `anchor_path` in `gptr/launch/run_util.launch` according to your own path.
-
-For ROS1 users, please run
+For ROS1 users, please run with the correct path to the directory containing the extracted dataset:
 ```
-roslaunch gptr run_util.launch
+roslaunch gptr run_util.launch path:=/path/to/UTIL
 ```
 For ROS2 users, please first convert the UTIL dataset to ROS2 bag using `ros2bag_convert_util.sh` from [SFUISE2](https://github.com/ASIG-X/SFUISE2) and run
 ```
@@ -86,10 +106,10 @@ For comparison, a baseline approach based on ESKF is available in the paper of U
 
 ## Testing on visual-inertial estimation and calibration
 <img src="/docs/vicalib.gif" width="600"/>
-Run the following command from terminal
 
+Run the following command from terminal, changing the path as desired:
 ```
-roslaunch gptr run_vicalib.launch
+roslaunch gptr run_vicalib.launch result_save_path:=/path/to/results
 ```
 This dataset is converted from the original one in [here](https://gitlab.com/tum-vision/lie-spline-experiments).
 
