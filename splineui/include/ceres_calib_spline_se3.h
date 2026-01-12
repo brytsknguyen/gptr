@@ -58,13 +58,13 @@ class CeresCalibrationSplineSe3 {
     knots = Eigen::aligned_vector<Sophus::SE3d>(num_knots, init);
 
     for (int i = 0; i < num_knots; i++) {
-      ceres::LocalParameterization* local_parameterization =
-          new basalt::LieLocalParameterization<Sophus::SE3d>();        
+      ceres::Manifold* local_parameterization =
+          new basalt::LieLocalParameterization<Sophus::SE3d>();
       problem.AddParameterBlock(knots[i].data(), Sophus::SE3d::num_parameters, local_parameterization);
     }
     problem.AddParameterBlock(gyro_bias.data(), 3);
     problem.AddParameterBlock(accel_bias.data(), 3);
-    problem.AddParameterBlock(g.data(), 3);    
+    problem.AddParameterBlock(g.data(), 3);
     problem.SetParameterBlockConstant(g.data());
 
   }
@@ -179,19 +179,19 @@ class CeresCalibrationSplineSe3 {
     }
 
     problem.AddResidualBlock(cost_function, NULL, vec);
-  }    
+  }
 
   int64_t maxTimeNs() const {
     return start_t_ns + (knots.size() - N + 1) * dt_ns - 1;
   }
 
   int64_t minTimeNs() const { return start_t_ns; }
-  
+
   double maxTimes() const {
     return (start_t_ns + (knots.size() - N + 1) * dt_ns - 1)*1e-9;
   }
 
-  double minTimes() const { return start_t_ns*1e-9; }    
+  double minTimes() const { return start_t_ns*1e-9; }
 
   ceres::Solver::Summary optimize() {
     ceres::Solver::Options options;

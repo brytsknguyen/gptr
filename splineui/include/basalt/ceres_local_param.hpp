@@ -64,7 +64,7 @@ IN THE SOFTWARE.
 
 #pragma once
 
-#include <ceres/local_parameterization.h>
+#include <ceres/ceres.h>
 #include <sophus/se3.hpp>
 
 namespace basalt {
@@ -72,7 +72,7 @@ namespace basalt {
 /// @brief Local parametrization for ceres that can be used with Sophus Lie
 /// group implementations.
 template <class Groupd>
-class LieLocalParameterization : public ceres::LocalParameterization {
+class LieLocalParameterization : public ceres::Manifold {
  public:
   virtual ~LieLocalParameterization() {}
 
@@ -82,34 +82,61 @@ class LieLocalParameterization : public ceres::LocalParameterization {
   ///
   ///  T * exp(x)
   ///
-  virtual bool Plus(double const* T_raw, double const* delta_raw,
-                    double* T_plus_delta_raw) const {
-    Eigen::Map<Groupd const> const T(T_raw);
-    Eigen::Map<Tangentd const> const delta(delta_raw);
-    Eigen::Map<Groupd> T_plus_delta(T_plus_delta_raw);
-    T_plus_delta = T * Groupd::exp(delta);
-    return true;
+  bool Plus(double const *x, double const *delta, double *x_plus_delta) const
+  {
+      Eigen::Map<const Groupd> _q(x + 3);
+      Groupd dq = Groupd::exp(Eigen::Map<const Tangentd>(delta + 3));
+      Eigen::Map<Groupd> q(x_plus_delta + 3);
+      q = _q * dq; q.normalize();
+
+      return true;
   }
 
   ///@brief Jacobian of plus operation for Ceres
   ///
   /// Dx T * exp(x)  with  x=0
   ///
-  virtual bool ComputeJacobian(double const* T_raw,
-                               double* jacobian_raw) const {
-    Eigen::Map<Groupd const> T(T_raw);
-    Eigen::Map<Eigen::Matrix<double, Groupd::num_parameters, Groupd::DoF,
-                             Eigen::RowMajor>>
-        jacobian(jacobian_raw);
-    jacobian = T.Dx_this_mul_exp_x_at_0();
-    return true;
+  /// For SO3 group, function 'Dx_this_mul_exp_x_at_0()' is supposed to return a
+  /// 4*3 matrix, which is
+  ///       /        \
+  ///      |  w -z  y |
+  /// J =  |  z  w -x |
+  ///      | -y  x  w |
+  ///      | -x -y -z |
+  ///       \        /
+  bool PlusJacobian(const double *x, double *jacobian) const
+  {
+      Eigen::Map<const Groupd> T(x);
+      Eigen::Map<Eigen::Matrix<double, Groupd::num_parameters, Groupd::DoF, Eigen::RowMajor>> J(jacobian);
+      J = T.Dx_this_mul_exp_x_at_0();
+
+      return true;
+  }
+
+  bool Minus(const double *y, const double *x, double *y_minus_x) const
+  {
+      Eigen::Map<const Groupd> _qx(x + 3);
+      Eigen::Map<const Groupd> _qy(y + 3);
+      Eigen::Map<Matrix<double, Groupd::DoF, 1>> y_minus_x_(y_minus_x);
+      y_minus_x_ = (_qx.inverse()*_qy).log();
+
+      return true;
+  }
+
+  bool MinusJacobian(const double* x, double* jacobian) const
+  {
+      Eigen::Map<const Groupd> T(x);
+      Eigen::Map<Eigen::Matrix<double, Groupd::DoF, Groupd::num_parameters, Eigen::RowMajor>>  J(jacobian);
+      J = T.Dx_log_this_inv_by_x_at_this();
+
+      return true;
   }
 
   ///@brief Global size
-  virtual int GlobalSize() const { return Groupd::num_parameters; }
+  int AmbientSize() const { return Groupd::num_parameters; }
 
   ///@brief Local size
-  virtual int LocalSize() const { return Groupd::DoF; }
+  int TangentSize() const { return Groupd::DoF; }
 };
 
 }  // namespace basalt

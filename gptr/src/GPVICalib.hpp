@@ -127,14 +127,14 @@ public:
         {
             if (!traj->TimeInInterval(imu.t, 1e-6))
                 continue;
-            
+
             auto   us = traj->computeTimeIndex(imu.t);
             int    u  = us.first;
             double s  = us.second;
 
             if (u < kidxmin || u + 1 >= kidxmax)
                 continue;
-      
+
             vector<double *> factor_param_blocks;
             factorMeta.coupled_params.push_back(vector<ParamInfo>());
             // Add the parameter blocks for rotation
@@ -153,15 +153,15 @@ public:
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAlp(kidx).data()]);
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotPos(kidx).data()]);
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotVel(kidx).data()]);
-                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);               
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);
             }
 
             factor_param_blocks.push_back(XBIG.data());
-            factor_param_blocks.push_back(XBIA.data());  
-            factor_param_blocks.push_back(g.data());  
+            factor_param_blocks.push_back(XBIA.data());
+            factor_param_blocks.push_back(g.data());
             factorMeta.coupled_params.back().push_back(paramInfoMap[XBIG.data()]);
-            factorMeta.coupled_params.back().push_back(paramInfoMap[XBIA.data()]);          
-            factorMeta.coupled_params.back().push_back(paramInfoMap[g.data()]);                       
+            factorMeta.coupled_params.back().push_back(paramInfoMap[XBIA.data()]);
+            factorMeta.coupled_params.back().push_back(paramInfoMap[g.data()]);
 
             // Record the time stamp of the factor
             factorMeta.stamp.push_back(imu.t);
@@ -230,11 +230,11 @@ public:
 
             factorMeta.coupled_params.back().push_back(paramInfoMap[cam_calib->T_i_c[cam_id].so3().data()]);
             factorMeta.coupled_params.back().push_back(paramInfoMap[cam_calib->T_i_c[cam_id].translation().data()]);
-            
+
             ceres::LossFunction *proj_loss_function = proj_loss_thres == -1 ? NULL : new ceres::HuberLoss(proj_loss_thres);
             ceres::CostFunction *cost_function = new GPProjFactor(corners.proj, corners.id, cam_calib->intrinsics[cam_id], corner_pos_3d, w_corner, traj->getGPMixerPtr(), s);
             auto res = problem.AddResidualBlock(cost_function, proj_loss_function, factor_param_blocks);
-            
+
             // Record the residual block
             factorMeta.res.push_back(res);
         }
@@ -278,7 +278,7 @@ public:
             paramInfoMap.insert(XBIA.data(), ParamInfo(XBIA.data(), getEigenPtr(XBIA), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
             paramInfoMap.insert(g.data(),    ParamInfo(g.data(),    getEigenPtr(g),    ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
 
-            ceres::LocalParameterization *so3parameterization = new GPSO3dLocalParameterization();
+            ceres::Manifold *so3parameterization = new GPSO3dLocalParameterization();
 
             for (int i = 0; i < cam_calib->T_i_c.size(); i++)
             {
@@ -374,7 +374,7 @@ public:
         tt_build.Toc();
 
 
-        // Find the initial 
+        // Find the initial
         RINFO(KYEL"Solving..."RESET);
         Util::ComputeCeresCost(factorMetaMp2k.res, cost_mp2k_init, problem);
         Util::ComputeCeresCost(factorMetaIMU.res, cost_imu_init, problem);
@@ -404,7 +404,7 @@ public:
             if (src.size() != tgt.size() || src.empty()) {
                 throw std::runtime_error("Source and target must be same size and non-empty.");
             }
-        
+
             MatrixXd src_mat(3, src.size());
             MatrixXd tgt_mat(3, tgt.size());
             for (size_t i = 0; i < src.size(); ++i)
@@ -412,7 +412,7 @@ public:
                 src_mat.col(i) = src[i];
                 tgt_mat.col(i) = tgt[i];
             }
-        
+
             Eigen::Matrix4d transformation = (Eigen::umeyama(src_mat, tgt_mat, false));
             myTf<double> T_tgt_src(transformation);
 
@@ -459,7 +459,7 @@ public:
             se3_rmse += err.dot(err);
         se3_rmse /= se3_err.size();
         se3_rmse = sqrt(se3_rmse);
-        
+
         RINFO(KGRN"Done. %fms"RESET, tt_rmse.Toc());
 
 

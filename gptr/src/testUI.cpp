@@ -45,18 +45,18 @@ void GetFactorJacobian(ceres::Problem &problem, FactorMeta &factorMeta,
                        double &cost, vector<double> &residual,
                        MatrixXd &Jacobian)
 {
-    ceres::LocalParameterization *localparameterization;
+    ceres::Manifold *localparameterization;
     for(auto parameter : factorMeta.so3_parameter_blocks)
     {
         if (local_pamaterization_type == 0)
         {
             localparameterization = new AutoDiffSO3Parameterization<SO3d>();
-            problem.SetParameterization(parameter, localparameterization);
+            problem.SetManifold(parameter, localparameterization);
         }
         else
-        {   
+        {
             localparameterization = new GPSO3dLocalParameterization();
-            problem.SetParameterization(parameter, localparameterization);
+            problem.SetManifold(parameter, localparameterization);
         }
     }
 
@@ -204,7 +204,7 @@ void AddAnalyticGPMP2KFactor(GaussianProcessPtr &traj, ceres::Problem &problem, 
         auto res_block = problem.AddResidualBlock(cost_function, mp_loss_function, factor_param_blocks);
         res_ids_gp.push_back(res_block);
     }
-    
+
     gpmpFactorMeta.so3_parameter_blocks = so3_param;
     gpmpFactorMeta.r3_parameter_blocks = r3_param;
     gpmpFactorMeta.residual_blocks = res_ids_gp;
@@ -227,7 +227,7 @@ void AddAutodiffIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, Fac
         vector<double *> factor_param_blocks;
         auto   us = traj->computeTimeIndex(imu.t);
         int    u  = us.first;
-        double s  = us.second;        
+        double s  = us.second;
         double gp_loss_thres = -1;
         ceres::LossFunction *gp_loss_func = gp_loss_thres == -1 ? NULL : new ceres::HuberLoss(gp_loss_thres);
         GPIMUFactorAutodiff *GPMPFactor = new GPIMUFactorAutodiff(imu.acc, imu.gyro, ba, bg, 1, 1, 1, 1, traj->getGPMixerPtr(), s, traj->getNumKnots());
@@ -256,14 +256,14 @@ void AddAutodiffIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, Fac
             cost_function->AddParameterBlock(3);
         }
         factor_param_blocks.push_back(bg.data());
-        factor_param_blocks.push_back(ba.data());   
-        factor_param_blocks.push_back(g.data());   
+        factor_param_blocks.push_back(ba.data());
+        factor_param_blocks.push_back(g.data());
         r3_param.push_back(bg.data());
-        r3_param.push_back(ba.data());       
-        r3_param.push_back(g.data());   
+        r3_param.push_back(ba.data());
+        r3_param.push_back(g.data());
         cost_function->AddParameterBlock(3);
-        cost_function->AddParameterBlock(3);           
-        cost_function->AddParameterBlock(3);       
+        cost_function->AddParameterBlock(3);
+        cost_function->AddParameterBlock(3);
         auto res_block = problem.AddResidualBlock(cost_function, gp_loss_func, factor_param_blocks);
         res_ids_gp.push_back(res_block);
     }
@@ -287,7 +287,7 @@ void AddAnalyticIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, Fac
         vector<double *> factor_param_blocks;
         auto   us = traj->computeTimeIndex(imu.t);
         int    u  = us.first;
-        double s  = us.second;        
+        double s  = us.second;
         // Add the parameter blocks
         for (int knot_idx = u; knot_idx < u + 2; knot_idx++)
         {
@@ -305,11 +305,11 @@ void AddAnalyticIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, Fac
             factor_param_blocks.push_back(traj->getKnotAcc(knot_idx).data());
         }
         factor_param_blocks.push_back(bg.data());
-        factor_param_blocks.push_back(ba.data());    
-        factor_param_blocks.push_back(g.data());  
+        factor_param_blocks.push_back(ba.data());
+        factor_param_blocks.push_back(g.data());
         r3_param.push_back(bg.data());
-        r3_param.push_back(ba.data());       
-        r3_param.push_back(g.data());            
+        r3_param.push_back(ba.data());
+        r3_param.push_back(g.data());
         // Create the factors
         double mp_loss_thres = -1;
         // nh_ptr->getParam("mp_loss_thres", mp_loss_thres);
@@ -318,7 +318,7 @@ void AddAnalyticIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, Fac
         auto res_block = problem.AddResidualBlock(cost_function, mp_loss_function, factor_param_blocks);
         res_ids_gp.push_back(res_block);
     }
-    
+
     gpmpFactorMeta.so3_parameter_blocks = so3_param;
     gpmpFactorMeta.r3_parameter_blocks = r3_param;
     gpmpFactorMeta.residual_blocks = res_ids_gp;
@@ -399,12 +399,12 @@ void TestAnalyticJacobian(ceres::Problem &problem, GaussianProcessPtr &swTraj, v
         printf(KGRN "CIDX: %d. MotionPrior 2K Jacobian max error: %.4f. Time: %.3f, %.3f. Ratio: %.0f\%\n\n" RESET,
                cidx, jcbdiff.cwiseAbs().maxCoeff(), time_autodiff, time_analytic, time_autodiff/time_analytic*100);
     }
-    
+
     // IMU
     {
-        Eigen::Vector3d bg = Eigen::Vector3d::Zero();        
-        Eigen::Vector3d ba = Eigen::Vector3d::Zero();     
-        Eigen::Vector3d g = Eigen::Vector3d(0, 0, 9.81);     
+        Eigen::Vector3d bg = Eigen::Vector3d::Zero();
+        Eigen::Vector3d ba = Eigen::Vector3d::Zero();
+        Eigen::Vector3d g = Eigen::Vector3d(0, 0, 9.81);
         double time_autodiff;
         VectorXd residual_autodiff_;
         MatrixXd Jacobian_autodiff_;
@@ -553,7 +553,7 @@ int main(int argc, char **argv)
           << -1085.5492170614632570397368917895,  158.93672159037582796317033606738,  327.51773574524891872295703546664,
               182.93672159037582796317033606738, -972.94238057172044072848333021843,  440.42162827351622385147861947185,
               320.51773574524891872295703546664,  455.42162827351622385147861947185, -359.65343067039712832221988250374;
-    
+
         printf("DDJrInvUVW_DUDV_analytic error: %f\n",
                (DDJrInvUVW_DUDV_analytic - DDJrInvUVW_DUDV_autodiff).cwiseAbs().maxCoeff());
         cout << DDJrInvUVW_DUDV_analytic << endl;

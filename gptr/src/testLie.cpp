@@ -17,8 +17,7 @@ namespace Sophus
 {
     namespace test
     {
-
-        class LocalParameterizationSE3 : public ceres::LocalParameterization
+        class LocalParameterizationSE3 : public ceres::Manifold
         {
         public:
             virtual ~LocalParameterizationSE3() {}
@@ -27,17 +26,13 @@ namespace Sophus
             //
             //  T * exp(x)
             //
-            virtual bool Plus(double const *T_raw, double const *delta_raw,
-                              double *T_plus_delta_raw) const
+            bool Plus(double const *x, double const *delta, double *x_plus_delta) const
             {
-                Eigen::Map<SE3d const> const T(T_raw);
-                Eigen::Map<Vector6d const> const delta(delta_raw);
-                Vector3d dThe = delta.head<3>();
-                Vector3d dRho = delta.tail<3>();
-                Vector6d delta_; delta_ << dThe, dRho;
-                
-                Eigen::Map<SE3d> T_plus_delta(T_plus_delta_raw);
-                T_plus_delta = T * SE3d::exp(delta_);
+                Eigen::Map<SE3d const> const T(x);
+                Vector6d d; d << delta[0], delta[1], delta[2], delta[3], delta[4], delta[5];
+                Eigen::Map<SE3d> T_plus_d(x_plus_delta);
+                T_plus_d = T * SE3d::exp(d);
+
                 return true;
             }
 
@@ -45,21 +40,38 @@ namespace Sophus
             //
             // Dx T * exp(x)  with  x=0
             //
-            virtual bool ComputeJacobian(double const *T_raw,
-                                         double *jacobian_raw) const
+            bool PlusJacobian(double const *x, double *jacobian) const
             {
-                Eigen::Map<SE3d const> T(T_raw);
-                Eigen::Map<Eigen::Matrix<double, 7, 6, Eigen::RowMajor>> jacobian(jacobian_raw);
-                jacobian.setZero();
-
-                Matrix<double, 7, 6> J = T.Dx_this_mul_exp_x_at_0();
-                jacobian.block<4, 3>(0, 0) = J.block<4, 3>(0, 3);
-                jacobian.block<3, 3>(4, 3) = J.block<3, 3>(4, 0);
+                Eigen::Map<const SE3d> T(x);
+                Eigen::Map<Eigen::Matrix<double, SE3d::num_parameters, SE3d::DoF, Eigen::RowMajor>> J(jacobian);
+                // J.setZero();
+                J = T.Dx_this_mul_exp_x_at_0();
+                // J.block<4, 3>(0, 0) = J.block<4, 3>(0, 3);
+                // J.block<3, 3>(4, 3) = J.block<3, 3>(4, 0);
                 return true;
             }
 
-            virtual int GlobalSize() const { return SE3d::num_parameters; }
-            virtual int LocalSize() const { return SE3d::DoF; }
+            bool Minus(const double *y, const double *x, double *y_minus_x) const
+            {
+                Eigen::Map<const SE3d> x_(x + SE3d::num_parameters);
+                Eigen::Map<const SE3d> y_(y + SE3d::num_parameters);
+                Eigen::Map<Matrix<double, SE3d::DoF, 1>> y_minus_x_(y_minus_x);
+                y_minus_x_ = (x_.inverse()*y_).log();
+
+                return true;
+            }
+
+            bool MinusJacobian(const double* x, double* jacobian) const
+            {
+                Eigen::Map<const SE3d> T(x);
+                Eigen::Map<Eigen::Matrix<double, SE3d::DoF, SE3d::num_parameters, Eigen::RowMajor>>  J(jacobian);
+                J = T.Dx_log_this_inv_by_x_at_this();
+
+                return true;
+            }
+
+            int AmbientSize() const { return SE3d::num_parameters; }
+            int TangentSize() const { return SE3d::DoF; }
         };
     } // namespace test
 } // namespace Sophus
@@ -99,7 +111,7 @@ public:
 
         GPState<T> Xt(s*Dt); vector<vector<Mat3T>> DXt_DXa; vector<vector<Mat3T>> DXt_DXb;
         gpm->ComputeXtAndJacobians<T>(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
-        
+
         // Residual
         Eigen::Map<Matrix<T, RESITRZ_SIZE, 1>> residual(residuals);
         residual << Xt.R.log(), Xt.O, Xt.S, Xt.P, Xt.V, Xt.A;
@@ -114,7 +126,7 @@ public:
 private:
 
     // Gaussian process params
-    
+
     const int Ridx = 0;
     const int Oidx = 1;
     const int Sidx = 2;
@@ -194,7 +206,7 @@ public:
         using Mat3d = Eigen::Matrix<double, 3, 3>;
 
         /* #region Map the memory to control points -----------------------------------------------------------------*/
-        
+
         double Dt = gpm->getDt();
 
         // Map parameters to the control point states
@@ -229,7 +241,7 @@ public:
         Matrix<double, RESITRZ_SIZE, 3> Dr_DPt; Dr_DPt.setZero(); Dr_DPt.block<3, 3>(Pidx*3, 0) = Eye;
         Matrix<double, RESITRZ_SIZE, 3> Dr_DVt; Dr_DVt.setZero(); Dr_DVt.block<3, 3>(Vidx*3, 0) = Eye;
         Matrix<double, RESITRZ_SIZE, 3> Dr_DAt; Dr_DAt.setZero(); Dr_DAt.block<3, 3>(Aidx*3, 0) = Eye;
-        
+
         for(size_t idx = Ridx; idx <= Aidx; idx++)
         {
             if (!jacobians[idx])
@@ -346,23 +358,23 @@ void EvaluateFactorRJ(ceres::Problem &problem, FactorMeta &factorMeta,
                       double &cost, VectorXd &residual,
                       MatrixXd &Jacobian, double &eval_time)
 {
-    ceres::LocalParameterization *localparameterization;
+    ceres::Manifold *localparameterization;
     for (auto parameter : factorMeta.so3_parameter_blocks)
     {
         if (local_pamaterization_type == 0)
         {
             localparameterization = new AutoDiffSO3Parameterization<SO3d>();
-            problem.SetParameterization(parameter, localparameterization);
+            problem.SetManifold(parameter, localparameterization);
         }
         else if (local_pamaterization_type == 1)
         {
             localparameterization = new GPSO3dLocalParameterization();
-            problem.SetParameterization(parameter, localparameterization);
+            problem.SetManifold(parameter, localparameterization);
         }
         else if (local_pamaterization_type == 2)
         {
             localparameterization = new Sophus::test::LocalParameterizationSE3();
-            problem.SetParameterization(parameter, localparameterization);
+            problem.SetManifold(parameter, localparameterization);
         }
         else
             cout << "Unknown local parameterization!" << endl;
@@ -420,6 +432,7 @@ void CreateCeresProblem(ceres::Problem &problem, ceres::Solver::Options &options
                 // printf("Fixed knot %d\n", kidx);
             }
         }
+
     if (fixed_end >= 0)
         for (int kidx = 0; kidx < KNOTS; kidx++)
         {
@@ -613,7 +626,7 @@ void testUnifiedJacobians()
     Vec3 Pt = residual.block<3, 1>(9,  0);
     Vec3 Vt = residual.block<3, 1>(12, 0);
     Vec3 At = residual.block<3, 1>(15, 0);
-    
+
     double Un = The.norm();
     Vec3 Ub = The / Un;
     Un = Util::wrapTo180(Un / M_PI * 180) / 180 * M_PI;
@@ -632,12 +645,12 @@ void testUnifiedJacobians()
     Vec3 Nuy = RtInvm*Vt;
     Vec3 Bta = RtInvm*At - Othat*Nuy;
     Mat3 Nuyhat = SO3d::hat(Nuy);
-    
+
     Mat3 J_The_Tft = GPMixer::JrInv(The);
-   
+
     MatL J_Rt_Tft  =  U;
     MatL J_Pt_Tft  =  Rtm*D;
-    
+
     MatL J_Ot_Twt  =  U;
     Mat3 J_Vt_Rt   = -Rtm*Nuyhat;
     MatL J_Vt_Tft  =  J_Vt_Rt*J_Rt_Tft;
@@ -661,7 +674,7 @@ void testUnifiedJacobians()
     cout << "J_At_Tft :\n" << J_At_Tft << endl;
     cout << "J_At_Twt :\n" << J_At_Twt << endl;
     cout << "J_At_Wrt :\n" << J_At_Wrt << endl;
-    
+
 
     // // Set solver options (precision / method)
     // ceres::Solver::Options options;
@@ -827,7 +840,7 @@ int main(int argc, char **argv)
     0.65473164041046005845458921612590,
     -0.08499188899123681639746763494259;
     /* #endregion */
-    
+
     compare("Q    numerical error: ", myQ.Q  , Q_  );
     compare("S1   numerical error: ", myQ.S1 , S1_ );
     compare("C11  numerical error: ", myQ.C11, C11_);

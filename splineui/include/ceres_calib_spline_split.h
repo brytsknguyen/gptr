@@ -79,14 +79,14 @@ class CeresCalibrationSplineSplit {
     }
 
     for (int i = 0; i < num_knots; i++) {
-      ceres::LocalParameterization* local_parameterization =
-          new basalt::LieLocalParameterization<Sophus::SO3d>();      
+      ceres::Manifold* local_parameterization =
+          new basalt::LieLocalParameterization<Sophus::SO3d>();
       problem.AddParameterBlock(so3_knots[i].data(), Sophus::SO3d::num_parameters, local_parameterization);
     }
 
       problem.AddParameterBlock(gyro_bias.data(), 3);
       problem.AddParameterBlock(accel_bias.data(), 3);
-      problem.AddParameterBlock(g.data(), 3);    
+      problem.AddParameterBlock(g.data(), 3);
       problem.SetParameterBlockConstant(g.data());
   }
 
@@ -212,7 +212,7 @@ class CeresCalibrationSplineSplit {
     }
 
     problem.AddResidualBlock(cost_function, NULL, vec);
-  }  
+  }
 
   int64_t maxTimeNs() const {
     return start_t_ns + (so3_knots.size() - N + 1) * dt_ns - 1;
@@ -224,7 +224,7 @@ class CeresCalibrationSplineSplit {
     return (start_t_ns + (so3_knots.size() - N + 1) * dt_ns - 1)*1e-9;
   }
 
-  double minTimes() const { return start_t_ns*1e-9; }  
+  double minTimes() const { return start_t_ns*1e-9; }
 
   ceres::Solver::Summary optimize() {
     ceres::Solver::Options options;
@@ -239,7 +239,7 @@ class CeresCalibrationSplineSplit {
     // Solve
     ceres::Solver::Summary summary;
     ceres::Solve(options, &problem, &summary);
-    
+
     return summary;
   }
 

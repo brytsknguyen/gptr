@@ -1,7 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rosbag2_cpp/readers/sequential_reader.hpp>
-#include <rosbag2_cpp/storage_options.hpp>
 #include <rosbag2_cpp/typesupport_helpers.hpp>
+#include <rosbag2_storage/storage_options.hpp>
 #include <rclcpp/serialization.hpp>
 #include <rclcpp/serialized_message.hpp>
 #include <sensor_msgs/msg/imu.hpp>
@@ -80,7 +80,7 @@ struct UwbImuBuf
             tmax = max(tmax, tdoa_data.back().t);
         if (imu_data.size() != 0)
             tmax = max(tmax, imu_data.back().t);
-        return tmax;        
+        return tmax;
     }
 };
 
@@ -120,20 +120,20 @@ void readBag(const std::string& bag_file)
                 IMUData imu(rclcpp::Time(imu_msg->header.stamp).seconds(), acc, gyro);
                 UIBuf.imu_data.push_back(imu);
             }
-            cnt_imu++;            
+            cnt_imu++;
         } else if (!(message->topic_name).compare("/tdoa_data")) {
             rclcpp::Serialization<cf_msgs::msg::Tdoa> serialization;
             auto tdoa_msg = std::make_shared<cf_msgs::msg::Tdoa>();
             rclcpp::SerializedMessage serialized_data(*message->serialized_data);
-            serialization.deserialize_message(&serialized_data, tdoa_msg.get());   
+            serialization.deserialize_message(&serialized_data, tdoa_msg.get());
 
             TDOAData tdoa(rclcpp::Time(tdoa_msg->header.stamp).seconds(), tdoa_msg->ida, tdoa_msg->idb, tdoa_msg->data);
-            UIBuf.tdoa_data.push_back(tdoa);                     
+            UIBuf.tdoa_data.push_back(tdoa);
         } else if (!(message->topic_name).compare("/pose_data")) {
             rclcpp::Serialization<geometry_msgs::msg::PoseWithCovarianceStamped> serialization;
             auto gt_msg = std::make_shared<geometry_msgs::msg::PoseWithCovarianceStamped>();
             rclcpp::SerializedMessage serialized_data(*message->serialized_data);
-            serialization.deserialize_message(&serialized_data, gt_msg.get());   
+            serialization.deserialize_message(&serialized_data, gt_msg.get());
 
             PointPose pose; pose.t = rclcpp::Time(gt_msg->header.stamp).seconds();
             pose.x = gt_msg->pose.pose.position.x; pose.y = gt_msg->pose.pose.position.y; pose.z = gt_msg->pose.pose.position.z;
@@ -155,14 +155,14 @@ string AssessTraj(UwbImuBuf &data, SplineT &traj, CloudPosePtr &gtrPoseCloud, st
     for (size_t i = 0; i < n_imu; i++) {
         gravity_sum += data.imu_data.at(i).acc;
     }
-    gravity_sum /= n_imu;  
+    gravity_sum /= n_imu;
     std::cout << "g: " << gravity_sum.transpose() << std::endl;
-    traj.setG(gravity_sum);    
+    traj.setG(gravity_sum);
 
     int num_imu = 0;
     int num_tdoa = 0;
     double tmin = traj.minTimes();
-    double tmax = traj.maxTimes();  
+    double tmax = traj.maxTimes();
 
     for (auto &imu : data.imu_data) {
         if (imu.t >= tmin && imu.t <= tmax) {
@@ -191,7 +191,7 @@ string AssessTraj(UwbImuBuf &data, SplineT &traj, CloudPosePtr &gtrPoseCloud, st
         if (src.size() != tgt.size() || src.empty()) {
             throw std::runtime_error("Source and target must be same size and non-empty.");
         }
-    
+
         MatrixXd src_mat(3, src.size());
         MatrixXd tgt_mat(3, tgt.size());
         for (size_t i = 0; i < src.size(); ++i)
@@ -199,7 +199,7 @@ string AssessTraj(UwbImuBuf &data, SplineT &traj, CloudPosePtr &gtrPoseCloud, st
             src_mat.col(i) = src[i];
             tgt_mat.col(i) = tgt[i];
         }
-    
+
         Eigen::Matrix4d transformation = (Eigen::umeyama(src_mat, tgt_mat, false));
         myTf<double> T_tgt_src(transformation);
 
@@ -246,7 +246,7 @@ string AssessTraj(UwbImuBuf &data, SplineT &traj, CloudPosePtr &gtrPoseCloud, st
         se3_rmse += err.dot(err);
     se3_rmse /= se3_err.size();
     se3_rmse = sqrt(se3_rmse);
-    
+
 
     // RINFO("Drafting report ...");
     TicToc tt_report;
@@ -261,7 +261,7 @@ string AssessTraj(UwbImuBuf &data, SplineT &traj, CloudPosePtr &gtrPoseCloud, st
         pose_type,
         traj.getDt(),
         tt_solve.GetLastStop(), summary.iterations.size(),
-        summary.initial_cost, 
+        summary.initial_cost,
         summary.final_cost,
         pos_rmse, se3_rmse
     );
@@ -270,10 +270,10 @@ string AssessTraj(UwbImuBuf &data, SplineT &traj, CloudPosePtr &gtrPoseCloud, st
     report["tslv"]    = summary.total_time_in_seconds;
     report["rmse"]    = pos_rmse;
     report["J0"]      = summary.initial_cost;
-    report["JK"]      = summary.final_cost;  
+    report["JK"]      = summary.final_cost;
 
     return report_;
-};       
+};
 
 
 int main(int argc, char *argv[])
@@ -287,39 +287,39 @@ int main(int argc, char *argv[])
 
     std::string bag_file;
     Util::GetParam(nh_ptr, "bag_file", bag_file);
-    readBag(bag_file);  
+    readBag(bag_file);
 
     Util::GetParam(nh_ptr, "w_tdoa", w_tdoa);
     Util::GetParam(nh_ptr, "GYR_N", GYR_N);
     Util::GetParam(nh_ptr, "GYR_W", GYR_W);
     Util::GetParam(nh_ptr, "ACC_N", ACC_N);
     Util::GetParam(nh_ptr, "ACC_W", ACC_W);
-    Util::GetParam(nh_ptr, "tdoa_loss_thres", tdoa_loss_thres);      
+    Util::GetParam(nh_ptr, "tdoa_loss_thres", tdoa_loss_thres);
 
     double tskew0 = 1.0;
     double tskewmax = 1.0;
     double tskewstep = 0.1;
     Util::GetParam(nh_ptr, "tskew0", tskew0);
     Util::GetParam(nh_ptr, "tskewmax", tskewmax);
-    Util::GetParam(nh_ptr, "tskewstep", tskewstep);  
+    Util::GetParam(nh_ptr, "tskewstep", tskewstep);
     vector<double> Dtstep = {0.01};
-    Util::GetParam(nh_ptr, "Dtstep", Dtstep);  
+    Util::GetParam(nh_ptr, "Dtstep", Dtstep);
     Util::GetParam(nh_ptr, "traj_save_path", traj_save_path);
 
     constexpr int N = 4;
     fs::create_directories(traj_save_path);
     std::ofstream logfile(traj_save_path + "/splineui.csv", std::ios::out);
     logfile << std::fixed << std::setprecision(6);
-    logfile << "tskew,dt,"   
+    logfile << "tskew,dt,"
                "so3xr3_tslv,se3_tslv,"
                "so3xr3_JK,se3_JK,"
-               "so3xr3_rmse,se3_rmse\n";       
+               "so3xr3_rmse,se3_rmse\n";
 
- 
+
 
     for(double tskew = tskew0; tskew <= tskewmax; tskew += tskewstep)
     {
-        UwbImuBuf UIBuf_scale = UIBuf; 
+        UwbImuBuf UIBuf_scale = UIBuf;
         #pragma omp parallel for num_threads(MAX_THREADS)
         for(auto &tdoadata : UIBuf_scale.tdoa_data)
             tdoadata.t /= tskew;
@@ -335,7 +335,7 @@ int main(int argc, char *argv[])
         #pragma omp parallel for num_threads(MAX_THREADS)
         for(auto &pose : gtrPoseCloud->points) {
             pose.t /= tskew;
-        }        
+        }
 
         for(double &m : Dtstep)
         {
@@ -356,7 +356,7 @@ int main(int argc, char *argv[])
 
             string report_SO3xR3_by_SO3xR3 = AssessTraj<CeresCalibrationSplineSplit<N>>(UIBuf_scale, trajSO3xR3, gtrPoseCloud, "SO3xR3", anc_pose_, so3xr3_report);
             string report_SO3xR3_by_SE3___ = AssessTraj<CeresCalibrationSplineSe3<N>>(UIBuf_scale, trajSE3, gtrPoseCloud, "SE3", anc_pose_, se3_report);
-       
+
 
             // Save the rmse result to the log
             logfile << tskew << ","
@@ -366,11 +366,11 @@ int main(int argc, char *argv[])
                     << so3xr3_report["JK"] << ","
                     << se3_report["JK"] << ","
                     << so3xr3_report["rmse"] << ","
-                    << se3_report["rmse"] 
+                    << se3_report["rmse"]
                     << endl;
         }
-    }    
-    logfile.close();    
+    }
+    logfile.close();
 
     return 0;
 }

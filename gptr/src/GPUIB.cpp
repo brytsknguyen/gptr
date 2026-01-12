@@ -1,8 +1,8 @@
 #include "unistd.h"
 #include <algorithm> // for std::sort
 #include <rosbag2_cpp/readers/sequential_reader.hpp>
-#include <rosbag2_cpp/storage_options.hpp>
 #include <rosbag2_cpp/typesupport_helpers.hpp>
+#include <rosbag2_storage/storage_options.hpp>
 #include <rclcpp/serialization.hpp>
 #include <rclcpp/serialized_message.hpp>
 
@@ -80,7 +80,7 @@ public:
         Jacobian = CRSToEigenDense(Jacobian_);
     }
 
-   
+
     // Constructor
     GPUI(NodeHandlePtr &nh_) : nh(nh_)
     {
@@ -183,14 +183,14 @@ public:
         {
             if (!traj->TimeInInterval(imu.t, 1e-6))
                 continue;
-            
+
             auto   us = traj->computeTimeIndex(imu.t);
             int    u  = us.first;
             double s  = us.second;
 
             if (u < kidxmin || u + 1 >= kidxmax)
                 continue;
-      
+
             vector<double *> factor_param_blocks;
             factorMeta.coupled_params.push_back(vector<ParamInfo>());
             // Add the parameter blocks for rotation
@@ -209,15 +209,15 @@ public:
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAlp(kidx).data()]);
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotPos(kidx).data()]);
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotVel(kidx).data()]);
-                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);               
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);
             }
 
             factor_param_blocks.push_back(XBIG.data());
-            factor_param_blocks.push_back(XBIA.data());  
-            factor_param_blocks.push_back(g.data());  
+            factor_param_blocks.push_back(XBIA.data());
+            factor_param_blocks.push_back(g.data());
             factorMeta.coupled_params.back().push_back(paramInfoMap[XBIG.data()]);
-            factorMeta.coupled_params.back().push_back(paramInfoMap[XBIA.data()]);          
-            factorMeta.coupled_params.back().push_back(paramInfoMap[g.data()]);                       
+            factorMeta.coupled_params.back().push_back(paramInfoMap[XBIA.data()]);
+            factorMeta.coupled_params.back().push_back(paramInfoMap[g.data()]);
 
             // Record the time stamp of the factor
             factorMeta.stamp.push_back(imu.t);
@@ -248,7 +248,7 @@ public:
         {
             if (!traj->TimeInInterval(tdoa.t, 1e-6))
                 continue;
-            
+
             auto   us = traj->computeTimeIndex(tdoa.t);
             int    u  = us.first;
             double s  = us.second;
@@ -257,11 +257,11 @@ public:
                 continue;
 
             Eigen::Vector3d pos_an_A = pos_anchors[tdoa.idA];
-            Eigen::Vector3d pos_an_B = pos_anchors[tdoa.idB];          
+            Eigen::Vector3d pos_an_B = pos_anchors[tdoa.idB];
 
             vector<double *> factor_param_blocks;
             factorMeta.coupled_params.push_back(vector<ParamInfo>());
-            
+
             // Add the parameter blocks for rotation
             for (int kidx = u; kidx < u + 2; kidx++)
             {
@@ -278,7 +278,7 @@ public:
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAlp(kidx).data()]);
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotPos(kidx).data()]);
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotVel(kidx).data()]);
-                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);             
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);
             }
 
             // Record the time stamp of the factor
@@ -287,7 +287,7 @@ public:
             ceres::LossFunction *tdoa_loss_function = tdoa_loss_thres == -1 ? NULL : new ceres::HuberLoss(tdoa_loss_thres);
             ceres::CostFunction *cost_function = new GPTDOAFactor(tdoa.data, pos_an_A, pos_an_B, P_I_tag, w_tdoa, traj->getGPMixerPtr(), s);
             auto res = problem.AddResidualBlock(cost_function, tdoa_loss_function, factor_param_blocks);
-            
+
             // Record the residual block
             factorMeta.res.push_back(res);
         }
@@ -308,7 +308,7 @@ public:
             bool state_found = paramInfoMap.hasParam(param.address);
             // RINFO("param 0x%8x of tidx %2d kidx %4d of sidx %4d is %sfound in paramInfoMap",
             //         param.address, param.tidx, param.kidx, param.sidx, state_found ? "" : "NOT ");
-            
+
             if (!state_found)
             {
                 all_kept_states_found = false;
@@ -316,7 +316,7 @@ public:
                 removed_dims += param.delta_size;
             }
         }
-        
+
         if (missing_param_idx.size() != 0) // If some marginalization states are missing, delete the missing states
         {
             // RINFO("Remove %d params missing from %d keptParamInfos", missing_param_idx.size(), margInfo->keptParamInfo.size());
@@ -527,7 +527,7 @@ public:
         for(auto &param : removed_factors_params)
         {
             // ParamInfo &param = removed_params[param.first];
-            if(retained_factors_params.find(param.first) != retained_factors_params.end())            
+            if(retained_factors_params.find(param.first) != retained_factors_params.end())
                 priored_params.push_back(param.second);
             else
                 removed_params.push_back(param.second);
@@ -653,7 +653,7 @@ public:
                             *(margInfo->DoubleToSO3<double>(margInfo->keptParamPrior[param.address]))).log();
                 ROS_ASSERT_MSG(error.norm() == 0, "error.norm(): %f\n", error.norm());
             }
-            
+
             if(param.type == ParamType::RV3)
             {
                 Vec3 error = (*static_pointer_cast<Vec3>(param.ptr) - margInfo->DoubleToRV3<double>(margInfo->keptParamPrior[param.address]));
@@ -667,7 +667,7 @@ public:
         double tmin, double tmax, double tmid,
         GaussianProcessPtr &traj, Vector3d &XBIG, Vector3d &XBIA, Vector3d &g,
         const vector<TDOAData> &tdoaData, const vector<IMUData> &imuData,
-        std::map<uint16_t, Eigen::Vector3d>& pos_anchors, const Vector3d &P_I_tag, 
+        std::map<uint16_t, Eigen::Vector3d>& pos_anchors, const Vector3d &P_I_tag,
         double w_tdoa, double wGyro, double wAcce, double wBiasGyro, double wBiasAcce, double tdoa_loss_thres, double mp_loss_thres, bool do_marginalization,
         CloudPosePtr &gtrPoseCloud, string &report_, map<string, double> &report)
     {
@@ -702,7 +702,7 @@ public:
             paramInfoMap.insert(XBIA.data(), ParamInfo(XBIA.data(), getEigenPtr(XBIA), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
             paramInfoMap.insert(g.data(),    ParamInfo(g.data(),    getEigenPtr(g),    ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
             problem.SetParameterBlockConstant(g.data());
-            
+
             // Sanity check
             for(auto &param_ : paramInfoMap.params_info)
             {
@@ -743,7 +743,7 @@ public:
                 {
                     // if(sidx == 0)
                     //     assert(param.address == R_Lx_Ly.data());
-                    // if(sidx == 1)    
+                    // if(sidx == 1)
                     //     assert(param.address == P_Lx_Ly.data());
                 }
             }
@@ -762,7 +762,7 @@ public:
         FactorMeta factorMetaTDOA;
         double cost_tdoa_init = -1; double cost_tdoa_final = -1;
         AddTDOAFactors(problem, tmin, tmax, traj, tdoaData, pos_anchors, P_I_tag, w_tdoa, tdoa_loss_thres, paramInfoMap, factorMetaTDOA);
-            
+
         tt_build.Toc();
 
 
@@ -793,7 +793,7 @@ public:
             if (src.size() != tgt.size() || src.empty()) {
                 throw std::runtime_error("Source and target must be same size and non-empty.");
             }
-        
+
             MatrixXd src_mat(3, src.size());
             MatrixXd tgt_mat(3, tgt.size());
             for (size_t i = 0; i < src.size(); ++i)
@@ -801,7 +801,7 @@ public:
                 src_mat.col(i) = src[i];
                 tgt_mat.col(i) = tgt[i];
             }
-        
+
             Eigen::Matrix4d transformation = (Eigen::umeyama(src_mat, tgt_mat, false));
             myTf<double> T_tgt_src(transformation);
 
@@ -852,7 +852,7 @@ public:
             se3_rmse += err.dot(err);
         se3_rmse /= se3_err.size();
         se3_rmse = sqrt(se3_rmse);
-        
+
         RINFO(KGRN"Done. %fms"RESET, tt_rmse.Toc());
 
 
@@ -872,7 +872,7 @@ public:
             traj->getDt(),
             tt_solve.GetLastStop(), summary.iterations.size(),
             factorMetaMp2k.size(), factorMetaIMU.size(), factorMetaTDOA.size(),
-            summary.initial_cost, cost_mp2k_init,  cost_imu_init,  cost_tdoa_init,  
+            summary.initial_cost, cost_mp2k_init,  cost_imu_init,  cost_tdoa_init,
             summary.final_cost,   cost_mp2k_final, cost_imu_final, cost_tdoa_final,
             pos_rmse, se3_rmse
         );
@@ -891,7 +891,7 @@ public:
         report["IMUJK"]   = cost_imu_final;
         report["TDOAJK"]  = cost_tdoa_final;
 
-        RINFO(KGRN"Done. %fms\n"RESET, tt_report.Toc());        
+        RINFO(KGRN"Done. %fms\n"RESET, tt_report.Toc());
     }
 
 };
@@ -979,7 +979,7 @@ struct UwbImuBuf
             tmax = max(tmax, tdoa_data.back().t);
         if (imu_data.size() != 0)
             tmax = max(tmax, imu_data.back().t);
-        return tmax;        
+        return tmax;
     }
 };
 
@@ -1004,12 +1004,12 @@ void saveTraj(GaussianProcessPtr traj, const std::string& save_path)
     std::ofstream f_traj(traj_file_name);
 
     std::string gt_file_name = save_path + "gt.txt";
-    std::ofstream f_gt(gt_file_name);    
+    std::ofstream f_gt(gt_file_name);
     for (auto &pose : gtrPoseCloud->points)
     {
         double t_gt = pose.t;
         if (t_gt < traj->getMinTime() || t_gt > traj->getMaxTime())
-            continue;        
+            continue;
         auto est_pose = traj->pose(t_gt);
         Eigen::Vector3d est_pos = est_pose.translation();
         Eigen::Quaterniond est_ort = est_pose.unit_quaternion();
@@ -1019,7 +1019,7 @@ void saveTraj(GaussianProcessPtr traj, const std::string& save_path)
 
         f_gt << std::fixed << t_gt << std::setprecision(7)
              << " " << pose.x << " " << pose.y << " " << pose.z
-             << " " << pose.qx << " " << pose.qy << " " << pose.qz << " " << pose.qw << std::endl;               
+             << " " << pose.qx << " " << pose.qy << " " << pose.qz << " " << pose.qw << std::endl;
     }
     f_traj.close();
     f_gt.close();
@@ -1058,20 +1058,20 @@ void readBag(const std::string& bag_file)
                 IMUData imu(rclcpp::Time(imu_msg->header.stamp).seconds(), acc, gyro);
                 UIBuf.imu_data.push_back(imu);
             }
-            cnt_imu++;            
+            cnt_imu++;
         } else if (!(message->topic_name).compare("/tdoa_data")) {
             rclcpp::Serialization<cf_msgs::msg::Tdoa> serialization;
             auto tdoa_msg = std::make_shared<cf_msgs::msg::Tdoa>();
             rclcpp::SerializedMessage serialized_data(*message->serialized_data);
-            serialization.deserialize_message(&serialized_data, tdoa_msg.get());   
+            serialization.deserialize_message(&serialized_data, tdoa_msg.get());
 
             TDOAData tdoa(rclcpp::Time(tdoa_msg->header.stamp).seconds(), tdoa_msg->ida, tdoa_msg->idb, tdoa_msg->data);
-            UIBuf.tdoa_data.push_back(tdoa);                     
+            UIBuf.tdoa_data.push_back(tdoa);
         } else if (!(message->topic_name).compare("/pose_data")) {
             rclcpp::Serialization<geometry_msgs::msg::PoseWithCovarianceStamped> serialization;
             auto gt_msg = std::make_shared<geometry_msgs::msg::PoseWithCovarianceStamped>();
             rclcpp::SerializedMessage serialized_data(*message->serialized_data);
-            serialization.deserialize_message(&serialized_data, gt_msg.get());   
+            serialization.deserialize_message(&serialized_data, gt_msg.get());
 
             PointPose pose; pose.t = rclcpp::Time(gt_msg->header.stamp).seconds();
             pose.x = gt_msg->pose.pose.position.x; pose.y = gt_msg->pose.pose.position.y; pose.z = gt_msg->pose.pose.position.z;
@@ -1127,22 +1127,22 @@ int main(int argc, char **argv)
     double tskewstep = 0.1;
     Util::GetParam(nh_ptr, "tskew0", tskew0);
     Util::GetParam(nh_ptr, "tskewmax", tskewmax);
-    Util::GetParam(nh_ptr, "tskewstep", tskewstep);  
+    Util::GetParam(nh_ptr, "tskewstep", tskewstep);
 
     vector<double> Dtstep = {0.01};
-    Util::GetParam(nh_ptr, "Dtstep", Dtstep);     
-    
+    Util::GetParam(nh_ptr, "Dtstep", Dtstep);
+
     // Create the trajectory
     GPUIPtr gpmui(new GPUI(nh_ptr));
 
     fs::create_directories(traj_save_path);
     std::ofstream logfile(traj_save_path + "/gptrui.csv", std::ios::out);
     logfile << std::fixed << std::setprecision(6);
-    logfile << "tskew,dt,"   
+    logfile << "tskew,dt,"
                "so3xr3ap_tslv,so3xr3cf_tslv,se3ap_tslv,se3cf_tslv,"
                "so3xr3ap_JK,so3xr3cf_JK,se3ap_JK,se3cf_JK,"
                "so3xr3ap_rmse,so3xr3cf_rmse,se3ap_rmse,se3cf_rmse\n";
-    
+
     auto AssessTraj = [&anc_pose_, &gpmui](UwbImuBuf &data, GaussianProcessPtr &traj, CloudPosePtr &gtrPoseCloud, map<string, double> &report) -> string
     {
         Eigen::Vector3d gravity_sum(0, 0, 0);
@@ -1150,12 +1150,12 @@ int main(int argc, char **argv)
         for (size_t i = 0; i < n_imu; i++) {
             gravity_sum += data.imu_data.at(i).acc;
         }
-        gravity_sum /= n_imu;  
-        g = gravity_sum;  
+        gravity_sum /= n_imu;
+        g = gravity_sum;
         std::cout << "g: " << g.transpose() << std::endl;
 
         bg = Eigen::Vector3d::Zero();
-        ba = Eigen::Vector3d::Zero();        
+        ba = Eigen::Vector3d::Zero();
 
         double t0 = data.minTime();
         traj->setStartTime(t0);
@@ -1213,7 +1213,7 @@ int main(int argc, char **argv)
             // double tdatamax = max(tdatamin, gtrPoseCloud->points.back().t/tskew - tspan);
 
             // // Fixed seed for reproducibility
-            // std::mt19937 rng(1102); 
+            // std::mt19937 rng(1102);
             // std::uniform_real_distribution<double> t0udist(0, 1);
 
             // double tmin = tdatamin;
@@ -1224,7 +1224,7 @@ int main(int argc, char **argv)
             // tmin /= tskew;
             // tmax /= tskew;
 
-            CloudPosePtr gtrPoseCloud_scaled(new CloudPose());        
+            CloudPosePtr gtrPoseCloud_scaled(new CloudPose());
             // #pragma omp parallel for num_threads(MAX_THREADS)
             for(auto &pose : gtrPoseCloud->points)
             {
@@ -1238,7 +1238,7 @@ int main(int argc, char **argv)
 
             UwbImuBuf UIBuf_scale;
             {
-                std::mt19937 rng(1102); 
+                std::mt19937 rng(1102);
                 std::uniform_real_distribution<double> sampler(0.0, 1.0);
                 // #pragma omp parallel for num_threads(MAX_THREADS)
                 for(auto &tdoadata : UIBuf.tdoa_data)
@@ -1246,7 +1246,7 @@ int main(int argc, char **argv)
                     // bool admitted = (sampler(rng) < 1.0/tskew);
                     // if (!admitted)
                     //     continue;
-                    
+
                     double ts = tdoadata.t / tskew;
                     // if(ts > tmin && ts < tmax)
                     {
@@ -1256,7 +1256,7 @@ int main(int argc, char **argv)
                 }
             }
             {
-                std::mt19937 rng(4357); 
+                std::mt19937 rng(4357);
                 std::uniform_real_distribution<double> sampler(0.0, 1.0);
                 // #pragma omp parallel for num_threads(MAX_THREADS)
                 for(auto &imudata : UIBuf.imu_data)
@@ -1281,7 +1281,7 @@ int main(int argc, char **argv)
             map<string, double> so3xr3ap_report;
             map<string, double> so3xr3cf_report;
             map<string, double> se3ap_report;
-            map<string, double> se3cf_report;            
+            map<string, double> se3cf_report;
 
             GaussianProcessPtr trajSO3xR3AP(new GaussianProcess(deltaTm, gpQr, gpQc, false, POSE_GROUP::SO3xR3, lie_epsilon, true));
             GaussianProcessPtr trajSO3xR3CF(new GaussianProcess(deltaTm, gpQr, gpQc, false, POSE_GROUP::SO3xR3, lie_epsilon, false));
@@ -1293,13 +1293,13 @@ int main(int argc, char **argv)
             //     trajSO3xR3CF->setKnot(kidx, trajSO3xR3AP->getKnot(kidx));
             string report_SO3xR3_by_SO3xR3CF = AssessTraj(UIBuf_scale, trajSO3xR3CF, gtrPoseCloud_scaled, so3xr3cf_report);
             string report_SO3xR3_by_SE3AP___ = AssessTraj(UIBuf_scale, trajSE3AP, gtrPoseCloud_scaled, se3ap_report);
-            string report_SO3xR3_by_SE3CF___ = AssessTraj(UIBuf_scale, trajSE3CF, gtrPoseCloud_scaled, se3cf_report);            
+            string report_SO3xR3_by_SE3CF___ = AssessTraj(UIBuf_scale, trajSE3CF, gtrPoseCloud_scaled, se3cf_report);
 
             RINFO("UIBTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SO3xR3AP.c_str());
             RINFO("UIBTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SO3xR3CF.c_str());
             RINFO("UIBTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SE3AP___.c_str());
             RINFO("UIBTraj Dt=%2f, tskew: %.3f. %s", m, tskew, report_SO3xR3_by_SE3CF___.c_str());
-            RINFO("");            
+            RINFO("");
 
             // Save the rmse result to the log
             logfile << tskew << ","
@@ -1318,11 +1318,11 @@ int main(int argc, char **argv)
                     << se3cf_report["rmse"]
                     << endl;
         }
-    }    
+    }
     logfile.close();
 
     rclcpp::shutdown();
 
     RINFO(KGRN "Program Finsihed" RESET);
     return 0;
-} 
+}
