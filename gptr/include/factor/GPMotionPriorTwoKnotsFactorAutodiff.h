@@ -38,8 +38,8 @@ public:
         Qtilde << 1.0/20.0*Dtpow[5], 1.0/8.0*Dtpow[4], 1.0/6.0*Dtpow[3],
                   1.0/08.0*Dtpow[4], 1.0/3.0*Dtpow[3], 1.0/2.0*Dtpow[2],
                   1.0/06.0*Dtpow[3], 1.0/2.0*Dtpow[2], 1.0/1.0*Dtpow[1];
-        Info.block<9, 9>(0, 0) = gpm->kron(Qtilde, gpm->getSigGa());
-        Info.block<9, 9>(9, 9) = gpm->kron(Qtilde, gpm->getSigNu());
+        Info.block<9, 9>(0, 0) = gpm->kron(Qtilde, gpm->getCovROSJerk());
+        Info.block<9, 9>(9, 9) = gpm->kron(Qtilde, gpm->getCovPVAJerk());
         
         // Find the square root info
         // sqrtW = Matrix<double, STATE_DIM, STATE_DIM>::Identity(STATE_DIM, STATE_DIM);
@@ -49,9 +49,8 @@ public:
     template <class T>
     bool operator()(T const *const *parameters, T *residuals) const
     {
-        using SO3T  = Sophus::SO3<T>;
-        using Vec3T = Eigen::Matrix<T, 3, 1>;
-        using Mat3T = Eigen::Matrix<T, 3, 3>;
+        using Vec18T   = Eigen::Matrix<T, STATE_DIM, 1>;
+        using Mat18x3T = Eigen::Matrix<T, STATE_DIM, 3>;
 
         /* #region Map the memory to control points -----------------------------------------------------------------*/
 
@@ -63,39 +62,14 @@ public:
 
         /* #region Calculate the residual ---------------------------------------------------------------------------*/
 
-        SO3T Rab = Xa.R.inverse()*Xb.R;
-        Vec3T Theb = Rab.log();
+        constexpr int RES_SIZE = 18;
 
-        Mat3T JrInvTheb = gpm->JrInv(Theb);
-        Mat3T DJrInvThebOb_DTheb = gpm->DJrInvXV_DX(Theb, Xb.O);
-
-        Vec3T Thedotb = JrInvTheb*Xb.O;
-        Vec3T Theddotb = DJrInvThebOb_DTheb*Thedotb + JrInvTheb*Xb.S;
-
-        double Dtsq = Dt*Dt;
-
-        // Rotational residual
-        Vec3T rRot = Theb - Dt*Xa.O - 0.5*Dtsq*Xa.S;
-
-        // Rotational rate residual
-        Vec3T rRdot = Thedotb - Xa.O - Dt*Xa.S;
-
-        // Rotational acc residual
-        Vec3T rRddot = Theddotb - Xa.S;
-
-        // Positional residual
-        Vec3T rPos = Xb.P - (Xa.P + Dt*Xa.V + 0.5*Dtsq*Xa.A);
-
-        // Velocity residual
-        Vec3T rVel = Xb.V - (Xa.V + Dt*Xa.A);
-
-        // Acceleration residual
-        Vec3T rAcc = Xb.A - Xa.A;
-
-        // Residual
-        Eigen::Map<Matrix<T, STATE_DIM, 1>> residual(residuals);
-        residual << rRot, rRdot, rRddot, rPos, rVel, rAcc;
-        residual = sqrtW*residual;
+        // Compute residual and jacobian
+        Vec18T residual_; vector<Mat18x3T> Dr_DXa_(6, Mat18x3T::Zero()); vector<Mat18x3T> Dr_DXb_(6, Mat18x3T::Zero());
+        gpm->ComputeMotionPriorFactor<T>(Xa, Xb, residual_, Dr_DXa_, Dr_DXb_, false);
+        
+        // Loa the residual
+        Eigen::Map<Vec18T> residual(residuals); residual << residual_;
 
         /* #endregion Calculate the residual ------------------------------------------------------------------------*/
 

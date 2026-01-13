@@ -1,23 +1,26 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-import rospy
-from nav_msgs.msg import Odometry
+import rclpy
+from rclpy.node import Node
 from visualization_msgs.msg import Marker
-from geometry_msgs.msg import Pose
-from tf.transformations import quaternion_multiply as quatmult
-from tf.transformations import quaternion_inverse as quatinv
-from tf.transformations import quaternion_conjugate as quatconj
+from nav_msgs.msg import Odometry
 
-class STLPublisher:
+# For quaternion multiplication
+from tf_transformations import quaternion_multiply as quatmult
+from tf_transformations import quaternion_inverse as quatinv
+
+class STLPublisher(Node):
     def __init__(self):
-        # Initialize the node
-        rospy.init_node('stl_publisher_node', anonymous=True)
-
-        # Define the subscriber to the odometry topic
-        self.odom_sub = rospy.Subscriber('/lidar_0/odom', Odometry, self.odom_callback)
-
-        # Define the publisher to RViz Marker topic
-        self.marker_pub = rospy.Publisher('/cartinbot_marker', Marker, queue_size=10)
+        
+        super().__init__('stl_publisher_node')
+        
+        # Publisher to the visualization_marker topic
+        self.marker_publisher = self.create_publisher(Marker, '/cartinbot_marker', 10)
+        
+        # Subscriber to the input topic
+        self.subscription = self.create_subscription(Odometry, '/lidar_0/odom', self.odom_callback, 10)
+       
+        self.get_logger().info("Odom to marker node has started.")
 
         # Initialize the marker
         self.marker = Marker()
@@ -29,10 +32,11 @@ class STLPublisher:
 
         # Type of marker (MESH_RESOURCE for STL)
         self.marker.type = Marker.MESH_RESOURCE
+        self.marker.action = Marker.ADD
 
         # Marker ID and lifetime (leave 0 for never expire)
         self.marker.id = 0
-        self.marker.lifetime = rospy.Duration()
+        # self.marker.lifetime = rclpy.Duration()
 
         # Set the mesh resource (path to the STL file)
         self.marker.mesh_resource = "package://gptr/scripts/cartinbot.stl"
@@ -48,7 +52,7 @@ class STLPublisher:
         self.marker.color.b = 0.0
         self.marker.color.a = 1.0
 
-    def odom_callback(self, msg):
+    def odom_callback(self, msg: Odometry):
         
         # Extract the position and orientation from the odometry message
         orientation = msg.pose.pose.orientation
@@ -71,18 +75,17 @@ class STLPublisher:
         self.marker.pose.orientation = orientation
 
         # Update the timestamp for RViz
-        self.marker.header.stamp = rospy.Time.now()
+        self.marker.header.stamp = self.get_clock().now().to_msg()
 
         # Publish the marker to RViz
-        self.marker_pub.publish(self.marker)
+        self.marker_publisher.publish(self.marker)
 
-    def run(self):
-        # Keep the node alive
-        rospy.spin()
+def main(args=None):
+    rclpy.init(args=args)
+    node = STLPublisher()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
 
 if __name__ == '__main__':
-    try:
-        node = STLPublisher()
-        node.run()
-    except rospy.ROSInterruptException:
-        pass
+    main()

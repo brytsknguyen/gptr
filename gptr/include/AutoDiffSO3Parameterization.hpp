@@ -3,59 +3,61 @@
 /// @brief Local parametrization for ceres that can be used with Sophus Lie
 /// group implementations.
 template <class Groupd>
-class AutoDiffSO3Parameterization : public ceres::LocalParameterization
+class AutoDiffSO3Parameterization : public ceres::Manifold
 {
 public:
     virtual ~AutoDiffSO3Parameterization() {}
 
     using Tangentd = typename Groupd::Tangent;
 
-    /// @brief plus operation for Ceres
-    ///
-    ///  T * exp(x)
-    ///
-    virtual bool Plus(double const *T_raw, double const *delta_raw,
-                        double *T_plus_delta_raw) const
+    virtual bool Plus(double const *x_, double const *delta_, double *x_plus_delta_) const
     {
-        Eigen::Map<Groupd const> const T(T_raw);
-        Eigen::Map<Tangentd const> const delta(delta_raw);
-        Eigen::Map<Groupd> T_plus_delta(T_plus_delta_raw);
-        T_plus_delta = T * Groupd::exp(delta);
+        Eigen::Map<Groupd const> const x(x_);
+        Eigen::Map<Tangentd const> const delta(delta_);
+        Eigen::Map<Groupd> x_plus_delta(x_plus_delta_);
+
+        x_plus_delta = x * Groupd::exp(delta);
+
         return true;
     }
 
-    ///@brief Jacobian of plus operation for Ceres
-    ///
-    /// Dx T * exp(x)  with  x=0
-    ///
-    /// For SO3 group, function 'Dx_this_mul_exp_x_at_0()' is supposed to return a
-    /// 4*3 matrix, which is
-    ///       /        \ 
-    ///      |  w -z  y |
-    /// J =  |  z  w -x |
-    ///      | -y  x  w |
-    ///      | -x -y -z |
-    ///       \        /
-    virtual bool ComputeJacobian(double const *T_raw,
-                                    double *jacobian_raw) const
+    virtual bool PlusJacobian(const double* x_, double* jacobian_) const
     {
-        Eigen::Map<Groupd const> T(T_raw);
-        Eigen::Map<Eigen::Matrix<double, Groupd::num_parameters, Groupd::DoF,
-                                    Eigen::RowMajor>>
-            jacobian(jacobian_raw);
-        /// check function `Dx_this_mul_exp_x_at_0` in "sophus/so3.hpp" to decide
-        /// which one to use
-#if true
-        jacobian = T.Dx_this_mul_exp_x_at_0();
-#else
-        jacobian = T.Dx_this_mul_exp_x_at_0().transpose();
-#endif
+        Eigen::Map<Groupd const> const x(x_);
+        Eigen::Map<Eigen::Matrix<double, Groupd::num_parameters, Groupd::DoF, Eigen::RowMajor>> jacobian(jacobian_);
+
+        jacobian = x.Dx_this_mul_exp_x_at_0();
+
+        return true;
+    }
+
+    bool Minus(const double *y_, const double *x_, double *y_minus_x_) const
+    {
+        Eigen::Map<Groupd const> const x(x_);
+        Eigen::Map<Groupd const> const y(y_);
+        Eigen::Map<Tangentd> y_minus_x(y_minus_x_);
+
+        y_minus_x = (x.inverse()*y).log();
+
+        return true;
+    }
+
+    virtual bool MinusJacobian(const double* x_, double* jacobian_) const
+    {
+        Eigen::Map<Groupd const> const x(x_);
+        Eigen::Map<Eigen::Matrix<double, Groupd::DoF, Groupd::num_parameters, Eigen::RowMajor>> jacobian(jacobian_);
+        jacobian.setZero();
+
+        jacobian = x.Dx_log_this_inv_by_x_at_this();
+
         return true;
     }
 
     ///@brief Global size
-    virtual int GlobalSize() const { return Groupd::num_parameters; }
+    virtual int AmbientSize() const { return Groupd::num_parameters; }
 
     ///@brief Local size
-    virtual int LocalSize() const { return Groupd::DoF; }
+    virtual int TangentSize() const { return Groupd::DoF; }
 };
+
+typedef AutoDiffSO3Parameterization<SO3d> AutoDiffSO3dParameterization;

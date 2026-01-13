@@ -93,12 +93,7 @@ public:
         /* #region Calculate the pose at sampling time --------------------------------------------------------------*/
 
         GPState Xt(s*Dt); vector<vector<Matrix3d>> DXt_DXa; vector<vector<Matrix3d>> DXt_DXb;
-
-        Eigen::Matrix<double, 9, 1> gammaa;
-        Eigen::Matrix<double, 9, 1> gammab;
-        Eigen::Matrix<double, 9, 1> gammat;
-
-        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
 
         // Residual
         Eigen::Map<Matrix<double, 1, 1>> residual(residuals);
@@ -112,118 +107,34 @@ public:
         if (!jacobians)
             return true;
 
-        Matrix<double, 1, 3> Dr_DPW  = (diff_j.normalized() - diff_i.normalized()).transpose();   
-        Matrix<double, 1, 3> Dr_DRt  = - Dr_DPW * Xt.R.matrix() * SO3d::hat(offset);
-        Matrix<double, 1, 3> Dr_DPt  = Dr_DPW;        
+        constexpr int RES_SIZE = 1;
+
+        Matrix<double, RES_SIZE, 3> Dr_DPW =  (diff_j.normalized() - diff_i.normalized()).transpose();   
+        Matrix<double, RES_SIZE, 3> Dr_DRt = -w*Dr_DPW * Xt.R.matrix() * SO3d::hat(offset);
+        Matrix<double, RES_SIZE, 3> Dr_DPt =  w*Dr_DPW;
 
         size_t idx;
 
-        // Jacobian on Ra
-        idx = RaIdx;
-        if (jacobians[idx])
+        for(size_t idx = Ridx; idx <= Aidx; idx++)
         {
-            Eigen::Map<Eigen::Matrix<double, 1, 4, Eigen::RowMajor>> Dr_DRa(jacobians[idx]);
-            Dr_DRa.setZero();
-            Dr_DRa.block<1, 3>(0, 0) = w*Dr_DRt*DXt_DXa[Ridx][Ridx];
-        }
+            size_t idxa = idx, idxb = idx+RbIdx;
 
-        // Jacobian on Oa
-        idx = OaIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 1, 3, Eigen::RowMajor>> Dr_DOa(jacobians[idx]);
-            Dr_DOa.setZero();
-            Dr_DOa.block<1, 3>(0, 0) = w*Dr_DRt*DXt_DXa[Ridx][Oidx];
-        }
+            if (idx == Ridx)
+            {
+                Eigen::Map<Eigen::Matrix<double, RES_SIZE, 4, Eigen::RowMajor>> Dr_DXa(jacobians[idxa]);
+                Eigen::Map<Eigen::Matrix<double, RES_SIZE, 4, Eigen::RowMajor>> Dr_DXb(jacobians[idxb]);
 
-        // Jacobian on Sa
-        idx = SaIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 1, 3, Eigen::RowMajor>> Dr_DSa(jacobians[idx]);
-            Dr_DSa.setZero();
-            Dr_DSa.block<1, 3>(0, 0) = w*Dr_DRt*DXt_DXa[Ridx][Sidx];
-        }
+                if(jacobians[idxa]) { Dr_DXa.setZero(); Dr_DXa.block<RES_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx] + Dr_DPt*DXt_DXa[Pidx][idx]; }
+                if(jacobians[idxb]) { Dr_DXb.setZero(); Dr_DXb.block<RES_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx] + Dr_DPt*DXt_DXb[Pidx][idx]; }
+            }
+            else
+            {
+                Eigen::Map<Eigen::Matrix<double, RES_SIZE, 3, Eigen::RowMajor>> Dr_DXa(jacobians[idxa]);
+                Eigen::Map<Eigen::Matrix<double, RES_SIZE, 3, Eigen::RowMajor>> Dr_DXb(jacobians[idxb]);
 
-        // Jacobian on Pa
-        idx = PaIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 1, 3, Eigen::RowMajor>> Dr_DPa(jacobians[idx]);
-            Dr_DPa.setZero();
-            Dr_DPa.block<1, 3>(0, 0) = w*Dr_DPt*DXt_DXa[Pidx][Pidx];
-        }
-
-        // Jacobian on Va
-        idx = VaIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 1, 3, Eigen::RowMajor>> Dr_DVa(jacobians[idx]);
-            Dr_DVa.setZero();
-            Dr_DVa.block<1, 3>(0, 0) = w*Dr_DPt*DXt_DXa[Pidx][Vidx];
-        }
-
-        // Jacobian on Aa
-        idx = AaIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 1, 3, Eigen::RowMajor>> Dr_DAa(jacobians[idx]);
-            Dr_DAa.setZero();
-            Dr_DAa.block<1, 3>(0, 0) = w*Dr_DPt*DXt_DXa[Pidx][Aidx];
-        }
-
-        // Jacobian on Rb
-        idx = RbIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 1, 4, Eigen::RowMajor>> Dr_DRb(jacobians[idx]);
-            Dr_DRb.setZero();
-            Dr_DRb.block<1, 3>(0, 0) = w*Dr_DRt*DXt_DXb[Ridx][Ridx];
-        }
-
-        // Jacobian on Ob
-        idx = ObIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 1, 3, Eigen::RowMajor>> Dr_DOb(jacobians[idx]);
-            Dr_DOb.setZero();
-            Dr_DOb.block<1, 3>(0, 0) =  w*Dr_DRt*DXt_DXb[Ridx][Oidx];
-        }
-
-        // Jacobian on Sb
-        idx = SbIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 1, 3, Eigen::RowMajor>> Dr_DSb(jacobians[idx]);
-            Dr_DSb.setZero();
-            Dr_DSb.block<1, 3>(0, 0) =  w*Dr_DRt*DXt_DXb[Ridx][Sidx];
-        }
-
-        // Jacobian on Pb
-        idx = PbIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 1, 3, Eigen::RowMajor>> Dr_DPb(jacobians[idx]);
-            Dr_DPb.setZero();
-            Dr_DPb.block<1, 3>(0, 0) = w*Dr_DPt*DXt_DXb[Pidx][Pidx];
-        }
-
-        // Jacobian on Vb
-        idx = VbIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 1, 3, Eigen::RowMajor>> Dr_DVb(jacobians[idx]);
-            Dr_DVb.setZero();
-            Dr_DVb.block<1, 3>(0, 0) = w*Dr_DPt*DXt_DXb[Pidx][Vidx];
-        }
-
-        // Jacobian on Ab
-        idx = AbIdx;
-        if (jacobians[idx])
-        {
-            Eigen::Map<Eigen::Matrix<double, 1, 3, Eigen::RowMajor>> Dr_DAb(jacobians[idx]);
-            Dr_DAb.setZero();
-            Dr_DAb.block<1, 3>(0, 0) = w*Dr_DPt*DXt_DXb[Pidx][Aidx];
+                if(jacobians[idxa]) { Dr_DXa.setZero(); Dr_DXa.block<RES_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXa[Ridx][idx] + Dr_DPt*DXt_DXa[Pidx][idx]; }
+                if(jacobians[idxb]) { Dr_DXb.setZero(); Dr_DXb.block<RES_SIZE, 3>(0, 0) = Dr_DRt*DXt_DXb[Ridx][idx] + Dr_DPt*DXt_DXb[Pidx][idx]; }
+            }
         }
 
         return true;

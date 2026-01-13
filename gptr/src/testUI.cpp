@@ -1,7 +1,7 @@
 #include "utility.h"
 #include "GaussianProcess.hpp"
 
-#include "factor/GPMotionPriorTwoKnotsFactorUI.h"
+#include "factor/GPMotionPriorTwoKnotsFactor.h"
 #include "factor/GPMotionPriorTwoKnotsFactorAutodiff.h"
 
 #include "factor/GPIMUFactorAutodiff.h"
@@ -15,12 +15,12 @@
 struct FactorMeta
 {
     vector<double *> so3_parameter_blocks;
-    vector<double *> r3_parameter_blocks;
+    vector<double *> rv3_parameter_blocks;
     vector<ceres::ResidualBlockId> residual_blocks;
 
     int parameter_blocks()
     {
-        return (so3_parameter_blocks.size() + r3_parameter_blocks.size());
+        return (so3_parameter_blocks.size() + rv3_parameter_blocks.size());
     }
 };
 
@@ -45,18 +45,18 @@ void GetFactorJacobian(ceres::Problem &problem, FactorMeta &factorMeta,
                        double &cost, vector<double> &residual,
                        MatrixXd &Jacobian)
 {
-    ceres::LocalParameterization *localparameterization;
+    ceres::Manifold *localparameterization;
     for(auto parameter : factorMeta.so3_parameter_blocks)
     {
         if (local_pamaterization_type == 0)
         {
             localparameterization = new AutoDiffSO3Parameterization<SO3d>();
-            problem.SetParameterization(parameter, localparameterization);
+            problem.SetManifold(parameter, localparameterization);
         }
         else
-        {   
+        {
             localparameterization = new GPSO3dLocalParameterization();
-            problem.SetParameterization(parameter, localparameterization);
+            problem.SetManifold(parameter, localparameterization);
         }
     }
 
@@ -125,7 +125,7 @@ void CreateCeresProblem(ceres::Problem &problem, ceres::Solver::Options &options
 void AddAutodiffGPMP2KFactor(GaussianProcessPtr &traj, ceres::Problem &problem, FactorMeta &gpmpFactorMeta)
 {
     vector<double *> so3_param;
-    vector<double *> r3_param;
+    vector<double *> rv3_param;
     vector<ceres::ResidualBlockId> res_ids_gp;
     // Add the GP factors based on knot difference
     for (int kidx = 0; kidx < traj->getNumKnots() - 1; kidx++)
@@ -141,11 +141,11 @@ void AddAutodiffGPMP2KFactor(GaussianProcessPtr &traj, ceres::Problem &problem, 
         for (int knot_idx = kidx; knot_idx < kidx + 2; knot_idx++)
         {
             so3_param.push_back(traj->getKnotSO3(knot_idx).data());
-            r3_param.push_back(traj->getKnotOmg(knot_idx).data());
-            r3_param.push_back(traj->getKnotAlp(knot_idx).data());
-            r3_param.push_back(traj->getKnotPos(knot_idx).data());
-            r3_param.push_back(traj->getKnotVel(knot_idx).data());
-            r3_param.push_back(traj->getKnotAcc(knot_idx).data());
+            rv3_param.push_back(traj->getKnotOmg(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAlp(knot_idx).data());
+            rv3_param.push_back(traj->getKnotPos(knot_idx).data());
+            rv3_param.push_back(traj->getKnotVel(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAcc(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotSO3(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotOmg(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotAlp(knot_idx).data());
@@ -163,18 +163,18 @@ void AddAutodiffGPMP2KFactor(GaussianProcessPtr &traj, ceres::Problem &problem, 
         res_ids_gp.push_back(res_block);
     }
     gpmpFactorMeta.so3_parameter_blocks = so3_param;
-    gpmpFactorMeta.r3_parameter_blocks = r3_param;
+    gpmpFactorMeta.rv3_parameter_blocks = rv3_param;
     gpmpFactorMeta.residual_blocks = res_ids_gp;
     // printf("Autodiff params: %d, %d, %d, %d, %d, %d\n",
     //         so3_param.size(), gpmpFactorMeta.so3_parameter_blocks.size(),
-    //         r3_param.size(), gpmpFactorMeta.r3_parameter_blocks.size(),
+    //         rv3_param.size(), gpmpFactorMeta.rv3_parameter_blocks.size(),
     //         res_ids_gp.size(), gpmpFactorMeta.residual_blocks.size());
 }
 
 void AddAnalyticGPMP2KFactor(GaussianProcessPtr &traj, ceres::Problem &problem, FactorMeta &gpmpFactorMeta)
 {
     vector<double *> so3_param;
-    vector<double *> r3_param;
+    vector<double *> rv3_param;
     vector<ceres::ResidualBlockId> res_ids_gp;
     // Add GP factors between consecutive knots
     for (int kidx = 0; kidx < traj->getNumKnots() - 1; kidx++)
@@ -184,11 +184,11 @@ void AddAnalyticGPMP2KFactor(GaussianProcessPtr &traj, ceres::Problem &problem, 
         for (int knot_idx = kidx; knot_idx < kidx + 2; knot_idx++)
         {
             so3_param.push_back(traj->getKnotSO3(knot_idx).data());
-            r3_param.push_back(traj->getKnotOmg(knot_idx).data());
-            r3_param.push_back(traj->getKnotAlp(knot_idx).data());
-            r3_param.push_back(traj->getKnotPos(knot_idx).data());
-            r3_param.push_back(traj->getKnotVel(knot_idx).data());
-            r3_param.push_back(traj->getKnotAcc(knot_idx).data());
+            rv3_param.push_back(traj->getKnotOmg(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAlp(knot_idx).data());
+            rv3_param.push_back(traj->getKnotPos(knot_idx).data());
+            rv3_param.push_back(traj->getKnotVel(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAcc(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotSO3(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotOmg(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotAlp(knot_idx).data());
@@ -200,24 +200,24 @@ void AddAnalyticGPMP2KFactor(GaussianProcessPtr &traj, ceres::Problem &problem, 
         double mp_loss_thres = -1;
         // nh_ptr->getParam("mp_loss_thres", mp_loss_thres);
         ceres::LossFunction *mp_loss_function = mp_loss_thres <= 0 ? NULL : new ceres::HuberLoss(mp_loss_thres);
-        ceres::CostFunction *cost_function = new GPMotionPriorTwoKnotsFactorUI(traj->getGPMixerPtr());
+        ceres::CostFunction *cost_function = new GPMotionPriorTwoKnotsFactor(traj->getGPMixerPtr());
         auto res_block = problem.AddResidualBlock(cost_function, mp_loss_function, factor_param_blocks);
         res_ids_gp.push_back(res_block);
     }
-    
+
     gpmpFactorMeta.so3_parameter_blocks = so3_param;
-    gpmpFactorMeta.r3_parameter_blocks = r3_param;
+    gpmpFactorMeta.rv3_parameter_blocks = rv3_param;
     gpmpFactorMeta.residual_blocks = res_ids_gp;
     // printf("Analytic params: %d, %d, %d, %d, %d, %d\n",
     //         so3_param.size(), gpmpFactorMeta.so3_parameter_blocks.size(),
-    //         r3_param.size(), gpmpFactorMeta.r3_parameter_blocks.size(),
+    //         rv3_param.size(), gpmpFactorMeta.rv3_parameter_blocks.size(),
     //         res_ids_gp.size(), gpmpFactorMeta.residual_blocks.size());
 }
 
 void AddAutodiffIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, FactorMeta &gpmpFactorMeta, vector<IMUData> &imu_data, Eigen::Vector3d &bg, Eigen::Vector3d &ba, Eigen::Vector3d &g)
 {
     vector<double *> so3_param;
-    vector<double *> r3_param;
+    vector<double *> rv3_param;
     vector<ceres::ResidualBlockId> res_ids_gp;
     // Add the GP factors based on knot difference
     for (int kidx = 0; kidx < imu_data.size(); kidx++)
@@ -227,7 +227,7 @@ void AddAutodiffIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, Fac
         vector<double *> factor_param_blocks;
         auto   us = traj->computeTimeIndex(imu.t);
         int    u  = us.first;
-        double s  = us.second;        
+        double s  = us.second;
         double gp_loss_thres = -1;
         ceres::LossFunction *gp_loss_func = gp_loss_thres == -1 ? NULL : new ceres::HuberLoss(gp_loss_thres);
         GPIMUFactorAutodiff *GPMPFactor = new GPIMUFactorAutodiff(imu.acc, imu.gyro, ba, bg, 1, 1, 1, 1, traj->getGPMixerPtr(), s, traj->getNumKnots());
@@ -237,11 +237,11 @@ void AddAutodiffIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, Fac
         for (int knot_idx = u; knot_idx < u + 2; knot_idx++)
         {
             so3_param.push_back(traj->getKnotSO3(knot_idx).data());
-            r3_param.push_back(traj->getKnotOmg(knot_idx).data());
-            r3_param.push_back(traj->getKnotAlp(knot_idx).data());
-            r3_param.push_back(traj->getKnotPos(knot_idx).data());
-            r3_param.push_back(traj->getKnotVel(knot_idx).data());
-            r3_param.push_back(traj->getKnotAcc(knot_idx).data());
+            rv3_param.push_back(traj->getKnotOmg(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAlp(knot_idx).data());
+            rv3_param.push_back(traj->getKnotPos(knot_idx).data());
+            rv3_param.push_back(traj->getKnotVel(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAcc(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotSO3(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotOmg(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotAlp(knot_idx).data());
@@ -256,30 +256,30 @@ void AddAutodiffIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, Fac
             cost_function->AddParameterBlock(3);
         }
         factor_param_blocks.push_back(bg.data());
-        factor_param_blocks.push_back(ba.data());   
-        factor_param_blocks.push_back(g.data());   
-        r3_param.push_back(bg.data());
-        r3_param.push_back(ba.data());       
-        r3_param.push_back(g.data());   
+        factor_param_blocks.push_back(ba.data());
+        factor_param_blocks.push_back(g.data());
+        rv3_param.push_back(bg.data());
+        rv3_param.push_back(ba.data());
+        rv3_param.push_back(g.data());
         cost_function->AddParameterBlock(3);
-        cost_function->AddParameterBlock(3);           
-        cost_function->AddParameterBlock(3);       
+        cost_function->AddParameterBlock(3);
+        cost_function->AddParameterBlock(3);
         auto res_block = problem.AddResidualBlock(cost_function, gp_loss_func, factor_param_blocks);
         res_ids_gp.push_back(res_block);
     }
     gpmpFactorMeta.so3_parameter_blocks = so3_param;
-    gpmpFactorMeta.r3_parameter_blocks = r3_param;
+    gpmpFactorMeta.rv3_parameter_blocks = rv3_param;
     gpmpFactorMeta.residual_blocks = res_ids_gp;
     // printf("Autodiff params: %d, %d, %d, %d, %d, %d\n",
     //         so3_param.size(), gpmpFactorMeta.so3_parameter_blocks.size(),
-    //         r3_param.size(), gpmpFactorMeta.r3_parameter_blocks.size(),
+    //         rv3_param.size(), gpmpFactorMeta.rv3_parameter_blocks.size(),
     //         res_ids_gp.size(), gpmpFactorMeta.residual_blocks.size());
 }
 
 void AddAnalyticIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, FactorMeta &gpmpFactorMeta, vector<IMUData> &imu_data, Eigen::Vector3d &bg, Eigen::Vector3d &ba, Eigen::Vector3d &g)
 {
     vector<double *> so3_param;
-    vector<double *> r3_param;
+    vector<double *> rv3_param;
     vector<ceres::ResidualBlockId> res_ids_gp;
     for (int kidx = 0; kidx < imu_data.size(); kidx++)
     {
@@ -287,16 +287,16 @@ void AddAnalyticIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, Fac
         vector<double *> factor_param_blocks;
         auto   us = traj->computeTimeIndex(imu.t);
         int    u  = us.first;
-        double s  = us.second;        
+        double s  = us.second;
         // Add the parameter blocks
         for (int knot_idx = u; knot_idx < u + 2; knot_idx++)
         {
             so3_param.push_back(traj->getKnotSO3(knot_idx).data());
-            r3_param.push_back(traj->getKnotOmg(knot_idx).data());
-            r3_param.push_back(traj->getKnotAlp(knot_idx).data());
-            r3_param.push_back(traj->getKnotPos(knot_idx).data());
-            r3_param.push_back(traj->getKnotVel(knot_idx).data());
-            r3_param.push_back(traj->getKnotAcc(knot_idx).data());
+            rv3_param.push_back(traj->getKnotOmg(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAlp(knot_idx).data());
+            rv3_param.push_back(traj->getKnotPos(knot_idx).data());
+            rv3_param.push_back(traj->getKnotVel(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAcc(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotSO3(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotOmg(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotAlp(knot_idx).data());
@@ -305,11 +305,11 @@ void AddAnalyticIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, Fac
             factor_param_blocks.push_back(traj->getKnotAcc(knot_idx).data());
         }
         factor_param_blocks.push_back(bg.data());
-        factor_param_blocks.push_back(ba.data());    
-        factor_param_blocks.push_back(g.data());  
-        r3_param.push_back(bg.data());
-        r3_param.push_back(ba.data());       
-        r3_param.push_back(g.data());            
+        factor_param_blocks.push_back(ba.data());
+        factor_param_blocks.push_back(g.data());
+        rv3_param.push_back(bg.data());
+        rv3_param.push_back(ba.data());
+        rv3_param.push_back(g.data());
         // Create the factors
         double mp_loss_thres = -1;
         // nh_ptr->getParam("mp_loss_thres", mp_loss_thres);
@@ -318,13 +318,13 @@ void AddAnalyticIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, Fac
         auto res_block = problem.AddResidualBlock(cost_function, mp_loss_function, factor_param_blocks);
         res_ids_gp.push_back(res_block);
     }
-    
+
     gpmpFactorMeta.so3_parameter_blocks = so3_param;
-    gpmpFactorMeta.r3_parameter_blocks = r3_param;
+    gpmpFactorMeta.rv3_parameter_blocks = rv3_param;
     gpmpFactorMeta.residual_blocks = res_ids_gp;
     // printf("Analytic params: %d, %d, %d, %d, %d, %d\n",
     //         so3_param.size(), gpmpFactorMeta.so3_parameter_blocks.size(),
-    //         r3_param.size(), gpmpFactorMeta.r3_parameter_blocks.size(),
+    //         rv3_param.size(), gpmpFactorMeta.rv3_parameter_blocks.size(),
     //         res_ids_gp.size(), gpmpFactorMeta.residual_blocks.size());
 }
 
@@ -392,18 +392,19 @@ void TestAnalyticJacobian(ceres::Problem &problem, GaussianProcessPtr &swTraj, v
         VectorXd resdiff = residual_autodiff_ - residual_analytic_;
         MatrixXd jcbdiff = Jacobian_autodiff_ - Jacobian_analytic_;
         // cout << KRED "residual diff:\n" RESET << resdiff.transpose() << endl;
-        // cout << KRED "jacobian diff:\n" RESET << jcbdiff << endl;
+        // cout << KRED "jacobian diff Xa:\n" RESET << jcbdiff.block(0, 0,  18, 18) << endl;
+        // cout << KRED "jacobian diff Xb:\n" RESET << jcbdiff.block(0, 18, 18, 18) << endl;
         // if (maxCoef < jcbdiff.cwiseAbs().maxCoeff() && cidx != 0)
         //     maxCoef = jcbdiff.cwiseAbs().maxCoeff();
         printf(KGRN "CIDX: %d. MotionPrior 2K Jacobian max error: %.4f. Time: %.3f, %.3f. Ratio: %.0f\%\n\n" RESET,
                cidx, jcbdiff.cwiseAbs().maxCoeff(), time_autodiff, time_analytic, time_autodiff/time_analytic*100);
     }
-    
+
     // IMU
     {
-        Eigen::Vector3d bg = Eigen::Vector3d::Zero();        
-        Eigen::Vector3d ba = Eigen::Vector3d::Zero();     
-        Eigen::Vector3d g = Eigen::Vector3d(0, 0, 9.81);     
+        Eigen::Vector3d bg = Eigen::Vector3d::Zero();
+        Eigen::Vector3d ba = Eigen::Vector3d::Zero();
+        Eigen::Vector3d g = Eigen::Vector3d(0, 0, 9.81);
         double time_autodiff;
         VectorXd residual_autodiff_;
         MatrixXd Jacobian_autodiff_;
@@ -482,89 +483,129 @@ int main(int argc, char **argv)
 
     // Test the jacobian internals
     {
-        Matrix3d DJrXVA_DX_analytic = gmp.DJrXV_DX(X, V);
-        Matrix3d DJrXVA_DX_autodiff;
-        DJrXVA_DX_autodiff
+        Matrix3d DJrUV_DU_analytic = gmp.DJrUV_DU(X, V);
+        Matrix3d DJrUV_DU_autodiff;
+        DJrUV_DU_autodiff
           <<  1.4795693330913913078012550976876, -0.09272692763418464904582492184798, -0.60125453973064792810535942193768,
              -0.2078396293352800836208836614803,  2.106797535770925924175386355789,   -0.13284986373953439932235327939372,
              -1.0285119629145335820195952420107, -0.2735388145177689190297496754912,   0.11676300088524277297144403964954;
 
-        printf("DJrXVA_DX_analytic error: %f\n",
-               (DJrXVA_DX_analytic - DJrXVA_DX_autodiff).cwiseAbs().maxCoeff());
-        cout << DJrXVA_DX_analytic << endl;
+        printf("DJrUV_DU_analytic error: %f\n",
+               (DJrUV_DU_analytic - DJrUV_DU_autodiff).cwiseAbs().maxCoeff());
+        cout << DJrUV_DU_analytic << endl;
 
 
 
-        Matrix3d DDJrXVA_DXDX_analytic = gmp.DDJrXVA_DXDX(X, V, A);
-        Matrix3d DDJrXVA_DXDX_autodiff;
-        DDJrXVA_DXDX_autodiff
+        Matrix3d DDJrUVW_DUDU_analytic = gmp.DDJrUVW_DUDU(X, V, A);
+        Matrix3d DDJrUVW_DUDU_autodiff;
+        DDJrUVW_DUDU_autodiff
           << -0.16628561001097342169099087651306,  8.7415558053382500878863515533626,   21.68743802346549542495135587745,
               2.1985844499890389278582167128789,  -8.7635373891101820685190252965589,   0.31275656668973516839002466049998,
              -1.3623292065783150943538504915428,  -0.26089688300928635412337970935968, -6.6683728805496298190367494634219;
 
-        printf("DDJrXVA_DXDX_analytic error: %f\n",
-               (DDJrXVA_DXDX_analytic - DDJrXVA_DXDX_autodiff).cwiseAbs().maxCoeff());
-        cout << DDJrXVA_DXDX_analytic << endl;
+        printf("DDJrUVW_DUDU_analytic error: %f\n",
+               (DDJrUVW_DUDU_analytic - DDJrUVW_DUDU_autodiff).cwiseAbs().maxCoeff());
+        cout << DDJrUVW_DUDU_analytic << endl;
 
 
 
-        Matrix3d DDJrXVA_DXDV_analytic = gmp.DDJrXVA_DXDV(X, V, A);
-        Matrix3d DDJrXVA_DXDV_autodiff;
-        DDJrXVA_DXDV_autodiff
+        Matrix3d DDJrUVW_DUDV_analytic = gmp.DDJrUVW_DUDV(X, V, A);
+        Matrix3d DDJrUVW_DUDV_autodiff;
+        DDJrUVW_DUDV_autodiff
           << 1.8341786490550746913724895583765,  0.72667635330926210250901007030542, -0.58355483236312445440819761247303,
             -1.105371216325137374863550131557,   1.0826099595468673186725431630753,  -0.5789402725088745785550416913433,
              0.3565297928789546325090220978397, -1.3046627728062866767984473282304,   0.57052930243532971888228331378519;
 
-        printf("DDJrXVA_DXDV_analytic error: %f\n",
-               (DDJrXVA_DXDV_analytic - DDJrXVA_DXDV_autodiff).cwiseAbs().maxCoeff());
-        cout << DDJrXVA_DXDV_analytic << endl;
+        printf("DDJrUVW_DUDV_analytic error: %f\n",
+               (DDJrUVW_DUDV_analytic - DDJrUVW_DUDV_autodiff).cwiseAbs().maxCoeff());
+        cout << DDJrUVW_DUDV_analytic << endl;
 
 
 
-        Matrix3d DJrInvXV_DX_analytic = gmp.DJrInvXV_DX(X, V);
-        Matrix3d DJrInvXV_DX_autodiff;
-        DJrInvXV_DX_autodiff
+        Matrix3d DJrInvUV_DU_analytic = gmp.DJrInvUV_DU(X, V);
+        Matrix3d DJrInvUV_DU_autodiff;
+        DJrInvUV_DU_autodiff
           <<  53.850477114916400753611771760056,  128.29236486057202749493046758121,  230.1945527540237207146427817569,
              -125.85089351206730209166669504274, -210.15361822396008007225049065689, -306.92185420033828389935326258456,
               62.016904967876696903384730702615,  43.162622478265109060739271800087,  70.152538431552944140723451235805;
-        printf("DJrInvXV_DX_analytic error: %f\n",
-               (DJrInvXV_DX_analytic - DJrInvXV_DX_autodiff).cwiseAbs().maxCoeff());
-        cout << DJrInvXV_DX_analytic << endl;
+        printf("DJrInvUV_DU_analytic error: %f\n",
+               (DJrInvUV_DU_analytic - DJrInvUV_DU_autodiff).cwiseAbs().maxCoeff());
+        cout << DJrInvUV_DU_analytic << endl;
 
 
 
-        Matrix3d DDJrInvXV_DXDX_analytic = gmp.DDJrInvXVA_DXDX(X, V, A);
-        Matrix3d DDJrInvXV_DXDX_autodiff;
-        DDJrInvXV_DXDX_autodiff
+        Matrix3d DDJrInvUV_DUDX_analytic = gmp.DDJrInvUVW_DUDU(X, V, A);
+        Matrix3d DDJrInvUV_DUDX_autodiff;
+        DDJrInvUV_DUDX_autodiff
           << -6604.1192221875057982056387635241, -11742.978198354910825157363234684, -23023.800403371279667546327746653,
               11716.420889581207373357214899501,   19044.19517655420675726016405003,  30943.951304134615906701614255486,
              -4275.5969103108402017377943730546, -4438.3051006541123211015442832802, -7571.1236170508494051731665778526;
 
-        printf("DDJrInvXV_DXDX_analytic error: %f\n",
-               (DDJrInvXV_DXDX_analytic - DDJrInvXV_DXDX_autodiff).cwiseAbs().maxCoeff());
-        cout << DDJrInvXV_DXDX_analytic << endl;
+        printf("DDJrInvUV_DUDX_analytic error: %f\n",
+               (DDJrInvUV_DUDX_analytic - DDJrInvUV_DUDX_autodiff).cwiseAbs().maxCoeff());
+        cout << DDJrInvUV_DUDX_analytic << endl;
 
 
 
-        Matrix3d DDJrInvXVA_DXDV_analytic = gmp.DDJrInvXVA_DXDV(X, V, A);
-        Matrix3d DDJrInvXVA_DXDV_autodiff;
-        DDJrInvXVA_DXDV_autodiff
+        Matrix3d DDJrInvUVW_DUDV_analytic = gmp.DDJrInvUVW_DUDV(X, V, A);
+        Matrix3d DDJrInvUVW_DUDV_autodiff;
+        DDJrInvUVW_DUDV_autodiff
           << -1085.5492170614632570397368917895,  158.93672159037582796317033606738,  327.51773574524891872295703546664,
               182.93672159037582796317033606738, -972.94238057172044072848333021843,  440.42162827351622385147861947185,
               320.51773574524891872295703546664,  455.42162827351622385147861947185, -359.65343067039712832221988250374;
-    
-        printf("DDJrInvXVA_DXDV_analytic error: %f\n",
-               (DDJrInvXVA_DXDV_analytic - DDJrInvXVA_DXDV_autodiff).cwiseAbs().maxCoeff());
-        cout << DDJrInvXVA_DXDV_analytic << endl;
+
+        printf("DDJrInvUVW_DUDV_analytic error: %f\n",
+               (DDJrInvUVW_DUDV_analytic - DDJrInvUVW_DUDV_autodiff).cwiseAbs().maxCoeff());
+        cout << DDJrInvUVW_DUDV_analytic << endl;
     }
 
+    cout << endl;
 
-    // Check the factor jacobian
+    // Check the SO3xR3 jacobian
     {
+        cout << "Testing Jacobians of SO3xR3" << endl;
+
         double Dt = 0.04357;
-        GaussianProcessPtr traj(new GaussianProcess(Dt, Vector3d(10, 10, 10).asDiagonal(), Vector3d(10, 10, 10).asDiagonal()));
+        GaussianProcessPtr traj(new GaussianProcess(Dt, Vector3d(10, 10, 10).asDiagonal(), Vector3d(10, 10, 10).asDiagonal(), false, POSE_GROUP::SO3xR3));
         traj->setStartTime(0.5743);
         traj->genRandomTrajectory(6);
+
+        ceres::Problem problem;
+        ceres::Solver::Options options;
+        ceres::Solver::Summary summary;
+
+        // Create the ceres problem
+        CreateCeresProblem(problem, options, summary, traj, -0.1, -0.1);
+
+        // Create a random number engine
+        std::random_device rd;  // Will be used to obtain a seed for the random number engine
+        std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
+        // Define a distribution (e.g., uniform distribution in the range [1, 100])
+        std::uniform_int_distribution<> dis(1, 100);
+
+        // Create the fake imu factors
+        int Nknot = traj->getNumKnots();
+        vector<IMUData> imu_data;
+        for(int idx = 0; idx < Nknot - 1; idx++)
+        {
+            double t = traj->getKnotTime(idx) + 0.5 * traj->getDt();
+            Eigen::Vector3d acc = Eigen::Vector3d::Random();
+            Eigen::Vector3d gyro = Eigen::Vector3d::Random();
+            IMUData imu(t, acc, gyro);
+            imu_data.push_back(imu);
+        }
+        // Test the jacobian
+        TestAnalyticJacobian(problem, traj, imu_data, 0);
+    }
+
+    // Check the SE3 jacobian
+    {
+        cout << "Testing Jacobians of SE3" << endl;
+
+        double Dt = 0.04357;
+        GaussianProcessPtr traj(new GaussianProcess(Dt, Vector3d(10, 10, 10).asDiagonal(), Vector3d(10, 10, 10).asDiagonal(), false, POSE_GROUP::SE3));
+        traj->setStartTime(0.5743);
+        traj->genRandomTrajectory(2);
 
         ceres::Problem problem;
         ceres::Solver::Options options;

@@ -38,8 +38,8 @@ public:
         Qtilde << 1.0/20.0*Dtpow[5], 1.0/8.0*Dtpow[4], 1.0/6.0*Dtpow[3],
                   1.0/08.0*Dtpow[4], 1.0/3.0*Dtpow[3], 1.0/2.0*Dtpow[2],
                   1.0/06.0*Dtpow[3], 1.0/2.0*Dtpow[2], 1.0/1.0*Dtpow[1];
-        Info.block<9, 9>(0, 0) = gpm->kron(Qtilde, gpm->getSigGa());
-        Info.block<9, 9>(9, 9) = gpm->kron(Qtilde, gpm->getSigNu());
+        Info.block<9, 9>(0, 0) = gpm->kron(Qtilde, gpm->getCovROSJerk());
+        Info.block<9, 9>(9, 9) = gpm->kron(Qtilde, gpm->getCovPVAJerk());
         
         // Find the square root info
         // sqrtW = Matrix<double, STATE_DIM, STATE_DIM>::Identity(STATE_DIM, STATE_DIM);
@@ -57,7 +57,7 @@ public:
         Vec3 Theb = Rab.log();
 
         Mat3 JrInvTheb = gpm->JrInv(Theb);
-        Mat3 DJrInvThebOb_DTheb = gpm->DJrInvXV_DX(Theb, Xb.O);
+        Mat3 DJrInvThebOb_DTheb = gpm->DJrInvUV_DU(Theb, Xb.O);
 
         Vec3 Thedotb = JrInvTheb*Xb.O;
         Vec3 Theddotb = DJrInvThebOb_DTheb*Thedotb + JrInvTheb*Xb.S;
@@ -100,19 +100,19 @@ public:
         Mat3 DTheb_DRa = -JrInvTheb*Rab.inverse().matrix();
         Mat3 DTheb_DRb =  JrInvTheb;
 
-        Mat3 DThedotb_DTheb = gpm->DJrInvXV_DX(Theb, Xb.O);
+        Mat3 DThedotb_DTheb = gpm->DJrInvUV_DU(Theb, Xb.O);
         Mat3 DThedotb_DRa = DThedotb_DTheb*DTheb_DRa;
         Mat3 DThedotb_DRb = DThedotb_DTheb*DTheb_DRb;
 
-        Mat3 DJrInvThebSb_DTheb = gpm->DJrInvXV_DX(Theb, Xb.S);
-        // Mat3 DJrInvThebOb_DTheb = gpm->DJrInvXV_DX(Theb, Xb.O);
-        Mat3 DDJrInvThebObThedotb_DThebDTheb = gpm->DDJrInvXVA_DXDX(Theb, Xb.O, Thedotb);
+        Mat3 DJrInvThebSb_DTheb = gpm->DJrInvUV_DU(Theb, Xb.S);
+        // Mat3 DJrInvThebOb_DTheb = gpm->DJrInvUV_DU(Theb, Xb.O);
+        Mat3 DDJrInvThebObThedotb_DThebDTheb = gpm->DDJrInvUVW_DUDU(Theb, Xb.O, Thedotb);
         
         Mat3 DTheddotb_DTheb = DJrInvThebSb_DTheb + DDJrInvThebObThedotb_DThebDTheb + DJrInvThebOb_DTheb*DJrInvThebOb_DTheb;
         Mat3 DTheddotb_DRa = DTheddotb_DTheb*DTheb_DRa;
         Mat3 DTheddotb_DRb = DTheddotb_DTheb*DTheb_DRb;
 
-        Mat3 DDJrInvThebObThedotb_DThebDOb = gpm->DDJrInvXVA_DXDV(Theb, Xb.O, Thedotb);
+        Mat3 DDJrInvThebObThedotb_DThebDOb = gpm->DDJrInvUVW_DUDV(Theb, Xb.O, Thedotb);
         Mat3 DTheddotb_DOb = DDJrInvThebObThedotb_DThebDOb + DJrInvThebOb_DTheb*JrInvTheb;        
 
         size_t idx;
@@ -172,7 +172,7 @@ public:
                 Dr_DOb = sqrtW*Dr_DOb;
             }
             
-            // dr_dOb
+            // dr_dSb
             idx = SbIdx;
             {
                 Eigen::Block<MatJ, STATE_DIM, 3> Dr_DSb(jacobian.block<STATE_DIM, 3>(0, idx));
@@ -185,51 +185,66 @@ public:
         // Jacobians on PVAa states
         {
             idx = PaIdx;
-            Eigen::Block<MatJ, STATE_DIM, 3> Dr_DPa(jacobian.block<STATE_DIM, 3>(0, idx));
-            Dr_DPa.setZero();
-            Dr_DPa.block<3, 3>(9,  0) = -Eye;
-            Dr_DPa = sqrtW*Dr_DPa;
+            {
+                Eigen::Block<MatJ, STATE_DIM, 3> Dr_DPa(jacobian.block<STATE_DIM, 3>(0, idx));
+                Dr_DPa.setZero();
+                Dr_DPa.block<3, 3>(9,  0) = -Eye;
+                Dr_DPa = sqrtW*Dr_DPa;
+            }
 
             idx = VaIdx;
-            Eigen::Block<MatJ, STATE_DIM, 3> Dr_DVa(jacobian.block<STATE_DIM, 3>(0, idx));
-            Dr_DVa.setZero();
-            Dr_DVa.block<3, 3>(9,  0) = -DtI;
-            Dr_DVa.block<3, 3>(12, 0) = -Eye;
-            Dr_DVa = sqrtW*Dr_DVa;
+            {
+                Eigen::Block<MatJ, STATE_DIM, 3> Dr_DVa(jacobian.block<STATE_DIM, 3>(0, idx));
+                Dr_DVa.setZero();
+                Dr_DVa.block<3, 3>(9,  0) = -DtI;
+                Dr_DVa.block<3, 3>(12, 0) = -Eye;
+                Dr_DVa = sqrtW*Dr_DVa;
+            }
 
             idx = AaIdx;
-            Eigen::Block<MatJ, STATE_DIM, 3> Dr_DAa(jacobian.block<STATE_DIM, 3>(0, idx));
-            Dr_DAa.setZero();
-            Dr_DAa.block<3, 3>(9,  0) = -0.5*Dt*DtI;
-            Dr_DAa.block<3, 3>(12, 0) = -DtI;
-            Dr_DAa.block<3, 3>(15, 0) = -Eye;
-            Dr_DAa = sqrtW*Dr_DAa;
+            {
+                Eigen::Block<MatJ, STATE_DIM, 3> Dr_DAa(jacobian.block<STATE_DIM, 3>(0, idx));
+                Dr_DAa.setZero();
+                Dr_DAa.block<3, 3>(9,  0) = -DtsqDiv2I;
+                Dr_DAa.block<3, 3>(12, 0) = -DtI;
+                Dr_DAa.block<3, 3>(15, 0) = -Eye;
+                Dr_DAa = sqrtW*Dr_DAa;
+            }
         }
 
         // Jacobians on PVAb states
         {
             idx = PbIdx;
-            Eigen::Block<MatJ, STATE_DIM, 3> Dr_DPb(jacobian.block<STATE_DIM, 3>(0, idx));
-            Dr_DPb.setZero();
-            Dr_DPb.block<3, 3>(9,  0) = Eye;
-            Dr_DPb = sqrtW*Dr_DPb;
+            {
+                Eigen::Block<MatJ, STATE_DIM, 3> Dr_DPb(jacobian.block<STATE_DIM, 3>(0, idx));
+                Dr_DPb.setZero();
+                Dr_DPb.block<3, 3>(9, 0) = Eye;
+                Dr_DPb = sqrtW*Dr_DPb;
+            }
 
             idx = VbIdx;
-            Eigen::Block<MatJ, STATE_DIM, 3> Dr_DVb(jacobian.block<STATE_DIM, 3>(0, idx));
-            Dr_DVb.setZero();
-            Dr_DVb.block<3, 3>(12, 0) = Eye;
-            Dr_DVb = sqrtW*Dr_DVb;
+            {
+                Eigen::Block<MatJ, STATE_DIM, 3> Dr_DVb(jacobian.block<STATE_DIM, 3>(0, idx));
+                Dr_DVb.setZero();
+                Dr_DVb.block<3, 3>(12, 0) = Eye;
+                Dr_DVb = sqrtW*Dr_DVb;
+            }
 
             idx = AbIdx;
-            Eigen::Block<MatJ, STATE_DIM, 3> Dr_DAb(jacobian.block<STATE_DIM, 3>(0, idx));
-            Dr_DAb.setZero();
-            Dr_DAb.block<3, 3>(15, 0) = Eye;
-            Dr_DAb = sqrtW*Dr_DAb;
+            {
+                Eigen::Block<MatJ, STATE_DIM, 3> Dr_DAb(jacobian.block<STATE_DIM, 3>(0, idx));
+                Dr_DAb.setZero();
+                Dr_DAb.block<3, 3>(15, 0) = Eye;
+                Dr_DAb = sqrtW*Dr_DAb;
+            }
         }
 
         return true;
     }
-
+    
+    Matrix<double, 2*STATE_DIM, 2*STATE_DIM> H() { return jacobian.transpose() * jacobian; }
+    Matrix<double, 2*STATE_DIM, 1> b() { return -(jacobian.transpose() * residual); }
+    
     // Residual and Jacobian
     Matrix<double, STATE_DIM, 1> residual;
     Matrix<double, STATE_DIM, 2*STATE_DIM> jacobian;

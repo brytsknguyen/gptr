@@ -39,7 +39,7 @@ public:
 
     // Constructor
     GPProjFactor(const vector<Eigen::Vector2d> &proj_, const vector<int> &id_, const DoubleSphereCamera<double> &cam_model_, std::map<int, Eigen::Vector3d> corner_pos_3d_, double w_,
-                         GPMixerPtr gpm_, double s_)
+                 GPMixerPtr gpm_, double s_)
     :   proj        (proj_            ),
         id          (id_              ),
         corner_pos_3d(corner_pos_3d_  ),
@@ -98,12 +98,7 @@ public:
         /* #region Calculate the pose at sampling time --------------------------------------------------------------*/
 
         GPState Xt(s*Dt); vector<vector<Matrix3d>> DXt_DXa; vector<vector<Matrix3d>> DXt_DXb;
-
-        Eigen::Matrix<double, 9, 1> gammaa;
-        Eigen::Matrix<double, 9, 1> gammab;
-        Eigen::Matrix<double, 9, 1> gammat;
-
-        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
 
         Eigen::Matrix3d R_c_w = (Xt.R.matrix() * R_i_c).transpose();
         Eigen::Vector3d t_c_w = - R_i_c.transpose() * (Xt.R.matrix().transpose() * Xt.P + t_i_c);
@@ -134,334 +129,333 @@ public:
             }
         } else {
 
-            Matrix<double, 3, 3> Dp_DPt  = - R_i_c.transpose() * Xt.R.matrix().transpose();   
+            Matrix3d Rictp = R_i_c.transpose();
+            Matrix<double, 3, 3> Dp_DPt  = - Rictp * Xt.R.matrix().transpose();   
             // Matrix<double, 3, 3> Dp_DRt  = - Dr_DPW * Xt.R.matrix() * SO3d::hat(offset);
             // Matrix<double, 3, 3> Dp_DRic  = Dr_DPW;        
-            Matrix<double, 3, 3> Dp_Dtic  = - R_i_c.transpose();   
+            Matrix<double, 3, 3> Dp_Dtic  = - Rictp;   
 
-            vector<Eigen::Vector3d> vec_p_i;
-            vector<Eigen::Vector3d> vec_p_c;
-            vector<Matrix<double, 2, 3> > vec_Dr_DRt;
-            vector<Matrix<double, 2, 3> > vec_Dr_DPt;
-            vector<Matrix<double, 2, 3> > vec_Dr_DRic;
-            vector<Matrix<double, 2, 3> > vec_Dr_Dtic;
             size_t num_proj = proj.size();
-            vec_Dr_DRt.resize(num_proj);
-            vec_Dr_DPt.resize(num_proj);
-            vec_Dr_DRic.resize(num_proj);
-            vec_Dr_Dtic.resize(num_proj);
+            SparseMatrix<double> Dr_DRt(num_proj*2, 3);
+            SparseMatrix<double> Dr_DPt(num_proj*2, 3);
+            SparseMatrix<double> Dr_DRic(num_proj*2, 3);
+            SparseMatrix<double> Dr_Dtic(num_proj*2, 3);
+
             for (size_t i = 0; i < num_proj; i++) {
+
                 auto iter = corner_pos_3d.find(id[i]);
                 assert(iter != corner_pos_3d.end());
                 Vector3d p_w = iter->second;              
                 Vector3d p_i = Xt.R.matrix().transpose() * (p_w - Xt.P);
-                Vector3d p_c = R_i_c.transpose() * (p_i - t_i_c);
+                Vector3d p_c = Rictp * (p_i - t_i_c);
                 Vector4d p_c4;
                 p_c4 << p_c[0], p_c[1], p_c[2], 1;
 
                 Eigen::Vector2d proj2d;
                 Eigen::Matrix<double, 2, 4> d_r_d_p;
                 bool success = cam_model.project(p_c4, proj2d, &d_r_d_p);
-       
-                if (success) {
-                    residuals[2 * i + 0] = proj2d[0] - proj[i][0];
-                    residuals[2 * i + 1] = proj2d[1] - proj[i][1];        
 
-                    residuals[2 * i + 0] *= w;
-                    residuals[2 * i + 1] *= w;  
+                if (success) {
+                    residuals[2 * i + 0] = w * (proj2d[0] - proj[i][0]);
+                    residuals[2 * i + 1] = w * (proj2d[1] - proj[i][1]);
+
                 } else {
                     residuals[2 * i + 0] = 0;
                     residuals[2 * i + 1] = 0;    
                     d_r_d_p.setZero();                  
                 }
 
-                vec_Dr_DRt[i] = d_r_d_p.leftCols<3>() * R_i_c.transpose() * SO3d::hat(p_i);
-                vec_Dr_DPt[i] = d_r_d_p.leftCols<3>() * Dp_DPt;
-                vec_Dr_DRic[i] = d_r_d_p.leftCols<3>() * SO3d::hat(p_c);
-                vec_Dr_Dtic[i] = d_r_d_p.leftCols<3>() * Dp_Dtic;
+                Util::SetSparseMatBlock<double>(Dr_DRt,  i * 2, 0, w * d_r_d_p.leftCols<3>() * Rictp * SO3d::hat(p_i), false);
+                Util::SetSparseMatBlock<double>(Dr_DPt,  i * 2, 0, w * d_r_d_p.leftCols<3>() * Dp_DPt                , false);
+                Util::SetSparseMatBlock<double>(Dr_DRic, i * 2, 0, w * d_r_d_p.leftCols<3>() * SO3d::hat(p_c)        , false);
+                Util::SetSparseMatBlock<double>(Dr_Dtic, i * 2, 0, w * d_r_d_p.leftCols<3>() * Dp_Dtic               , false);
             }
+
+            Dr_DRt.makeCompressed();
+            Dr_DPt.makeCompressed();
+            Dr_DRic.makeCompressed();
+            Dr_Dtic.makeCompressed();
 
             size_t idx;
 
-            // Jacobian on Ra
-            idx = RaIdx;
-            if (jacobians[idx])
+            for(size_t idx = Ridx; idx <= Aidx; idx++)
             {
-                Eigen::Matrix<double, Eigen::Dynamic, 4, Eigen::RowMajor> Dr_DRa;
-                Dr_DRa.resize(2*num_proj, 4);
-                Dr_DRa.setZero();
-                for (size_t i = 0; i < num_proj; i++) {
-                    Dr_DRa.block<2, 3>(2 * i, 0) = w*vec_Dr_DRt[i]*DXt_DXa[Ridx][Ridx];
+                size_t idxa = idx, idxb = idx+RbIdx;
+
+                if (idx == Ridx)
+                {
+                    Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 4, Eigen::RowMajor>> Dr_DXa(jacobians[idxa], num_proj*2, 4);
+                    Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 4, Eigen::RowMajor>> Dr_DXb(jacobians[idxb], num_proj*2, 4);
+
+                    if(jacobians[idxa]) { Dr_DXa.setZero(); Dr_DXa.block(0, 0, num_proj*2, 3) = Dr_DRt*DXt_DXa[Ridx][idx] + Dr_DPt*DXt_DXa[Pidx][idx]; }
+                    if(jacobians[idxb]) { Dr_DXb.setZero(); Dr_DXb.block(0, 0, num_proj*2, 3) = Dr_DRt*DXt_DXb[Ridx][idx] + Dr_DPt*DXt_DXb[Pidx][idx]; }
+
                 }
-                int idx_jac = 0;
-                for (size_t i = 0; i < 2*num_proj; i++) {
-                    for (size_t j = 0; j < 4; j++) {
-                        jacobians[idx][idx_jac] = Dr_DRa.coeff(i,j);
-                        idx_jac++;
-                    }
+                else
+                {
+                    Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DXa(jacobians[idxa], num_proj*2, 3);
+                    Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DXb(jacobians[idxb], num_proj*2, 3);
+
+                    if(jacobians[idxa]) { Dr_DXa.setZero(); Dr_DXa.block(0, 0, num_proj*2, 3) = Dr_DRt*DXt_DXa[Ridx][idx] + Dr_DPt*DXt_DXa[Pidx][idx]; }
+                    if(jacobians[idxb]) { Dr_DXb.setZero(); Dr_DXb.block(0, 0, num_proj*2, 3) = Dr_DRt*DXt_DXb[Ridx][idx] + Dr_DPt*DXt_DXb[Pidx][idx]; }
+
                 }
+            }
+
+            // // Jacobian on Ra
+            // idx = RaIdx;
+            // if (jacobians[idx])
+            // {
+            //     Eigen::Matrix<double, Eigen::Dynamic, 4, Eigen::RowMajor> Dr_DRa;
+            //     Dr_DRa.resize(2*num_proj, 4);
+            //     Dr_DRa.setZero();
+            //     for (size_t i = 0; i < num_proj; i++) {
+            //         Dr_DRa.block<2, 3>(2 * i, 0) = w*vec_Dr_DRt[i]*DXt_DXa[Ridx][Ridx];
+            //     }
+            //     int idx_jac = 0;
+            //     for (size_t i = 0; i < 2*num_proj; i++) {
+            //         for (size_t j = 0; j < 4; j++) {
+            //             jacobians[idx][idx_jac] = Dr_DRa.coeff(i,j);
+            //             idx_jac++;
+            //         }
+            //     }
                 
-            }
+            // }
 
-            // Jacobian on Oa
-            idx = OaIdx;
-            if (jacobians[idx])
-            {
-                Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DOa;
-                // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DOa(jacobians[idx]);
-                Dr_DOa.resize(2*num_proj, 3);
-                Dr_DOa.setZero();
-                for (size_t i = 0; i < num_proj; i++) {
-                    Dr_DOa.block<2, 3>(2 * i, 0) = w*vec_Dr_DRt[i]*DXt_DXa[Ridx][Oidx];
-                }                
-                int idx_jac = 0;
-                for (size_t i = 0; i < 2*num_proj; i++) {
-                    for (size_t j = 0; j < 3; j++) {
-                        jacobians[idx][idx_jac] = Dr_DOa.coeff(i,j);
-                        idx_jac++;
-                    }
-                }            
-            }
+            // // Jacobian on Oa
+            // idx = OaIdx;
+            // if (jacobians[idx])
+            // {
+            //     Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DOa;
+            //     // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DOa(jacobians[idx]);
+            //     Dr_DOa.resize(2*num_proj, 3);
+            //     Dr_DOa.setZero();
+            //     for (size_t i = 0; i < num_proj; i++) {
+            //         Dr_DOa.block<2, 3>(2 * i, 0) = w*vec_Dr_DRt[i]*DXt_DXa[Ridx][Oidx];
+            //     }                
+            //     int idx_jac = 0;
+            //     for (size_t i = 0; i < 2*num_proj; i++) {
+            //         for (size_t j = 0; j < 3; j++) {
+            //             jacobians[idx][idx_jac] = Dr_DOa.coeff(i,j);
+            //             idx_jac++;
+            //         }
+            //     }            
+            // }
 
-            // Jacobian on Sa
-            idx = SaIdx;
-            if (jacobians[idx])
-            {
-                Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DSa;
-                // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DSa(jacobians[idx]);
-                Dr_DSa.resize(2*num_proj, 3);
-                Dr_DSa.setZero();
-                for (size_t i = 0; i < num_proj; i++) {
-                    Dr_DSa.block<2, 3>(2 * i, 0) = w*vec_Dr_DRt[i]*DXt_DXa[Ridx][Sidx];
-                }                      
-                int idx_jac = 0;
-                for (size_t i = 0; i < 2*num_proj; i++) {
-                    for (size_t j = 0; j < 3; j++) {
-                        jacobians[idx][idx_jac] = Dr_DSa.coeff(i,j);
-                        idx_jac++;
-                    }
-                }            
-            }
+            // // Jacobian on Sa
+            // idx = SaIdx;
+            // if (jacobians[idx])
+            // {
+            //     Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DSa;
+            //     // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DSa(jacobians[idx]);
+            //     Dr_DSa.resize(2*num_proj, 3);
+            //     Dr_DSa.setZero();
+            //     for (size_t i = 0; i < num_proj; i++) {
+            //         Dr_DSa.block<2, 3>(2 * i, 0) = w*vec_Dr_DRt[i]*DXt_DXa[Ridx][Sidx];
+            //     }                      
+            //     int idx_jac = 0;
+            //     for (size_t i = 0; i < 2*num_proj; i++) {
+            //         for (size_t j = 0; j < 3; j++) {
+            //             jacobians[idx][idx_jac] = Dr_DSa.coeff(i,j);
+            //             idx_jac++;
+            //         }
+            //     }            
+            // }
 
-            // Jacobian on Pa
-            idx = PaIdx;
-            if (jacobians[idx])
-            {
-                Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DPa;
-                // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DPa(jacobians[idx]);
-                Dr_DPa.resize(2*num_proj, 3);
-                Dr_DPa.setZero();
-                for (size_t i = 0; i < num_proj; i++) {
-                    Dr_DPa.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXa[Pidx][Pidx];
-                }                      
-                int idx_jac = 0;
-                for (size_t i = 0; i < 2*num_proj; i++) {
-                    for (size_t j = 0; j < 3; j++) {
-                        jacobians[idx][idx_jac] = Dr_DPa.coeff(i,j);
-                        idx_jac++;
-                    }
-                }
-            }
+            // // Jacobian on Pa
+            // idx = PaIdx;
+            // if (jacobians[idx])
+            // {
+            //     Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DPa;
+            //     // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DPa(jacobians[idx]);
+            //     Dr_DPa.resize(2*num_proj, 3);
+            //     Dr_DPa.setZero();
+            //     for (size_t i = 0; i < num_proj; i++) {
+            //         Dr_DPa.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXa[Pidx][Pidx];
+            //     }                      
+            //     int idx_jac = 0;
+            //     for (size_t i = 0; i < 2*num_proj; i++) {
+            //         for (size_t j = 0; j < 3; j++) {
+            //             jacobians[idx][idx_jac] = Dr_DPa.coeff(i,j);
+            //             idx_jac++;
+            //         }
+            //     }
+            // }
 
-            // Jacobian on Va
-            idx = VaIdx;
-            if (jacobians[idx])
-            {
-                Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DVa;
-                // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DVa(jacobians[idx]);
-                Dr_DVa.resize(2*num_proj, 3);
-                Dr_DVa.setZero();
-                for (size_t i = 0; i < num_proj; i++) {
-                    Dr_DVa.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXa[Pidx][Vidx];
-                }                       
-                int idx_jac = 0;
-                for (size_t i = 0; i < 2*num_proj; i++) {
-                    for (size_t j = 0; j < 3; j++) {
-                        jacobians[idx][idx_jac] = Dr_DVa.coeff(i,j);
-                        idx_jac++;
-                    }
-                }
-            }
+            // // Jacobian on Va
+            // idx = VaIdx;
+            // if (jacobians[idx])
+            // {
+            //     Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DVa;
+            //     // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DVa(jacobians[idx]);
+            //     Dr_DVa.resize(2*num_proj, 3);
+            //     Dr_DVa.setZero();
+            //     for (size_t i = 0; i < num_proj; i++) {
+            //         Dr_DVa.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXa[Pidx][Vidx];
+            //     }                       
+            //     int idx_jac = 0;
+            //     for (size_t i = 0; i < 2*num_proj; i++) {
+            //         for (size_t j = 0; j < 3; j++) {
+            //             jacobians[idx][idx_jac] = Dr_DVa.coeff(i,j);
+            //             idx_jac++;
+            //         }
+            //     }
+            // }
 
-            // Jacobian on Aa
-            idx = AaIdx;
-            if (jacobians[idx])
-            {
-                Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DAa;
-                // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DAa(jacobians[idx]);
-                Dr_DAa.resize(2*num_proj, 3);
-                Dr_DAa.setZero();
-                for (size_t i = 0; i < num_proj; i++) {
-                    Dr_DAa.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXa[Pidx][Aidx];
-                }                   
-                int idx_jac = 0;
-                for (size_t i = 0; i < 2*num_proj; i++) {
-                    for (size_t j = 0; j < 3; j++) {
-                        jacobians[idx][idx_jac] = Dr_DAa.coeff(i,j);
-                        idx_jac++;
-                    }
-                }
-            }
+            // // Jacobian on Aa
+            // idx = AaIdx;
+            // if (jacobians[idx])
+            // {
+            //     Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DAa;
+            //     // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DAa(jacobians[idx]);
+            //     Dr_DAa.resize(2*num_proj, 3);
+            //     Dr_DAa.setZero();
+            //     for (size_t i = 0; i < num_proj; i++) {
+            //         Dr_DAa.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXa[Pidx][Aidx];
+            //     }                   
+            //     int idx_jac = 0;
+            //     for (size_t i = 0; i < 2*num_proj; i++) {
+            //         for (size_t j = 0; j < 3; j++) {
+            //             jacobians[idx][idx_jac] = Dr_DAa.coeff(i,j);
+            //             idx_jac++;
+            //         }
+            //     }
+            // }
 
-            // Jacobian on Rb
-            idx = RbIdx;
-            if (jacobians[idx])
-            {
-                Eigen::Matrix<double, Eigen::Dynamic, 4, Eigen::RowMajor> Dr_DRb;
-                // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 4, Eigen::RowMajor>> Dr_DRb(jacobians[idx]);
-                Dr_DRb.resize(2*num_proj, 4);
-                Dr_DRb.setZero();
-                for (size_t i = 0; i < num_proj; i++) {
-                    Dr_DRb.block<2, 3>(2 * i, 0) = w*vec_Dr_DRt[i]*DXt_DXb[Ridx][Ridx];
-                }                
-                int idx_jac = 0;
-                for (size_t i = 0; i < 2*num_proj; i++) {
-                    for (size_t j = 0; j < 4; j++) {
-                        jacobians[idx][idx_jac] = Dr_DRb.coeff(i,j);
-                        idx_jac++;
-                    }
-                }
-            }
+            // // Jacobian on Rb
+            // idx = RbIdx;
+            // if (jacobians[idx])
+            // {
+            //     Eigen::Matrix<double, Eigen::Dynamic, 4, Eigen::RowMajor> Dr_DRb;
+            //     // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 4, Eigen::RowMajor>> Dr_DRb(jacobians[idx]);
+            //     Dr_DRb.resize(2*num_proj, 4);
+            //     Dr_DRb.setZero();
+            //     for (size_t i = 0; i < num_proj; i++) {
+            //         Dr_DRb.block<2, 3>(2 * i, 0) = w*vec_Dr_DRt[i]*DXt_DXb[Ridx][Ridx];
+            //     }                
+            //     int idx_jac = 0;
+            //     for (size_t i = 0; i < 2*num_proj; i++) {
+            //         for (size_t j = 0; j < 4; j++) {
+            //             jacobians[idx][idx_jac] = Dr_DRb.coeff(i,j);
+            //             idx_jac++;
+            //         }
+            //     }
+            // }
 
-            // Jacobian on Ob
-            idx = ObIdx;
-            if (jacobians[idx])
-            {
-                Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DOb;
-                // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DOb(jacobians[idx]);
-                Dr_DOb.resize(2*num_proj, 3);
-                Dr_DOb.setZero();
-                for (size_t i = 0; i < num_proj; i++) {
-                    Dr_DOb.block<2, 3>(2 * i, 0) = w*vec_Dr_DRt[i]*DXt_DXb[Ridx][Oidx];
-                }                        
-                int idx_jac = 0;
-                for (size_t i = 0; i < 2*num_proj; i++) {
-                    for (size_t j = 0; j < 3; j++) {
-                        jacobians[idx][idx_jac] = Dr_DOb.coeff(i,j);
-                        idx_jac++;
-                    }
-                }
-            }
+            // // Jacobian on Ob
+            // idx = ObIdx;
+            // if (jacobians[idx])
+            // {
+            //     Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DOb;
+            //     // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DOb(jacobians[idx]);
+            //     Dr_DOb.resize(2*num_proj, 3);
+            //     Dr_DOb.setZero();
+            //     for (size_t i = 0; i < num_proj; i++) {
+            //         Dr_DOb.block<2, 3>(2 * i, 0) = w*vec_Dr_DRt[i]*DXt_DXb[Ridx][Oidx];
+            //     }                        
+            //     int idx_jac = 0;
+            //     for (size_t i = 0; i < 2*num_proj; i++) {
+            //         for (size_t j = 0; j < 3; j++) {
+            //             jacobians[idx][idx_jac] = Dr_DOb.coeff(i,j);
+            //             idx_jac++;
+            //         }
+            //     }
+            // }
 
-            // Jacobian on Sb
-            idx = SbIdx;
-            if (jacobians[idx])
-            {
-                Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DSb;
-                // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DSb(jacobians[idx]);
-                Dr_DSb.resize(2*num_proj, 3);
-                Dr_DSb.setZero();
-                for (size_t i = 0; i < num_proj; i++) {
-                    Dr_DSb.block<2, 3>(2 * i, 0) = w*vec_Dr_DRt[i]*DXt_DXb[Ridx][Sidx];
-                }                        
-                int idx_jac = 0;
-                for (size_t i = 0; i < 2*num_proj; i++) {
-                    for (size_t j = 0; j < 3; j++) {
-                        jacobians[idx][idx_jac] = Dr_DSb.coeff(i,j);
-                        idx_jac++;
-                    }
-                }
-            }
+            // // Jacobian on Sb
+            // idx = SbIdx;
+            // if (jacobians[idx])
+            // {
+            //     Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DSb;
+            //     // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DSb(jacobians[idx]);
+            //     Dr_DSb.resize(2*num_proj, 3);
+            //     Dr_DSb.setZero();
+            //     for (size_t i = 0; i < num_proj; i++) {
+            //         Dr_DSb.block<2, 3>(2 * i, 0) = w*vec_Dr_DRt[i]*DXt_DXb[Ridx][Sidx];
+            //     }                        
+            //     int idx_jac = 0;
+            //     for (size_t i = 0; i < 2*num_proj; i++) {
+            //         for (size_t j = 0; j < 3; j++) {
+            //             jacobians[idx][idx_jac] = Dr_DSb.coeff(i,j);
+            //             idx_jac++;
+            //         }
+            //     }
+            // }
 
-            // Jacobian on Pb
-            idx = PbIdx;
-            if (jacobians[idx])
-            {
-                Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DPb;
-                // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DPb(jacobians[idx]);
-                Dr_DPb.resize(2*num_proj, 3);
-                Dr_DPb.setZero();
-                for (size_t i = 0; i < num_proj; i++) {
-                    Dr_DPb.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXb[Pidx][Pidx];
-                }                     
-                int idx_jac = 0;
-                for (size_t i = 0; i < 2*num_proj; i++) {
-                    for (size_t j = 0; j < 3; j++) {
-                        jacobians[idx][idx_jac] = Dr_DPb.coeff(i,j);
-                        idx_jac++;
-                    }
-                }
-            }
+            // // Jacobian on Pb
+            // idx = PbIdx;
+            // if (jacobians[idx])
+            // {
+            //     Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DPb;
+            //     // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DPb(jacobians[idx]);
+            //     Dr_DPb.resize(2*num_proj, 3);
+            //     Dr_DPb.setZero();
+            //     for (size_t i = 0; i < num_proj; i++) {
+            //         Dr_DPb.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXb[Pidx][Pidx];
+            //     }                     
+            //     int idx_jac = 0;
+            //     for (size_t i = 0; i < 2*num_proj; i++) {
+            //         for (size_t j = 0; j < 3; j++) {
+            //             jacobians[idx][idx_jac] = Dr_DPb.coeff(i,j);
+            //             idx_jac++;
+            //         }
+            //     }
+            // }
 
-            // Jacobian on Vb
-            idx = VbIdx;
-            if (jacobians[idx])
-            {
-                Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DVb;
-                // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DVb(jacobians[idx]);
-                Dr_DVb.resize(2*num_proj, 3);
-                Dr_DVb.setZero();
-                for (size_t i = 0; i < num_proj; i++) {
-                    Dr_DVb.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXb[Pidx][Vidx];
-                }                      
-                int idx_jac = 0;
-                for (size_t i = 0; i < 2*num_proj; i++) {
-                    for (size_t j = 0; j < 3; j++) {
-                        jacobians[idx][idx_jac] = Dr_DVb.coeff(i,j);
-                        idx_jac++;
-                    }
-                }
-            }
+            // // Jacobian on Vb
+            // idx = VbIdx;
+            // if (jacobians[idx])
+            // {
+            //     Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DVb;
+            //     // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DVb(jacobians[idx]);
+            //     Dr_DVb.resize(2*num_proj, 3);
+            //     Dr_DVb.setZero();
+            //     for (size_t i = 0; i < num_proj; i++) {
+            //         Dr_DVb.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXb[Pidx][Vidx];
+            //     }                      
+            //     int idx_jac = 0;
+            //     for (size_t i = 0; i < 2*num_proj; i++) {
+            //         for (size_t j = 0; j < 3; j++) {
+            //             jacobians[idx][idx_jac] = Dr_DVb.coeff(i,j);
+            //             idx_jac++;
+            //         }
+            //     }
+            // }
 
-            // Jacobian on Ab
-            idx = AbIdx;
-            if (jacobians[idx])
-            {
-                Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DAb;
-                // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DAb(jacobians[idx]);
-                Dr_DAb.resize(2*num_proj, 3);
-                Dr_DAb.setZero();
-                for (size_t i = 0; i < num_proj; i++) {
-                    Dr_DAb.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXb[Pidx][Aidx];
-                }                      
-                int idx_jac = 0;
-                for (size_t i = 0; i < 2*num_proj; i++) {
-                    for (size_t j = 0; j < 3; j++) {
-                        jacobians[idx][idx_jac] = Dr_DAb.coeff(i,j);
-                        idx_jac++;
-                    }
-                }
-            }
+            // // Jacobian on Ab
+            // idx = AbIdx;
+            // if (jacobians[idx])
+            // {
+            //     Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_DAb;
+            //     // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_DAb(jacobians[idx]);
+            //     Dr_DAb.resize(2*num_proj, 3);
+            //     Dr_DAb.setZero();
+            //     for (size_t i = 0; i < num_proj; i++) {
+            //         Dr_DAb.block<2, 3>(2 * i, 0) = w*vec_Dr_DPt[i]*DXt_DXb[Pidx][Aidx];
+            //     }                      
+            //     int idx_jac = 0;
+            //     for (size_t i = 0; i < 2*num_proj; i++) {
+            //         for (size_t j = 0; j < 3; j++) {
+            //             jacobians[idx][idx_jac] = Dr_DAb.coeff(i,j);
+            //             idx_jac++;
+            //         }
+            //     }
+            // }
 
             idx = RicIdx;
             if (jacobians[idx])
             {
-                Eigen::Matrix<double, Eigen::Dynamic, 4, Eigen::RowMajor> Dr_DRic;
-                // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 4, Eigen::RowMajor>> Dr_DRic(jacobians[idx]);
-                Dr_DRic.resize(2*num_proj, 4);
-                Dr_DRic.setZero();
-                for (size_t i = 0; i < num_proj; i++) {
-                    Dr_DRic.block<2, 3>(2 * i, 0) = w*vec_Dr_DRic[i];
-                }                      
-                int idx_jac = 0;
-                for (size_t i = 0; i < 2*num_proj; i++) {
-                    for (size_t j = 0; j < 4; j++) {
-                        jacobians[idx][idx_jac] = Dr_DRic.coeff(i,j);
-                        idx_jac++;
-                    }
-                }
-                
-            }        
+                Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 4, Eigen::RowMajor>> Dr_DRic_(jacobians[idx], num_proj*2, 4);
+                if(jacobians[idx]) { Dr_DRic_.setZero(); Dr_DRic_.block(0, 0, num_proj*2, 3) = Dr_DRic; }
+            }
 
             idx = ticIdx;
             if (jacobians[idx])
             {
-                Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> Dr_Dtic;
-                // Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_Dtic(jacobians[idx]);
-                Dr_Dtic.resize(2*num_proj, 3);
-                Dr_Dtic.setZero();
-                for (size_t i = 0; i < num_proj; i++) {
-                    Dr_Dtic.block<2, 3>(2 * i, 0) = w*vec_Dr_Dtic[i];
-                }                      
-                int idx_jac = 0;
-                for (size_t i = 0; i < 2*num_proj; i++) {
-                    for (size_t j = 0; j < 3; j++) {
-                        jacobians[idx][idx_jac] = Dr_Dtic.coeff(i,j);
-                        idx_jac++;
-                    }
-                }
-                // std::cout << "Dr_Dtic: " << Dr_Dtic << std::endl;
-            }     
+                Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>> Dr_Dtic_(jacobians[idx], num_proj*2, 3);
+                if(jacobians[idx]) { Dr_Dtic_.setZero(); Dr_Dtic_.block(0, 0, num_proj*2, 3) = Dr_Dtic; }
+            }
+
         }
 
         /* #endregion Calculate the pose at sampling time -----------------------------------------------------------*/

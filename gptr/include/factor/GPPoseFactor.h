@@ -39,7 +39,7 @@ public:
 
     // Constructor
     GPPoseFactor(const Quaternd &q_W_B_, const Vector3d &p_W_B_, double w_,
-                GPMixerPtr gpm_, double s_)
+                 GPMixerPtr gpm_, double s_)
     :   q_W_B       (q_W_B_           ),
         p_W_B       (p_W_B_           ),
         w           (w_               ),
@@ -92,12 +92,7 @@ public:
         /* #region Calculate the pose at sampling time --------------------------------------------------------------*/
 
         GPState Xt(s*Dt); vector<vector<Matrix3d>> DXt_DXa; vector<vector<Matrix3d>> DXt_DXb;
-
-        Eigen::Matrix<double, 9, 1> gammaa;
-        Eigen::Matrix<double, 9, 1> gammab;
-        Eigen::Matrix<double, 9, 1> gammat;
-
-        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb, gammaa, gammab, gammat);
+        gpm->ComputeXtAndJacobians(Xa, Xb, Xt, DXt_DXa, DXt_DXb);
 
         // Residual
         Eigen::Map<Matrix<double, 6, 1>> residual(residuals);

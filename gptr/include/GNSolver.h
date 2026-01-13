@@ -26,7 +26,7 @@ class GNSolver
 private:
 
     // Node handle to get information needed
-    ros::NodeHandlePtr nh;
+    NodeHandlePtr nh;
 
     int LIDX;
 
@@ -37,8 +37,8 @@ private:
     GNSolverReport report;
 
     // Weight for the motion prior factors
-    double mpSigGa = 1.0;
-    double mpSigNu = 1.0;
+    double mpCovROSJerk = 1.0;
+    double mpCovPVAJerk = 1.0;
 
     // Solver parameters
     int max_gniter = 3;
@@ -71,7 +71,7 @@ public:
    ~GNSolver();
    
     // Constructor
-    GNSolver(ros::NodeHandlePtr &nh_, int &LIDX_);
+    GNSolver(NodeHandlePtr &nh_, int &LIDX_);
 
     void EvaluateMotionPriorFactors
     (

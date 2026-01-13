@@ -1,6 +1,8 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
-#include "utility.h"
+
+// Ros stuff
+#include "rclcpp/rclcpp.hpp"
 
 /* All needed for filter of custom point type----------*/
 #include <pcl/pcl_base.h>
@@ -16,11 +18,8 @@
 
 // All about gaussian process
 #include "GaussianProcess.hpp"
+#include "utility.h"
 
-// // Custom solver
-// #include "GNSolver.h"
-
-using NodeHandlePtr = boost::shared_ptr<ros::NodeHandle>;
 class LOAM
 {
 private:
@@ -42,8 +41,8 @@ private:
 
     // Knot length
     double deltaT = 0.1;
-    double mpSigGa = 10;
-    double mpSigNu = 10;
+    double mpCovROSJerk = 10;
+    double mpCovPVAJerk = 10;
     
     // Associate params
     int knnSize = 6;
@@ -54,10 +53,10 @@ private:
     deque<CloudXYZITPtr> cloud_seg_buf;
 
     // Publisher
-    ros::Publisher trajPub;
-    ros::Publisher swTrajPub;
-    ros::Publisher assocCloudPub;
-    ros::Publisher deskewedCloudPub;
+    rclcpp::Publisher<RosPc2Msg>::SharedPtr trajPub;
+    rclcpp::Publisher<RosPc2Msg>::SharedPtr swTrajPub;
+    rclcpp::Publisher<RosPc2Msg>::SharedPtr assocCloudPub;
+    rclcpp::Publisher<RosPc2Msg>::SharedPtr deskewedCloudPub;
 
 public:
 
@@ -70,36 +69,45 @@ public:
         lock_guard<mutex> lg(nh_mtx);
 
         // Trajectory estimate
-        nh_ptr->getParam("deltaT", deltaT);
+        Util::GetParam(nh_ptr, "deltaT", deltaT);
 
         // Weight for the motion prior
-        nh_ptr->getParam("mpSigGa", mpSigGa);
-        nh_ptr->getParam("mpSigNu", mpSigNu);
+        Util::GetParam(nh_ptr, "mpCovROSJerk", mpCovROSJerk);
+        Util::GetParam(nh_ptr, "mpCovPVAJerk", mpCovPVAJerk);
+
+        POSE_GROUP pose_type; string pose_type_;
+        Util::GetParam(nh_ptr, "pose_type", pose_type_);
+        pose_type = pose_type_ == "SE3" ? POSE_GROUP::SE3 : POSE_GROUP::SO3xR3;
+        RINFO("Pose representation: %s. Num: %d\n", pose_type_.c_str(), pose_type);
+
+        double lie_epsilon = 1e-3;
+        Util::GetParam(nh_ptr, "lie_epsilon", lie_epsilon);
+
+        bool use_approx_drv =  Util::GetBoolParam(nh_ptr, "use_approx_drv", true);
+        RINFO("use_approx_drv set to %d\n", use_approx_drv);
 
         // Association params
-        nh_ptr->getParam("min_planarity", min_planarity);
-        nh_ptr->getParam("max_plane_dis", max_plane_dis);
-        nh_ptr->getParam("knnSize", knnSize);
+        Util::GetParam(nh_ptr, "min_planarity", min_planarity);
+        Util::GetParam(nh_ptr, "max_plane_dis", max_plane_dis);
+        Util::GetParam(nh_ptr, "knnSize", knnSize);
 
-        trajPub = nh_ptr->advertise<sensor_msgs::PointCloud2>(myprintf("/lidar_%d/gp_traj", LIDX), 1);
-        swTrajPub = nh_ptr->advertise<sensor_msgs::PointCloud2>(myprintf("/lidar_%d/sw_opt", LIDX), 1);
-        assocCloudPub = nh_ptr->advertise<sensor_msgs::PointCloud2>(myprintf("/lidar_%d/assoc_cloud", LIDX), 1);
-        deskewedCloudPub = nh_ptr->advertise<sensor_msgs::PointCloud2>(myprintf("/lidar_%d/cloud_inW", LIDX), 1);
+        trajPub = nh_ptr->create_publisher<RosPc2Msg>(myprintf("/lidar_%d/gp_traj", LIDX), 1);
+        swTrajPub = nh_ptr->create_publisher<RosPc2Msg>(myprintf("/lidar_%d/sw_opt", LIDX), 1);
+        assocCloudPub = nh_ptr->create_publisher<RosPc2Msg>(myprintf("/lidar_%d/assoc_cloud", LIDX), 1);
+        deskewedCloudPub = nh_ptr->create_publisher<RosPc2Msg>(myprintf("/lidar_%d/cloud_inW", LIDX), 1);
 
-        Matrix3d SigGa = Vector3d(mpSigGa, mpSigGa, mpSigGa).asDiagonal();
-        Matrix3d SigNu = Vector3d(mpSigNu, mpSigNu, mpSigNu).asDiagonal();
-
-        traj = GaussianProcessPtr(new GaussianProcess(deltaT, SigGa, SigNu, true));
+        Matrix3d CovROSJerk = Vector3d(mpCovROSJerk, mpCovROSJerk, mpCovROSJerk).asDiagonal();
+        Matrix3d CovPVAJerk = Vector3d(mpCovPVAJerk, mpCovPVAJerk, mpCovPVAJerk).asDiagonal();
+        traj = GaussianProcessPtr(new GaussianProcess(deltaT, CovROSJerk, CovPVAJerk, true, pose_type, lie_epsilon, use_approx_drv));
         traj->setStartTime(t0);
         traj->setKnot(0, GPState(t0, T_W_Li0));
     }
 
-    void Associate(GaussianProcessPtr &traj, const KdFLANNPtr &kdtreeMap, const CloudXYZIPtr &priormap,
+    void Associate(GaussianProcessPtr &traj, const KdFLANNPtr &kdTreeMap, const CloudXYZIPtr &priormap,
                    const CloudXYZITPtr &cloudRaw, const CloudXYZIPtr &cloudInB, const CloudXYZIPtr &cloudInW,
                    vector<LidarCoef> &Coef)
     {
-        ROS_ASSERT_MSG(cloudRaw->size() == cloudInB->size(),
-                       "cloudRaw: %d. cloudInB: %d", cloudRaw->size(), cloudInB->size());
+        assert(cloudRaw->size() == cloudInB->size() && myprintf("cloudRaw: %d. cloudInB: %d", cloudRaw->size(), cloudInB->size()).c_str());
 
         if (priormap->size() > knnSize)
         {
@@ -132,7 +140,7 @@ public:
                     continue;
 
                 vector<int> knn_idx(knnSize, 0); vector<float> knn_sq_dis(knnSize, 0);
-                kdtreeMap->nearestKSearch(pointInW, knnSize, knn_idx, knn_sq_dis);
+                kdTreeMap->nearestKSearch(pointInW, knnSize, knn_idx, knn_sq_dis);
 
                 vector<PointXYZI> nbrPoints;
                 if (knn_sq_dis.back() < minKnnSqDis)
@@ -140,11 +148,11 @@ public:
                         nbrPoints.push_back(priormap->points[idx]);
                 else
                     continue;
-
+                    
                 // Fit the plane
                 if(Util::fitPlane(nbrPoints, min_planarity, max_plane_dis, Coef_[pidx].n, Coef_[pidx].plnrty))
                 {
-                    // ROS_ASSERT(tpoint >= 0);
+                    // assert(tpoint >= 0);
                     Coef_[pidx].t = tpoint;
                     Coef_[pidx].f = Vector3d(pointRaw.x, pointRaw.y, pointRaw.z);
                     Coef_[pidx].finW = Vector3d(pointInW.x, pointInW.y, pointInW.z);
@@ -198,7 +206,7 @@ public:
         }
     }
 
-    void Visualize(double tmin, double tmax, deque<vector<LidarCoef>> &swCloudCoef, CloudXYZIPtr &cloudUndiInW, bool publish_full_traj=false)
+    void Visualize(double tmin, double tmax, vector<vector<LidarCoef>> &swCloudCoef, CloudXYZIPtr &cloudUndiInW, bool publish_full_traj=false)
     {
         if (publish_full_traj)
         {
@@ -210,7 +218,7 @@ public:
             }
 
             // Publish global trajectory
-            Util::publishCloud(trajPub, *trajCP, ros::Time::now(), "world");
+            Util::publishCloud(trajPub, *trajCP, rclcpp::Clock().now(), "world");
         }
 
         // Sample and publish the slinding window trajectory
@@ -219,8 +227,8 @@ public:
             if(traj->TimeInInterval(ts))
                 poseSampled->points.push_back(myTf(traj->pose(ts)).Pose6D(ts));
 
-        // static ros::Publisher swTrajPub = nh_ptr->advertise<sensor_msgs::PointCloud2>(myprintf("/lidar_%d/sw_opt", LIDX), 1);
-        Util::publishCloud(swTrajPub, *poseSampled, ros::Time::now(), "world");
+        // static ros::Publisher swTrajPub = nh_ptr->advertise<RosPc2Msg>(myprintf("/lidar_%d/sw_opt", LIDX), 1);
+        Util::publishCloud(swTrajPub, *poseSampled, rclcpp::Clock().now(), "world");
 
         CloudXYZIPtr assoc_cloud(new CloudXYZI());
         for (int widx = 0; widx < swCloudCoef.size(); widx++)
@@ -236,12 +244,12 @@ public:
                 }
         }
         
-        // static ros::Publisher assocCloudPub = nh_ptr->advertise<sensor_msgs::PointCloud2>(myprintf("/lidar_%d/assoc_cloud", LIDX), 1);
+        // static ros::Publisher assocCloudPub = nh_ptr->advertise<RosPc2Msg>(myprintf("/lidar_%d/assoc_cloud", LIDX), 1);
         if (assoc_cloud->size() != 0)
-            Util::publishCloud(assocCloudPub, *assoc_cloud, ros::Time::now(), "world");
+            Util::publishCloud(assocCloudPub, *assoc_cloud, rclcpp::Clock().now(), "world");
 
         // Publish the deskewed pointCloud
-        Util::publishCloud(deskewedCloudPub, *cloudUndiInW, ros::Time::now(), "world");
+        Util::publishCloud(deskewedCloudPub, *cloudUndiInW, rclcpp::Clock().now(), "world");
     }
 
     GaussianProcessPtr &GetTraj()
