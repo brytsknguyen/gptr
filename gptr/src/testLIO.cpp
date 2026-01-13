@@ -577,6 +577,12 @@ void TestAnalyticJacobian(ceres::Problem &problem, GaussianProcessPtr &swTraj, v
         total_time = tt_autodiff.Toc();
     };
 
+    enum class manifold_type : int
+    {
+        autodiff = 0,
+        analytic = 1
+    };
+
     // Motion priors
     {
         double cost_autodiff;
@@ -591,11 +597,14 @@ void TestAnalyticJacobian(ceres::Problem &problem, GaussianProcessPtr &swTraj, v
             if (gpmp2kFactorMetaAutodiff.parameter_blocks() == 0)
                 return;
 
-            EvaluateFactorClass(problem, gpmp2kFactorMetaAutodiff, 0, residual_autodiff, Jacobian_autodiff, cost_autodiff, time_autodiff, time_autodiff_eval);
+            EvaluateFactorClass(problem, gpmp2kFactorMetaAutodiff, static_cast<int>(manifold_type::autodiff), residual_autodiff, Jacobian_autodiff, cost_autodiff, time_autodiff, time_autodiff_eval);
             printf(KCYN "Motion Prior 2Knot Autodiff Jacobian: Size %2d x %2d. Params: %d. Cost: %f. Time: %f, %f\n",
                    Jacobian_autodiff.rows(), Jacobian_autodiff.cols(),
                    gpmp2kFactorMetaAutodiff.parameter_blocks(),
                    cost_autodiff, time_autodiff, time_autodiff_eval);
+            MatrixXd Jacobian_autodiff_ = Jacobian_autodiff.block(0, 0, 9, 9);
+            // cout << "residual:\n" << residual_autodiff.transpose() << endl;
+            // cout << "jacobian:\n" << Jacobian_autodiff_ << RESET << endl;
         }
 
         double cost_analytic;
@@ -610,11 +619,14 @@ void TestAnalyticJacobian(ceres::Problem &problem, GaussianProcessPtr &swTraj, v
             if (gpmp2kFactorMetaAnalytic.parameter_blocks() == 0)
                 return;
 
-            EvaluateFactorClass(problem, gpmp2kFactorMetaAnalytic, 1, residual_analytic, Jacobian_analytic, cost_analytic, time_analytic, time_analytic_eval);
-            printf(KCYN "Motion Prior 2Knot Autodiff Jacobian: Size %2d x %2d. Params: %d. Cost: %f. Time: %f, %f\n",
+            EvaluateFactorClass(problem, gpmp2kFactorMetaAnalytic, static_cast<int>(manifold_type::analytic), residual_analytic, Jacobian_analytic, cost_analytic, time_analytic, time_analytic_eval);
+            printf(KCYN "Motion Prior 2Knot Analytic Jacobian: Size %2d x %2d. Params: %d. Cost: %f. Time: %f, %f\n",
                    Jacobian_analytic.rows(), Jacobian_analytic.cols(),
                    gpmp2kFactorMetaAnalytic.parameter_blocks(),
                    cost_analytic, time_analytic, time_analytic_eval);
+            MatrixXd Jacobian_analytic_ = Jacobian_analytic.block(0, 0, 9, 9);
+            // cout << "residual:\n" << residual_analytic.transpose() << endl;
+            // cout << "jacobian:\n" << Jacobian_analytic_ << RESET << endl;
         }
 
         printf(KGRN "CIDX: %d. MotionPrior2K Factor. Residual max error: %.4f. Jacobian max error: %.4f. Time: %.3f, %.3f. Ratio: %.0f\%\n\n" RESET,
@@ -815,9 +827,12 @@ int main(int argc, char **argv)
         double Dt = 0.04357;
         Matrix3d mpCovROSJerk = Vector3d(10, 10, 10).asDiagonal();
         Matrix3d mpCovPVAJerk = Vector3d(10, 10, 10).asDiagonal();
-        GaussianProcessPtr traj(new GaussianProcess(Dt, mpCovROSJerk, mpCovPVAJerk, false, POSE_GROUP::SO3xR3, 1e-3, true));
+        GaussianProcessPtr traj(new GaussianProcess(Dt, mpCovROSJerk, mpCovPVAJerk, false, POSE_GROUP::SO3xR3, 1e-3, false));
         traj->setStartTime(0.5743);
         traj->genRandomTrajectory(6);
+
+        // for(int kidx = 0; kidx < traj->getNumKnots(); kidx++)
+        //     traj->getKnotSO3(kidx) = SO3d(Quaternd(0.70710678118, 0.70710678118, 0, 0));
 
         ceres::Problem problem;
         ceres::Solver::Options options;

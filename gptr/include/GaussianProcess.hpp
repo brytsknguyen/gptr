@@ -3013,6 +3013,9 @@ typedef std::shared_ptr<GaussianProcess> GaussianProcessPtr;
 template <class Groupd>
 class GPSO3LocalParameterization : public ceres::Manifold
 {
+public:
+    virtual ~GPSO3LocalParameterization() {}
+
     using Tangentd = typename Groupd::Tangent;
 
     virtual bool Plus(double const *x_, double const *delta_, double *x_plus_delta_) const
@@ -3020,15 +3023,12 @@ class GPSO3LocalParameterization : public ceres::Manifold
         Eigen::Map<Groupd const> const x(x_);
         Eigen::Map<Tangentd const> const delta(delta_);
         Eigen::Map<Groupd> x_plus_delta(x_plus_delta_);
+
         x_plus_delta = x * Groupd::exp(delta);
 
         return true;
     }
 
-    ///@brief Jacobian of plus operation for Ceres
-    ///
-    /// Dx T * exp(x)  with  x=0
-    ///
     virtual bool PlusJacobian(const double* x_, double* jacobian_) const
     {
         Eigen::Map<Groupd const> const x(x_);
@@ -3047,6 +3047,7 @@ class GPSO3LocalParameterization : public ceres::Manifold
         Eigen::Map<Groupd const> const x(x_);
         Eigen::Map<Groupd const> const y(y_);
         Eigen::Map<Tangentd> y_minus_x(y_minus_x_);
+
         y_minus_x = (x.inverse()*y).log();
 
         return true;
@@ -3066,12 +3067,13 @@ class GPSO3LocalParameterization : public ceres::Manifold
     }
 
     ///@brief Global size
-    int AmbientSize() const { return Groupd::num_parameters; }
+    virtual int AmbientSize() const { return Groupd::num_parameters; }
 
     ///@brief Local size
-    int TangentSize() const { return Groupd::DoF; }
+    virtual int TangentSize() const { return Groupd::DoF; }
 
 };
+
 typedef GPSO3LocalParameterization<SO3d> GPSO3dLocalParameterization;
 
 /* #endregion Local parameterization when using ceres ----------------------------------------------------------------*/

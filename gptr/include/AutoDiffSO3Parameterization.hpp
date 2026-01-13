@@ -10,28 +10,22 @@ public:
 
     using Tangentd = typename Groupd::Tangent;
 
-    /// @brief plus operation for Ceres
-    ///
-    ///  T * exp(x)
-    ///
     virtual bool Plus(double const *x_, double const *delta_, double *x_plus_delta_) const
     {
         Eigen::Map<Groupd const> const x(x_);
         Eigen::Map<Tangentd const> const delta(delta_);
         Eigen::Map<Groupd> x_plus_delta(x_plus_delta_);
+
         x_plus_delta = x * Groupd::exp(delta);
 
         return true;
     }
 
-    ///@brief Jacobian of plus operation for Ceres
-    ///
-    /// Dx T * exp(x)  with  x=0
-    ///
     virtual bool PlusJacobian(const double* x_, double* jacobian_) const
     {
         Eigen::Map<Groupd const> const x(x_);
         Eigen::Map<Eigen::Matrix<double, Groupd::num_parameters, Groupd::DoF, Eigen::RowMajor>> jacobian(jacobian_);
+
         jacobian = x.Dx_this_mul_exp_x_at_0();
 
         return true;
@@ -42,6 +36,7 @@ public:
         Eigen::Map<Groupd const> const x(x_);
         Eigen::Map<Groupd const> const y(y_);
         Eigen::Map<Tangentd> y_minus_x(y_minus_x_);
+
         y_minus_x = (x.inverse()*y).log();
 
         return true;
@@ -51,17 +46,18 @@ public:
     {
         Eigen::Map<Groupd const> const x(x_);
         Eigen::Map<Eigen::Matrix<double, Groupd::DoF, Groupd::num_parameters, Eigen::RowMajor>> jacobian(jacobian_);
-        // jacobian.setZero();
+        jacobian.setZero();
+
         jacobian = x.Dx_log_this_inv_by_x_at_this();
 
         return true;
     }
 
     ///@brief Global size
-    int AmbientSize() const { return Groupd::num_parameters; }
+    virtual int AmbientSize() const { return Groupd::num_parameters; }
 
     ///@brief Local size
-    int TangentSize() const { return Groupd::DoF; }
+    virtual int TangentSize() const { return Groupd::DoF; }
 };
 
 typedef AutoDiffSO3Parameterization<SO3d> AutoDiffSO3dParameterization;

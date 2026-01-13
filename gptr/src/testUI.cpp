@@ -15,12 +15,12 @@
 struct FactorMeta
 {
     vector<double *> so3_parameter_blocks;
-    vector<double *> r3_parameter_blocks;
+    vector<double *> rv3_parameter_blocks;
     vector<ceres::ResidualBlockId> residual_blocks;
 
     int parameter_blocks()
     {
-        return (so3_parameter_blocks.size() + r3_parameter_blocks.size());
+        return (so3_parameter_blocks.size() + rv3_parameter_blocks.size());
     }
 };
 
@@ -125,7 +125,7 @@ void CreateCeresProblem(ceres::Problem &problem, ceres::Solver::Options &options
 void AddAutodiffGPMP2KFactor(GaussianProcessPtr &traj, ceres::Problem &problem, FactorMeta &gpmpFactorMeta)
 {
     vector<double *> so3_param;
-    vector<double *> r3_param;
+    vector<double *> rv3_param;
     vector<ceres::ResidualBlockId> res_ids_gp;
     // Add the GP factors based on knot difference
     for (int kidx = 0; kidx < traj->getNumKnots() - 1; kidx++)
@@ -141,11 +141,11 @@ void AddAutodiffGPMP2KFactor(GaussianProcessPtr &traj, ceres::Problem &problem, 
         for (int knot_idx = kidx; knot_idx < kidx + 2; knot_idx++)
         {
             so3_param.push_back(traj->getKnotSO3(knot_idx).data());
-            r3_param.push_back(traj->getKnotOmg(knot_idx).data());
-            r3_param.push_back(traj->getKnotAlp(knot_idx).data());
-            r3_param.push_back(traj->getKnotPos(knot_idx).data());
-            r3_param.push_back(traj->getKnotVel(knot_idx).data());
-            r3_param.push_back(traj->getKnotAcc(knot_idx).data());
+            rv3_param.push_back(traj->getKnotOmg(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAlp(knot_idx).data());
+            rv3_param.push_back(traj->getKnotPos(knot_idx).data());
+            rv3_param.push_back(traj->getKnotVel(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAcc(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotSO3(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotOmg(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotAlp(knot_idx).data());
@@ -163,18 +163,18 @@ void AddAutodiffGPMP2KFactor(GaussianProcessPtr &traj, ceres::Problem &problem, 
         res_ids_gp.push_back(res_block);
     }
     gpmpFactorMeta.so3_parameter_blocks = so3_param;
-    gpmpFactorMeta.r3_parameter_blocks = r3_param;
+    gpmpFactorMeta.rv3_parameter_blocks = rv3_param;
     gpmpFactorMeta.residual_blocks = res_ids_gp;
     // printf("Autodiff params: %d, %d, %d, %d, %d, %d\n",
     //         so3_param.size(), gpmpFactorMeta.so3_parameter_blocks.size(),
-    //         r3_param.size(), gpmpFactorMeta.r3_parameter_blocks.size(),
+    //         rv3_param.size(), gpmpFactorMeta.rv3_parameter_blocks.size(),
     //         res_ids_gp.size(), gpmpFactorMeta.residual_blocks.size());
 }
 
 void AddAnalyticGPMP2KFactor(GaussianProcessPtr &traj, ceres::Problem &problem, FactorMeta &gpmpFactorMeta)
 {
     vector<double *> so3_param;
-    vector<double *> r3_param;
+    vector<double *> rv3_param;
     vector<ceres::ResidualBlockId> res_ids_gp;
     // Add GP factors between consecutive knots
     for (int kidx = 0; kidx < traj->getNumKnots() - 1; kidx++)
@@ -184,11 +184,11 @@ void AddAnalyticGPMP2KFactor(GaussianProcessPtr &traj, ceres::Problem &problem, 
         for (int knot_idx = kidx; knot_idx < kidx + 2; knot_idx++)
         {
             so3_param.push_back(traj->getKnotSO3(knot_idx).data());
-            r3_param.push_back(traj->getKnotOmg(knot_idx).data());
-            r3_param.push_back(traj->getKnotAlp(knot_idx).data());
-            r3_param.push_back(traj->getKnotPos(knot_idx).data());
-            r3_param.push_back(traj->getKnotVel(knot_idx).data());
-            r3_param.push_back(traj->getKnotAcc(knot_idx).data());
+            rv3_param.push_back(traj->getKnotOmg(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAlp(knot_idx).data());
+            rv3_param.push_back(traj->getKnotPos(knot_idx).data());
+            rv3_param.push_back(traj->getKnotVel(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAcc(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotSO3(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotOmg(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotAlp(knot_idx).data());
@@ -206,18 +206,18 @@ void AddAnalyticGPMP2KFactor(GaussianProcessPtr &traj, ceres::Problem &problem, 
     }
 
     gpmpFactorMeta.so3_parameter_blocks = so3_param;
-    gpmpFactorMeta.r3_parameter_blocks = r3_param;
+    gpmpFactorMeta.rv3_parameter_blocks = rv3_param;
     gpmpFactorMeta.residual_blocks = res_ids_gp;
     // printf("Analytic params: %d, %d, %d, %d, %d, %d\n",
     //         so3_param.size(), gpmpFactorMeta.so3_parameter_blocks.size(),
-    //         r3_param.size(), gpmpFactorMeta.r3_parameter_blocks.size(),
+    //         rv3_param.size(), gpmpFactorMeta.rv3_parameter_blocks.size(),
     //         res_ids_gp.size(), gpmpFactorMeta.residual_blocks.size());
 }
 
 void AddAutodiffIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, FactorMeta &gpmpFactorMeta, vector<IMUData> &imu_data, Eigen::Vector3d &bg, Eigen::Vector3d &ba, Eigen::Vector3d &g)
 {
     vector<double *> so3_param;
-    vector<double *> r3_param;
+    vector<double *> rv3_param;
     vector<ceres::ResidualBlockId> res_ids_gp;
     // Add the GP factors based on knot difference
     for (int kidx = 0; kidx < imu_data.size(); kidx++)
@@ -237,11 +237,11 @@ void AddAutodiffIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, Fac
         for (int knot_idx = u; knot_idx < u + 2; knot_idx++)
         {
             so3_param.push_back(traj->getKnotSO3(knot_idx).data());
-            r3_param.push_back(traj->getKnotOmg(knot_idx).data());
-            r3_param.push_back(traj->getKnotAlp(knot_idx).data());
-            r3_param.push_back(traj->getKnotPos(knot_idx).data());
-            r3_param.push_back(traj->getKnotVel(knot_idx).data());
-            r3_param.push_back(traj->getKnotAcc(knot_idx).data());
+            rv3_param.push_back(traj->getKnotOmg(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAlp(knot_idx).data());
+            rv3_param.push_back(traj->getKnotPos(knot_idx).data());
+            rv3_param.push_back(traj->getKnotVel(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAcc(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotSO3(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotOmg(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotAlp(knot_idx).data());
@@ -258,9 +258,9 @@ void AddAutodiffIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, Fac
         factor_param_blocks.push_back(bg.data());
         factor_param_blocks.push_back(ba.data());
         factor_param_blocks.push_back(g.data());
-        r3_param.push_back(bg.data());
-        r3_param.push_back(ba.data());
-        r3_param.push_back(g.data());
+        rv3_param.push_back(bg.data());
+        rv3_param.push_back(ba.data());
+        rv3_param.push_back(g.data());
         cost_function->AddParameterBlock(3);
         cost_function->AddParameterBlock(3);
         cost_function->AddParameterBlock(3);
@@ -268,18 +268,18 @@ void AddAutodiffIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, Fac
         res_ids_gp.push_back(res_block);
     }
     gpmpFactorMeta.so3_parameter_blocks = so3_param;
-    gpmpFactorMeta.r3_parameter_blocks = r3_param;
+    gpmpFactorMeta.rv3_parameter_blocks = rv3_param;
     gpmpFactorMeta.residual_blocks = res_ids_gp;
     // printf("Autodiff params: %d, %d, %d, %d, %d, %d\n",
     //         so3_param.size(), gpmpFactorMeta.so3_parameter_blocks.size(),
-    //         r3_param.size(), gpmpFactorMeta.r3_parameter_blocks.size(),
+    //         rv3_param.size(), gpmpFactorMeta.rv3_parameter_blocks.size(),
     //         res_ids_gp.size(), gpmpFactorMeta.residual_blocks.size());
 }
 
 void AddAnalyticIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, FactorMeta &gpmpFactorMeta, vector<IMUData> &imu_data, Eigen::Vector3d &bg, Eigen::Vector3d &ba, Eigen::Vector3d &g)
 {
     vector<double *> so3_param;
-    vector<double *> r3_param;
+    vector<double *> rv3_param;
     vector<ceres::ResidualBlockId> res_ids_gp;
     for (int kidx = 0; kidx < imu_data.size(); kidx++)
     {
@@ -292,11 +292,11 @@ void AddAnalyticIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, Fac
         for (int knot_idx = u; knot_idx < u + 2; knot_idx++)
         {
             so3_param.push_back(traj->getKnotSO3(knot_idx).data());
-            r3_param.push_back(traj->getKnotOmg(knot_idx).data());
-            r3_param.push_back(traj->getKnotAlp(knot_idx).data());
-            r3_param.push_back(traj->getKnotPos(knot_idx).data());
-            r3_param.push_back(traj->getKnotVel(knot_idx).data());
-            r3_param.push_back(traj->getKnotAcc(knot_idx).data());
+            rv3_param.push_back(traj->getKnotOmg(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAlp(knot_idx).data());
+            rv3_param.push_back(traj->getKnotPos(knot_idx).data());
+            rv3_param.push_back(traj->getKnotVel(knot_idx).data());
+            rv3_param.push_back(traj->getKnotAcc(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotSO3(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotOmg(knot_idx).data());
             factor_param_blocks.push_back(traj->getKnotAlp(knot_idx).data());
@@ -307,9 +307,9 @@ void AddAnalyticIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, Fac
         factor_param_blocks.push_back(bg.data());
         factor_param_blocks.push_back(ba.data());
         factor_param_blocks.push_back(g.data());
-        r3_param.push_back(bg.data());
-        r3_param.push_back(ba.data());
-        r3_param.push_back(g.data());
+        rv3_param.push_back(bg.data());
+        rv3_param.push_back(ba.data());
+        rv3_param.push_back(g.data());
         // Create the factors
         double mp_loss_thres = -1;
         // nh_ptr->getParam("mp_loss_thres", mp_loss_thres);
@@ -320,11 +320,11 @@ void AddAnalyticIMUFactor(GaussianProcessPtr &traj, ceres::Problem &problem, Fac
     }
 
     gpmpFactorMeta.so3_parameter_blocks = so3_param;
-    gpmpFactorMeta.r3_parameter_blocks = r3_param;
+    gpmpFactorMeta.rv3_parameter_blocks = rv3_param;
     gpmpFactorMeta.residual_blocks = res_ids_gp;
     // printf("Analytic params: %d, %d, %d, %d, %d, %d\n",
     //         so3_param.size(), gpmpFactorMeta.so3_parameter_blocks.size(),
-    //         r3_param.size(), gpmpFactorMeta.r3_parameter_blocks.size(),
+    //         rv3_param.size(), gpmpFactorMeta.rv3_parameter_blocks.size(),
     //         res_ids_gp.size(), gpmpFactorMeta.residual_blocks.size());
 }
 
@@ -559,6 +559,7 @@ int main(int argc, char **argv)
         cout << DDJrInvUVW_DUDV_analytic << endl;
     }
 
+    cout << endl;
 
     // Check the SO3xR3 jacobian
     {
