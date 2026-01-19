@@ -32,7 +32,7 @@ namespace fs = std::filesystem;
 
 using namespace std;
 
-NodeHandlePtr nh_ptr;
+RosNodeHandlePtr nh_ptr;
 
 class GPUI
 {
@@ -41,7 +41,7 @@ typedef SparseMatrix<double> SMd;
 private:
 
     // Node handle to get information needed
-    NodeHandlePtr nh;
+    RosNodeHandlePtr nh;
 
     // Map of traj-kidx and parameter id
     map<pair<int, int>, int> tk2p;
@@ -82,7 +82,7 @@ public:
 
 
     // Constructor
-    GPUI(NodeHandlePtr &nh_) : nh(nh_)
+    GPUI(RosNodeHandlePtr &nh_) : nh(nh_)
     {
         Util::GetParam(nh, "mp_loss_thres" , mp_loss_thres );
     }

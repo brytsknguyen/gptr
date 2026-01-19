@@ -17,7 +17,7 @@
 using namespace std;
 namespace fs = std::filesystem;
 
-NodeHandlePtr nh_ptr;
+RosNodeHandlePtr nh_ptr;
 string log_dir;
 
 // Ground truth trajectory
@@ -76,7 +76,7 @@ public:
     }
 
 private:
-    
+
     int n = 1;
 };
 
@@ -96,7 +96,7 @@ public:
     double getwpx() { return wpx2*n; }
     double getwpy() { return wpy2*n; }
     double getwpz() { return wpz2*n; }
-            
+
     myTf<double> pose(double t) const
     {
         Vector3d P( rpx2*sin(wpx2*n*t + 43),
@@ -195,7 +195,7 @@ void AddMP2KFactors(ceres::Problem &problem, GaussianProcessPtr &traj, FactorMet
     {
         vector<double *> factor_param_blocks;
         factorMeta.coupled_params.push_back(vector<ParamInfo>());
-        
+
         // Add the parameter blocks
         for (int kidx_ = kidx; kidx_ < kidx + 2; kidx_++)
         {
@@ -212,16 +212,16 @@ void AddMP2KFactors(ceres::Problem &problem, GaussianProcessPtr &traj, FactorMet
             factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAlp(kidx_).data()]);
             factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotPos(kidx_).data()]);
             factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotVel(kidx_).data()]);
-            factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx_).data()]);       
+            factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx_).data()]);
         }
 
         // Record the time stamp of the factor
         factorMeta.stamp.push_back(traj->getKnotTime(kidx+1));
-    
+
         // Create the factors
         ceres::CostFunction *cost_function = new GPMotionPriorTwoKnotsFactor(traj->getGPMixerPtr());
         auto res_block = problem.AddResidualBlock(cost_function, NULL, factor_param_blocks);
-        
+
         // Record the residual block
         factorMeta.res.push_back(res_block);
     }
@@ -231,7 +231,7 @@ template <typename T>
 void AddUWBFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T &trajGtr, FactorMeta &factorMeta, ParamInfoMap &paramInfoMap)
 {
     // Random number generator with fixed seed for reproducibility
-    std::mt19937 rng(571991);  
+    std::mt19937 rng(571991);
     std::normal_distribution<double> noise_dist(0.0, uwb_noise);
 
     for (double ts = traj->getMinTime(); ts < traj->getMaxTime(); ts+=(1.0/uwb_rate))
@@ -241,7 +241,7 @@ void AddUWBFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T &t
         auto   us = traj->computeTimeIndex(ts);
         int    u  = us.first;
         double s  = us.second;
-        
+
         // static vector<vector<pair<int, int>>> pairs(tags.size());
         // if (pairs[0].size() == 0)
         // {
@@ -255,7 +255,7 @@ void AddUWBFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T &t
         //         }
         //     }
         // }
-                    
+
         // int curr_pair_idx = -1;
         // curr_pair_idx = (curr_pair_idx + 1) % anchors.size();
         for(int tidx = 0; tidx < tags.size(); tidx++)
@@ -273,7 +273,7 @@ void AddUWBFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T &t
 
                 vector<double *> factor_param_blocks;
                 factorMeta.coupled_params.push_back(vector<ParamInfo>());
-                
+
                 // Add the parameter blocks for rotation
                 for (int kidx = u; kidx < u + 2; kidx++)
                 {
@@ -290,7 +290,7 @@ void AddUWBFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T &t
                     factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAlp(kidx).data()]);
                     factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotPos(kidx).data()]);
                     factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotVel(kidx).data()]);
-                    factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);             
+                    factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);
                 }
 
                 // Record the time stamp of the factor
@@ -298,7 +298,7 @@ void AddUWBFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T &t
 
                 ceres::CostFunction *cost_function = new GPTWRFactor(twr, pos_anc, pos_tag, 1.0, traj->getGPMixerPtr(), s);
                 auto res = problem.AddResidualBlock(cost_function, NULL, factor_param_blocks);
-                
+
                 // Record the residual block
                 factorMeta.res.push_back(res);
             }
@@ -321,7 +321,7 @@ void InitializeTrajEst(double t0, GaussianProcessPtr &traj, const T &gtTraj)
         traj->extendOneKnot(traj->getKnot(traj->getNumKnots()-1));
 
     // Fixed seed for reproducibility
-    std::mt19937 rng(43); 
+    std::mt19937 rng(43);
     // Define a uniform distribution (e.g., integers between 1 and 100)
     std::normal_distribution<double> rdist(0.0, 0.2);
     std::normal_distribution<double> pdist(0.0, 0.5);
@@ -416,13 +416,13 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
         se3_rmse += err.dot(err);
     se3_rmse /= se3_err.size();
     se3_rmse = sqrt(se3_rmse);
-    
+
     RINFO(KGRN"Done. %fms"RESET, tt_rmse.Toc());
 
 
     RINFO("Drafting report ...");
     TicToc tt_report;
-    
+
     string report_ = myprintf(
         "Pose group: %s. Method: %s. Dt: %.3f."
         "Tslv: %.0f. Iterations: %d.\n"
@@ -450,10 +450,10 @@ string AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double
     report["UWBJ0"]   = cost_uwb_init;
     report["MP2KJK"]  = cost_mp2k_final;
     report["UWBJK"]   = cost_uwb_final;
-    
+
     RINFO(KGRN"Done. %fms\n"RESET, tt_report.Toc());
 
-    
+
     return report_;
 }
 
@@ -502,7 +502,7 @@ int main(int argc, char **argv)
     Util::GetParam(nh_ptr, "mpCovROSJerk", mpCovROSJerk);
     Util::GetParam(nh_ptr, "mpCovPVAJerk", mpCovPVAJerk);
     Util::GetParam(nh_ptr, "lie_epsilon", lie_epsilon);
-    
+
     string pose_type_; Util::GetParam(nh_ptr, "pose_type", pose_type_); pose_type = pose_type_ == "SE3" ? POSE_GROUP::SE3 : POSE_GROUP::SO3xR3;
     bool use_approx_drv =  Util::GetBoolParam(nh_ptr, "use_approx_drv", true);
     bool random_start =  Util::GetBoolParam(nh_ptr, "random_start", true);
@@ -527,7 +527,7 @@ int main(int argc, char **argv)
     // Get param of UWB
     Util::GetParam(nh_ptr, "uwb_rate", uwb_rate);
     Util::GetParam(nh_ptr, "uwb_noise", uwb_noise);
-    
+
     RINFO("UWB rate: %f", uwb_rate);
     RINFO("UWB noise: %f", uwb_noise);
 
@@ -535,16 +535,16 @@ int main(int argc, char **argv)
     // Get param for experiments
     Util::GetParam(nh_ptr, "Dtstep", Dtstep);
     Util::GetParam(nh_ptr, "Wstep",  Wstep);
-    
+
     RINFO("Dtstep: %f -> %f", Dtstep.front(), Dtstep.back());
     RINFO("Wstep: %d -> %d", Wstep.front(), Wstep.back());
 
 
     // Fixed seed for reproducibility
-    std::mt19937 rng(1102); 
+    std::mt19937 rng(1102);
     // Define a uniform distribution (e.g., integers between 1 and 100)
     std::uniform_real_distribution<double> t0udist(-10, 10);
-    
+
 
     auto Experiment = [&](string logname, auto gtrTraj, string gtrTrajType, const vector<double> &M, const vector<long int> &N)
     {

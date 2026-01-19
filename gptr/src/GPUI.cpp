@@ -17,7 +17,7 @@
 
 using namespace std;
 
-NodeHandlePtr nh_ptr;
+RosNodeHandlePtr nh_ptr;
 
 std::map<uint16_t, Eigen::Vector3d> getAnchorListFromUTIL(const std::string &anchor_path)
 {

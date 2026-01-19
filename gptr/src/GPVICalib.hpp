@@ -14,7 +14,7 @@ class GPMVICalib
 
 private:
     // Node handle to get information needed
-    NodeHandlePtr nh;
+    RosNodeHandlePtr nh;
 
     // Map of traj-kidx and parameter id
     map<pair<int, int>, int> tk2p;
@@ -26,7 +26,7 @@ public:
     ~GPMVICalib() {};
 
     // Constructor
-    GPMVICalib(NodeHandlePtr &nh_) : nh(nh_) {};
+    GPMVICalib(RosNodeHandlePtr &nh_) : nh(nh_) {};
 
     void AddTrajParams(
         ceres::Problem &problem, double tmin, double tmax, double tmid,

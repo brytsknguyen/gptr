@@ -26,7 +26,7 @@ class GNSolver
 private:
 
     // Node handle to get information needed
-    NodeHandlePtr nh;
+    RosNodeHandlePtr nh;
 
     int LIDX;
 
@@ -56,7 +56,7 @@ private:
 
     // Matrix to solve the covariance
     SparseMatrix<double> InvCov;
-    
+
     // Value of the keep state for prior
     map<int, GPState<double>>  knots_keep_gbidx_state;
 
@@ -69,9 +69,9 @@ public:
 
     // Destructor
    ~GNSolver();
-   
+
     // Constructor
-    GNSolver(NodeHandlePtr &nh_, int &LIDX_);
+    GNSolver(RosNodeHandlePtr &nh_, int &LIDX_);
 
     void EvaluateMotionPriorFactors
     (

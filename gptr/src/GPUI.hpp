@@ -15,7 +15,7 @@ typedef SparseMatrix<double> SMd;
 private:
 
     // Node handle to get information needed
-    NodeHandlePtr nh;
+    RosNodeHandlePtr nh;
 
     // Map of traj-kidx and parameter id
     map<pair<int, int>, int> tk2p;
@@ -57,9 +57,9 @@ public:
         Jacobian = CRSToEigenDense(Jacobian_);
     }
 
-   
+
     // Constructor
-    GPUI(NodeHandlePtr &nh_) : nh(nh_)
+    GPUI(RosNodeHandlePtr &nh_) : nh(nh_)
     {
         Util::GetParam(nh, "mp_loss_thres" , mp_loss_thres );
     }
@@ -160,14 +160,14 @@ public:
         {
             if (!traj->TimeInInterval(imu.t, 1e-6))
                 continue;
-            
+
             auto   us = traj->computeTimeIndex(imu.t);
             int    u  = us.first;
             double s  = us.second;
 
             if (u < kidxmin || u + 1 >= kidxmax)
                 continue;
-      
+
             vector<double *> factor_param_blocks;
             factorMeta.coupled_params.push_back(vector<ParamInfo>());
             // Add the parameter blocks for rotation
@@ -186,15 +186,15 @@ public:
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAlp(kidx).data()]);
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotPos(kidx).data()]);
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotVel(kidx).data()]);
-                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);               
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);
             }
 
             factor_param_blocks.push_back(XBIG.data());
-            factor_param_blocks.push_back(XBIA.data());  
-            factor_param_blocks.push_back(g.data());  
+            factor_param_blocks.push_back(XBIA.data());
+            factor_param_blocks.push_back(g.data());
             factorMeta.coupled_params.back().push_back(paramInfoMap[XBIG.data()]);
-            factorMeta.coupled_params.back().push_back(paramInfoMap[XBIA.data()]);          
-            factorMeta.coupled_params.back().push_back(paramInfoMap[g.data()]);                       
+            factorMeta.coupled_params.back().push_back(paramInfoMap[XBIA.data()]);
+            factorMeta.coupled_params.back().push_back(paramInfoMap[g.data()]);
 
             // Record the time stamp of the factor
             factorMeta.stamp.push_back(imu.t);
@@ -225,7 +225,7 @@ public:
         {
             if (!traj->TimeInInterval(tdoa.t, 1e-6))
                 continue;
-            
+
             auto   us = traj->computeTimeIndex(tdoa.t);
             int    u  = us.first;
             double s  = us.second;
@@ -234,11 +234,11 @@ public:
                 continue;
 
             Eigen::Vector3d pos_an_A = pos_anchors[tdoa.idA];
-            Eigen::Vector3d pos_an_B = pos_anchors[tdoa.idB];          
+            Eigen::Vector3d pos_an_B = pos_anchors[tdoa.idB];
 
             vector<double *> factor_param_blocks;
             factorMeta.coupled_params.push_back(vector<ParamInfo>());
-            
+
             // Add the parameter blocks for rotation
             for (int kidx = u; kidx < u + 2; kidx++)
             {
@@ -255,7 +255,7 @@ public:
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAlp(kidx).data()]);
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotPos(kidx).data()]);
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotVel(kidx).data()]);
-                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);             
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);
             }
 
             // Record the time stamp of the factor
@@ -264,7 +264,7 @@ public:
             ceres::LossFunction *tdoa_loss_function = tdoa_loss_thres == -1 ? NULL : new ceres::HuberLoss(tdoa_loss_thres);
             ceres::CostFunction *cost_function = new GPTDOAFactor(tdoa.data, pos_an_A, pos_an_B, P_I_tag, w_tdoa, traj->getGPMixerPtr(), s);
             auto res = problem.AddResidualBlock(cost_function, tdoa_loss_function, factor_param_blocks);
-            
+
             // Record the residual block
             factorMeta.res.push_back(res);
         }
@@ -285,7 +285,7 @@ public:
             bool state_found = paramInfoMap.hasParam(param.address);
             // RINFO("param 0x%8x of tidx %2d kidx %4d of sidx %4d is %sfound in paramInfoMap",
             //         param.address, param.tidx, param.kidx, param.sidx, state_found ? "" : "NOT ");
-            
+
             if (!state_found)
             {
                 all_kept_states_found = false;
@@ -293,7 +293,7 @@ public:
                 removed_dims += param.delta_size;
             }
         }
-        
+
         if (missing_param_idx.size() != 0) // If some marginalization states are missing, delete the missing states
         {
             // RINFO("Remove %d params missing from %d keptParamInfos", missing_param_idx.size(), margInfo->keptParamInfo.size());
@@ -504,7 +504,7 @@ public:
         for(auto &param : removed_factors_params)
         {
             // ParamInfo &param = removed_params[param.first];
-            if(retained_factors_params.find(param.first) != retained_factors_params.end())            
+            if(retained_factors_params.find(param.first) != retained_factors_params.end())
                 priored_params.push_back(param.second);
             else
                 removed_params.push_back(param.second);
@@ -630,7 +630,7 @@ public:
                             *(margInfo->DoubleToSO3<double>(margInfo->keptParamPrior[param.address]))).log();
                 ROS_ASSERT_MSG(error.norm() == 0, "error.norm(): %f\n", error.norm());
             }
-            
+
             if(param.type == ParamType::RV3)
             {
                 Vec3 error = (*static_pointer_cast<Vec3>(param.ptr) - margInfo->DoubleToRV3<double>(margInfo->keptParamPrior[param.address]));
@@ -644,7 +644,7 @@ public:
         double tmin, double tmax, double tmid,
         GaussianProcessPtr &traj, Vector3d &XBIG, Vector3d &XBIA, Vector3d &g,
         const vector<TDOAData> &tdoaData, const vector<IMUData> &imuData,
-        std::map<uint16_t, Eigen::Vector3d>& pos_anchors, const Vector3d &P_I_tag, 
+        std::map<uint16_t, Eigen::Vector3d>& pos_anchors, const Vector3d &P_I_tag,
         double w_tdoa, double wGyro, double wAcce, double wBiasGyro, double wBiasAcce, double tdoa_loss_thres, double mp_loss_thres, bool do_marginalization)
     {
         static int cnt = 0;
@@ -678,7 +678,7 @@ public:
             paramInfoMap.insert(XBIA.data(), ParamInfo(XBIA.data(), getEigenPtr(XBIA), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
             paramInfoMap.insert(g.data(),    ParamInfo(g.data(),    getEigenPtr(g),    ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
             problem.SetParameterBlockConstant(g.data());
-            
+
             // Sanity check
             for(auto &param_ : paramInfoMap.params_info)
             {
@@ -719,7 +719,7 @@ public:
                 {
                     // if(sidx == 0)
                     //     assert(param.address == R_Lx_Ly.data());
-                    // if(sidx == 1)    
+                    // if(sidx == 1)
                     //     assert(param.address == P_Lx_Ly.data());
                 }
             }
@@ -744,7 +744,7 @@ public:
         double cost_prior_init = -1; double cost_prior_final = -1;
         if (margInfo != NULL)
             AddPriorFactor(problem, tmin, tmax, traj, margInfo, paramInfoMap, factorMetaPrior);
-            
+
         tt_build.Toc();
 
         TicToc tt_slv;
@@ -766,7 +766,7 @@ public:
 
         // Determine the factors to remove
         if (do_marginalization)
-        {   
+        {
             vector<FactorMetaPtr> factorMetas;
             factorMetas.push_back(getEigenPtr(factorMetaMp2k));
             factorMetas.push_back(getEigenPtr(factorMetaTDOA));
@@ -794,11 +794,11 @@ public:
                 // ceres::Problem::EvaluateOptions e_option;
                 // for(auto &fm : factorMetas)
                 //     factorMeta += *fm;
-                
+
                 double cost;
                 FindJrByCeres(problem, factorsRmvd, cost, RESIDUAL, JACOBIAN);
             }
-            
+
             // Do the Schur complement to find prior factor
             Marginalize(removed_params, priored_params, RESIDUAL, JACOBIAN);
             // report.marginalization_done = true;

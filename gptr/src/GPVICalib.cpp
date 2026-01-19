@@ -26,7 +26,7 @@ namespace fs = std::filesystem;
 
 using namespace std;
 
-NodeHandlePtr nh_ptr;
+RosNodeHandlePtr nh_ptr;
 
 std::map<int, Eigen::Vector3d> getCornerPosition3D(const std::string &data_path)
 {
@@ -333,7 +333,7 @@ void publishCornerPos(std::map<int, Eigen::Vector3d> &corner_pos_3d)
 //     // pcl::toROSMsg(est_knots, knot_msg);
 
 //     // // while(rclcpp::ok())
-//     // {           
+//     // {
 //     //     publishCornerPos(corner_pos_3d);
 
 //     //     gtrPoseCloud.header.stamp = rclcpp::Clock().now();
@@ -398,7 +398,7 @@ void Visualization(map<int, Vector3d> &corner_pos_3d, GaussianProcessPtr &traj)
     CloudPosePtr estPoseCloud(new CloudPose());
     for(int kidx = 0; kidx < traj->getNumKnots(); kidx++)
         estPoseCloud->push_back(myTf(traj->getKnotPose(kidx)).Pose6D());
-    
+
     Util::publishCloud(est_pub, *estPoseCloud, rclcpp::Clock().now(), "world");
 }
 
@@ -486,7 +486,7 @@ int main(int argc, char **argv)
 
     vector<double> Dtstep = {0.01};
     Util::GetParam(nh_ptr, "Dtstep", Dtstep);
-    
+
 
     CameraImuBuf CIBuf_ = CIBuf;
     CloudPosePtr gtrPoseCloud_(new CloudPose()); *gtrPoseCloud_  = *gtrPoseCloud;
@@ -592,7 +592,7 @@ int main(int argc, char **argv)
             map<string, double> so3xr3cf_report;
             map<string, double> se3ap_report;
             map<string, double> se3cf_report;
-            
+
             string report_SO3xR3_by_SO3xR3AP;
             string report_SO3xR3_by_SO3xR3CF;
             string report_SO3xR3_by_SE3AP   ;

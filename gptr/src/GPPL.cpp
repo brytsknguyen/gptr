@@ -17,7 +17,7 @@
 using namespace std;
 namespace fs = std::filesystem;
 
-NodeHandlePtr nh_ptr;
+RosNodeHandlePtr nh_ptr;
 string log_dir;
 
 // Ground truth trajectory
@@ -76,7 +76,7 @@ public:
     }
 
 private:
-    
+
     int n = 1;
 };
 
@@ -96,7 +96,7 @@ public:
     double getwpx() { return wpx2*n; }
     double getwpy() { return wpy2*n; }
     double getwpz() { return wpz2*n; }
-            
+
     myTf<double> pose(double t) const
     {
         Vector3d P( rpx2*sin(wpx2*n*t + 43),
@@ -240,7 +240,7 @@ void AddMP2KFactors(ceres::Problem &problem, GaussianProcessPtr &traj, FactorMet
     {
         vector<double *> factor_param_blocks;
         factorMeta.coupled_params.push_back(vector<ParamInfo>());
-        
+
         // Add the parameter blocks
         for (int kidx_ = kidx; kidx_ < kidx + 2; kidx_++)
         {
@@ -257,16 +257,16 @@ void AddMP2KFactors(ceres::Problem &problem, GaussianProcessPtr &traj, FactorMet
             factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAlp(kidx_).data()]);
             factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotPos(kidx_).data()]);
             factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotVel(kidx_).data()]);
-            factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx_).data()]);       
+            factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx_).data()]);
         }
 
         // Record the time stamp of the factor
         factorMeta.stamp.push_back(traj->getKnotTime(kidx+1));
-    
+
         // Create the factors
         ceres::CostFunction *cost_function = new GPMotionPriorTwoKnotsFactor(traj->getGPMixerPtr());
         auto res_block = problem.AddResidualBlock(cost_function, NULL, factor_param_blocks);
-        
+
         // Record the residual block
         factorMeta.res.push_back(res_block);
     }
@@ -308,7 +308,7 @@ void AddLidarFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T 
 
             vector<double *> factor_param_blocks;
             factorMeta.coupled_params.push_back(vector<ParamInfo>());
-            
+
             // Add the parameter blocks for rotation
             for (int kidx = u; kidx < u + 2; kidx++)
             {
@@ -325,7 +325,7 @@ void AddLidarFactors(ceres::Problem &problem, GaussianProcessPtr &traj, const T 
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAlp(kidx).data()]);
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotPos(kidx).data()]);
                 factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotVel(kidx).data()]);
-                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);             
+                factorMeta.coupled_params.back().push_back(paramInfoMap[traj->getKnotAcc(kidx).data()]);
             }
 
             // Record the time stamp of the factor
@@ -355,7 +355,7 @@ void InitializeTrajEst(double t0, GaussianProcessPtr &traj, const T &gtTraj)
         traj->extendOneKnot(traj->getKnot(traj->getNumKnots()-1));
 
     // Fixed seed for reproducibility
-    std::mt19937 rng(43); 
+    std::mt19937 rng(43);
     // Define a uniform distribution (e.g., integers between 1 and 100)
     std::normal_distribution<double> rdist(0.0, 0.2);
     std::normal_distribution<double> pdist(0.0, 0.5);
@@ -418,7 +418,7 @@ void AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double> 
     RINFO(KYEL"Solving..."RESET);
     Util::ComputeCeresCost(mp2kFactorMeta.res, cost_mp2k_init, problem);
     Util::ComputeCeresCost(lidarFactorMeta.res,  cost_lidar_init,  problem);
-    
+
     TicToc tt_solve;
     ceres::Solve(options, &problem, &summary);
     tt_solve.Toc();
@@ -451,7 +451,7 @@ void AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double> 
         se3_rmse += err.dot(err);
     se3_rmse /= se3_err.size();
     se3_rmse = sqrt(se3_rmse);
-    
+
     RINFO(KGRN"Done. %fms"RESET, tt_rmse.Toc());
 
 
@@ -485,14 +485,14 @@ void AssessTraj(GaussianProcessPtr &traj, const T &trajGtr, map<string, double> 
     report_map["LidarJ0"] = cost_lidar_init;
     report_map["MP2KJK"]  = cost_mp2k_final;
     report_map["LidarJK"] = cost_lidar_final;
-    
+
     RINFO(KGRN"Done. %fms\n"RESET, tt_report.Toc());
 }
 
 
 
 int main(int argc, char **argv)
-{   
+{
     // Initalize ros nodes
     rclcpp::init(argc, argv);
     nh_ptr = rclcpp::Node::make_shared("GPPL");
@@ -558,7 +558,7 @@ int main(int argc, char **argv)
     // Get param of lidar
     Util::GetParam(nh_ptr, "lidar_rate", lidar_rate);
     Util::GetParam(nh_ptr, "lidar_noise", lidar_noise);
-    
+
     RINFO("lidar rate: %f", lidar_rate);
     RINFO("lidar noise: %f", lidar_noise);
 
@@ -566,13 +566,13 @@ int main(int argc, char **argv)
     // Get param for experiments
     Util::GetParam(nh_ptr, "Dtstep", Dtstep);
     Util::GetParam(nh_ptr, "Wstep",  Wstep);
-    
+
     RINFO("Dtstep: %f -> %f", Dtstep.front(), Dtstep.back());
     RINFO("Wstep: %d -> %d", Wstep.front(), Wstep.back());
 
 
     // Fixed seed for reproducibility
-    std::mt19937 rng(1102); 
+    std::mt19937 rng(1102);
     // Define a uniform distribution (e.g., integers between 1 and 100)
     std::uniform_real_distribution<double> t0udist(-10, 10);
 
@@ -635,7 +635,7 @@ int main(int argc, char **argv)
                 thread exp2([&](){AssessTraj(trajSO3xR3CF, gtrTraj, so3xr3cf_report, report_SO3xR3CF);});
                 thread exp3([&](){AssessTraj(trajSE3AP   , gtrTraj, se3ap_report   , report_SE3AP___);});
                 thread exp4([&](){AssessTraj(trajSE3CF   , gtrTraj, se3cf_report   , report_SE3CF___);});
-                
+
                 // thread exp2(AssessTraj, ref(trajSO3xR3CF), ref(gtrTraj), ref(so3xr3cf_report), ref(report_SO3xR3CF));
                 // thread exp3(AssessTraj, ref(trajSE3AP   ), ref(gtrTraj), ref(se3ap_report   ), ref(report_SE3AP___));
                 // thread exp4(AssessTraj, ref(trajSE3CF   ), ref(gtrTraj), ref(se3cf_report   ), ref(report_SE3CF___));

@@ -39,7 +39,7 @@ using aligned_unordered_map = std::unordered_map<K, V, std::hash<K>, std::equal_
 using namespace std;
 using namespace Eigen;
 
-struct PointTQXYZI 
+struct PointTQXYZI
 {
     PCL_ADD_POINT4D
     PCL_ADD_INTENSITY              // preferred way of adding a XYZ+padding
@@ -63,7 +63,7 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(PointTQXYZI,
 typedef PointTQXYZI PointPose;
 typedef pcl::PointCloud<PointPose> CloudPose;
 typedef pcl::PointCloud<PointPose>::Ptr CloudPosePtr;
-typedef rclcpp::Node::SharedPtr NodeHandlePtr;
+typedef rclcpp::Node::SharedPtr RosNodeHandlePtr;
 
 typedef Sophus::SO3<double> SO3d;
 typedef Sophus::SE3<double> SE3d;
@@ -145,7 +145,7 @@ struct myTf
     {
         return myTf();
     }
-    
+
     myTf(const myTf<T> &other)
     {
         rot = other.rot;
@@ -197,7 +197,7 @@ struct myTf
                                   odom.pose.pose.orientation.x,
                                   odom.pose.pose.orientation.y,
                                   odom.pose.pose.orientation.z);
-                                    
+
         this->pos << odom.pose.pose.position.x,
                      odom.pose.pose.position.y,
                      odom.pose.pose.position.z;
@@ -209,7 +209,7 @@ struct myTf
                                   pose.pose.orientation.x,
                                   pose.pose.orientation.y,
                                   pose.pose.orientation.z);
-                                    
+
         this->pos << pose.pose.position.x,
                      pose.pose.position.y,
                      pose.pose.position.z;
@@ -255,7 +255,7 @@ struct myTf
 
         return p;
     }
-    
+
     PointPose Pose6D() const
     {
         PointPose p;
@@ -281,7 +281,7 @@ struct myTf
         PointPose p;
 
         p.t = time;
-        
+
         p.x = (float)pos.x();
         p.y = (float)pos.y();
         p.z = (float)pos.z();
@@ -363,7 +363,7 @@ struct myTf
     {
         return (rot*v + pos);
     }
-    
+
     Quaternd operator*(const Quaternd &q) const
     {
         return (rot*q);
@@ -396,7 +396,7 @@ inline std::string myprintf(const std::string& format, ...)
     va_start(args, format);
     std::vsnprintf(&vec[0], len + 1, format.c_str(), args);
     va_end(args);
-    
+
     return string(vec.begin(), vec.end() - 1);
 }
 
@@ -404,20 +404,20 @@ class Util
 {
 public:
     template <typename T>
-    static inline bool GetParam(const NodeHandlePtr &nh, const string &param_name, T &param)
+    static inline bool GetParam(const RosNodeHandlePtr &nh, const string &param_name, T &param)
     {
         if(!nh->has_parameter(param_name))
             nh->declare_parameter(param_name, param);
         return nh->get_parameter(param_name, param);
     }
-    
+
     template <typename T>
     static T readParam(rclcpp::Node::SharedPtr &n, std::string name)
     {
         T ans;
         if (!n->has_parameter(name)) {
             n->declare_parameter<T>(name);
-        }        
+        }
         if (!n->get_parameter(name, ans)) {
             RCLCPP_FATAL_STREAM(n->get_logger(), "Failed to load " << name);
             exit(1);

@@ -108,7 +108,7 @@ typedef Eigen::Quaterniond Quaternf;
 typedef Sophus::SO3<double> SO3d;
 typedef Sophus::SE3<double> SE3d;
 
-typedef rclcpp::Node::SharedPtr NodeHandlePtr;
+typedef rclcpp::Node::SharedPtr RosNodeHandlePtr;
 
 /* #region  Custom point type definition ----------------------------------------------------------------------------*/
 
@@ -1130,7 +1130,7 @@ namespace Util
         // return true;
     }
 
-    inline bool GetBoolParam(const NodeHandlePtr &nh, const string &param_name, bool default_value)
+    inline bool GetBoolParam(const RosNodeHandlePtr &nh, const string &param_name, bool default_value)
     {
         if(!nh->has_parameter(param_name))
             nh->declare_parameter(param_name, rclcpp::PARAMETER_INTEGER);
@@ -1140,7 +1140,7 @@ namespace Util
         return (param_ == 1 ? true : false);
     }
 
-    // inline double GetDoubleParam(const NodeHandlePtr &nh, const string &param, double default_value=0)
+    // inline double GetDoubleParam(const RosNodeHandlePtr &nh, const string &param, double default_value=0)
     // {
     //     nh->declare_parameter(param, rclcpp::PARAMETER_DOUBLE);
     //     double value = default_value;
@@ -1148,7 +1148,7 @@ namespace Util
     //     return value;
     // }
 
-    // inline string GetStringParam(const NodeHandlePtr &nh, const string &param, string default_value="")
+    // inline string GetStringParam(const RosNodeHandlePtr &nh, const string &param, string default_value="")
     // {
     //     nh->declare_parameter(param, rclcpp::PARAMETER_STRING);
     //     string value = default_value;
@@ -1157,7 +1157,7 @@ namespace Util
     // }
 
     template <typename T>
-    inline bool GetParam(const NodeHandlePtr &nh, const string &param_name, T &param)
+    inline bool GetParam(const RosNodeHandlePtr &nh, const string &param_name, T &param)
     {
         if(!nh->has_parameter(param_name))
             nh->declare_parameter(param_name, param);
@@ -1755,7 +1755,7 @@ inline std::string myprintf(const std::string& format, ...)
 }
 
 template <typename... Args>
-void RINFO(NodeHandlePtr &nh, Args... args)
+void RINFO(RosNodeHandlePtr &nh, Args... args)
 {
     RCLCPP_INFO(nh->get_logger(), args...);
 }

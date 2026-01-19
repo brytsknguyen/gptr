@@ -24,8 +24,8 @@ class LOAM
 {
 private:
 
-    NodeHandlePtr nh_ptr;
-    
+    RosNodeHandlePtr nh_ptr;
+
     // Index for distinguishing between clouds
     int LIDX;
 
@@ -43,7 +43,7 @@ private:
     double deltaT = 0.1;
     double mpCovROSJerk = 10;
     double mpCovPVAJerk = 10;
-    
+
     // Associate params
     int knnSize = 6;
     double minKnnSqDis = 0.5*0.5;
@@ -63,7 +63,7 @@ public:
     // Destructor
    ~LOAM() {};
 
-    LOAM(NodeHandlePtr &nh_ptr_, mutex & nh_mtx, const SE3d &T_W_Li0_, double t0, int &LIDX_)
+    LOAM(RosNodeHandlePtr &nh_ptr_, mutex & nh_mtx, const SE3d &T_W_Li0_, double t0, int &LIDX_)
         : nh_ptr(nh_ptr_), T_W_Li0(T_W_Li0_), LIDX(LIDX_)
     {
         lock_guard<mutex> lg(nh_mtx);
@@ -148,7 +148,7 @@ public:
                         nbrPoints.push_back(priormap->points[idx]);
                 else
                     continue;
-                    
+
                 // Fit the plane
                 if(Util::fitPlane(nbrPoints, min_planarity, max_plane_dis, Coef_[pidx].n, Coef_[pidx].plnrty))
                 {
@@ -243,7 +243,7 @@ public:
                     assoc_cloud->push_back(p);
                 }
         }
-        
+
         // static ros::Publisher assocCloudPub = nh_ptr->advertise<RosPc2Msg>(myprintf("/lidar_%d/assoc_cloud", LIDX), 1);
         if (assoc_cloud->size() != 0)
             Util::publishCloud(assocCloudPub, *assoc_cloud, rclcpp::Clock().now(), "world");

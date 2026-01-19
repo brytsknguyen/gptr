@@ -21,15 +21,15 @@ public:
     Vec3 Pos = Vec3(0, 0, 0);
     Vec3 Omg = Vec3(0, 0, 0);
     Vec3 Vel = Vec3(0, 0, 0);
-    
+
     // Error state covariance
     MatrixNd Cov = MatrixNd::Identity();
 
     // Destructor
    ~StateWithCov() {};
-    
+
     // Constructor
-    
+
     StateWithCov()
         : tcurr(0), Rot(SO3d(Quaternd(1, 0, 0, 0))), Pos(Vec3(0, 0, 0)), Omg(Vec3(0, 0, 0)), Vel(Vec3(0, 0, 0)), Cov(MatrixNd::Identity())
     {}
@@ -97,8 +97,8 @@ public:
         Vec3 dA = Wc*dt;
         SO3d dQ = SO3d::exp(Wc*dt);
         SO3d Qcinv = Qc.inverse();
-        
-        // Predict the state 
+
+        // Predict the state
         SO3d Qn = Qc*dQ;
         Vec3 Pn = Pc + Vc*dt;
         Vec3 Wn = Wc;
@@ -106,11 +106,11 @@ public:
 
         // Calculate the transition matrix
         MatrixNd Fx = MatrixNd::Identity();
-        
+
         // Map the blocks to Fx
         Eigen::Block<MatrixNd, 3, 3> dQdR = Fx.block<3, 3>(0, 0);
         Eigen::Block<MatrixNd, 3, 3> dQdW = Fx.block<3, 3>(0, 6);
-        
+
         Eigen::Block<MatrixNd, 3, 3> dPdQ = Fx.block<3, 3>(3, 0);
         Eigen::Block<MatrixNd, 3, 3> dPdP = Fx.block<3, 3>(3, 3);
         Eigen::Block<MatrixNd, 3, 3> dPdW = Fx.block<3, 3>(3, 6);
@@ -176,14 +176,14 @@ public:
         Vec3 Phi = (Xbar.Rot.inverse()*Rot).log();
         VectorNd r;
         r << Phi, Pos - Xbar.Pos, Vel - Xbar.Vel, Omg - Xbar.Omg;
-        
+
         J = MatrixNd::Identity();
         J.block<3, 3>(0, 0) = JrInv(Phi);
 
         // MatrixNd W = Eigen::LLT<Eigen::Matrix<double, 6, 6>>(Xbar.Cov.inverse()).matrixL().transpose();
         return r;
     }
-    
+
     Vec3 YPR()
     {
         return Util::Quat2YPR(Rot.unit_quaternion());
@@ -198,7 +198,7 @@ private:
     int lidx;
 
     // Node handle
-    NodeHandlePtr nh_ptr;
+    RosNodeHandlePtr nh_ptr;
 
     // Estimates
     StateWithCov Xhatprev;
@@ -237,12 +237,12 @@ public:
    ~i2EKFLO() {};
 
     // Constructor
-    i2EKFLO(int lidx_, const StateWithCov &X0, double Rw_, double Rv_, double minKnnSqDis_, double minKnnNbrDis_, NodeHandlePtr &nh_ptr_, mutex &nh_mtx)
+    i2EKFLO(int lidx_, const StateWithCov &X0, double Rw_, double Rv_, double minKnnSqDis_, double minKnnNbrDis_, RosNodeHandlePtr &nh_ptr_, mutex &nh_mtx)
     : lidx(lidx_), Xhatprev(X0), Xhat(X0), Rw(Rw_), Rv(Rv_), minKnnSqDis(minKnnSqDis_), minKnnNbrDis(minKnnNbrDis_), nh_ptr(nh_ptr_), trajEst(CloudPosePtr(new CloudPose()))
     {
 
         printf("Init state: P: %f, %f, %f, Q: %f, %f, %f, %f\n",
-                X0.Pos.x(), X0.Pos.y(), X0.Pos.z(), 
+                X0.Pos.x(), X0.Pos.y(), X0.Pos.z(),
                 X0.Rot.unit_quaternion().x(), X0.Rot.unit_quaternion().y(), X0.Rot.unit_quaternion().z(), X0.Rot.unit_quaternion().w());
 
         // Initialize the covariance of velocity
@@ -292,7 +292,7 @@ public:
             PointXYZIT &pi = cloud->points[pidx];
             PointXYZI  &po = cloudDeskewedInB->points[pidx];
             po.intensity = pi.intensity;
-            
+
             // Interpolation factor
             double s = 1.0 - min(1.0, (pi.t - tc) / dt);
 
@@ -316,7 +316,7 @@ public:
             int pointsCount = cloudInW->points.size();
             vector<LidarCoef> Coef_;
             Coef_.resize(pointsCount);
-            
+
             #pragma omp parallel for num_threads(MAX_THREADS)
             for (int pidx = 0; pidx < pointsCount; pidx++)
             {
@@ -335,7 +335,7 @@ public:
                         nbrPoints.push_back(priormap->points[idx]);
                 else
                     continue;
-                    
+
                 // Fit the plane
                 if(Util::fitPlane(nbrPoints, 0.5, 0.2, Coef_[pidx].n, Coef_[pidx].plnrty))
                 {
@@ -344,7 +344,7 @@ public:
                     Coef_[pidx].fdsk = Vec3(pointInB.x, pointInB.y, pointInB.z);
                 }
             }
-            
+
             // Copy the coefficients to the buffer
             Coef.clear();
             int totalFeature = 0;
@@ -481,7 +481,7 @@ public:
                 Xpred.boxplusd(dX);
 
                 // Update the covariance
-                MatrixNd G = Xpred_.Cov;                 
+                MatrixNd G = Xpred_.Cov;
                 G  = (I - (A + G.inverse()).toDense().inverse()*A)*G;
                 // G = A.toDense().inverse();
                 Xpred.SetCov(G);
@@ -557,7 +557,7 @@ public:
             // // DEBUG: Break after n steps
             // static int debug_count = 0; debug_count++;
             // if (DEBUG_STEPS > 0 && debug_count >= DEBUG_STEPS)
-            //     break; 
+            //     break;
         }
     }
 

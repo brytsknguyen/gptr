@@ -33,7 +33,7 @@ using namespace std;
 namespace fs = std::filesystem;
 
 // Node handle
-NodeHandlePtr nh_ptr;
+RosNodeHandlePtr nh_ptr;
 
 // Get the dense prior map
 string priormap_file = "";

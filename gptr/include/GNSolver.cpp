@@ -27,7 +27,7 @@ void UpdateDimensions(int &numldr, int &nummp2, int &numKnots)
 
     RES_LDR_GBASE = 0;
     RES_MP2_GBASE = RES_LDR_GBASE + RES_LDR_GSIZE;
-    
+
     XALL_GSIZE = XALL_LSIZE*numKnots;
 }
 
@@ -35,14 +35,14 @@ mutex GNSolver::solver_mtx;
 
 GNSolver::~GNSolver(){};
 
-GNSolver::GNSolver(NodeHandlePtr &nh_, int &LIDX_) : nh(nh_), LIDX(LIDX_)
+GNSolver::GNSolver(RosNodeHandlePtr &nh_, int &LIDX_) : nh(nh_), LIDX(LIDX_)
 {
     nh->getParam("/lidar_weight", lidar_weight);
 
     nh->getParam("/max_gniter", max_gniter);
     nh->getParam("/lambda", lambda);
     nh->getParam("/dxmax", dxmax);
-    
+
     // Weight for the motion prior
     nh->getParam("mpCovROSJerk", mpCovROSJerk);
     nh->getParam("mpCovPVAJerk", mpCovPVAJerk);
@@ -155,20 +155,20 @@ void GNSolver::EvaluatePriorFactors
 )
 {
     report.priorFactors = 1;
-    
+
     VectorXd rprior = VectorXd::Zero(XALL_GSIZE);
     MatrixXd Jprior = MatrixXd::Zero(XALL_GSIZE, XALL_GSIZE);
     VectorXd bprior = VectorXd::Zero(XALL_GSIZE);
     MatrixXd Hprior = MatrixXd::Zero(XALL_GSIZE, XALL_GSIZE);
-    
-    // Create marginalizing factor if there is states kept from last optimization       
+
+    // Create marginalizing factor if there is states kept from last optimization
     SparseMatrix<double> rprior_sparse;
     SparseMatrix<double> Jprior_sparse;
 
     // printf("absKidx: \n");
     // for(auto &xkidx : absKidxToLocal)
     //     cout << xkidx.first << ", ";
-    // cout << endl;    
+    // cout << endl;
 
     // Calculate the prior residual
     for(auto &xkidx : knots_keep_gbidx_state)
@@ -179,7 +179,7 @@ void GNSolver::EvaluatePriorFactors
 
         const GPState<> &Xbar = xkidx.second;
         const GPState<> &Xcur = traj->getKnot(absKidxToLocal[xkidx.first]);
-        
+
         Matrix<double, STATE_DIM, 1> dX = Xcur.boxminus(Xbar);
         rprior.block<XALL_LSIZE, 1>(kidx*XALL_LSIZE, 0) << dX;
         Jprior.block<XALL_LSIZE, XALL_LSIZE>(kidx*XALL_LSIZE, kidx*XALL_LSIZE).setIdentity();
@@ -208,7 +208,7 @@ void GNSolver::EvaluatePriorFactors
     Hprior_sparse = Hprior.sparseView(); Hprior_sparse.makeCompressed();
 
     bprior_sparse = bprior_sparse - Hprior_sparse*Jprior_sparse*rprior_sparse;
-    Hprior_sparse = Jprior_sparse.transpose()*Hprior_sparse*Jprior_sparse;    
+    Hprior_sparse = Jprior_sparse.transpose()*Hprior_sparse*Jprior_sparse;
 
     // if(bprior_reduced != NULL)
     // {
@@ -297,7 +297,7 @@ void GNSolver::Marginalize
 
         // Determine the marginalized and keep knots
         knots_keep_lckidx_gbkidx.clear();
-        knots_marg_lckidx_gbkidx.clear(); 
+        knots_marg_lckidx_gbkidx.clear();
         for(int kidx = 0; kidx < traj->getNumKnots(); kidx++)
             if (swAbsKidx[kidx] < swNextBaseKnot)
                 knots_marg_lckidx_gbkidx[kidx] = swAbsKidx[kidx];
@@ -333,7 +333,7 @@ void GNSolver::Marginalize
                     // If the coupled knot is not in the marginalized set, it is in the keep set
                     for(int kidx = u; kidx < u + 2; kidx++)
                         if(knots_marg_lckidx_gbkidx.find(kidx) == knots_marg_lckidx_gbkidx.end())
-                            knots_keep_lckidx_gbkidx[kidx] = swAbsKidx.front() + kidx;    
+                            knots_keep_lckidx_gbkidx[kidx] = swAbsKidx.front() + kidx;
                 }
             }
         }
@@ -361,7 +361,7 @@ void GNSolver::Marginalize
         // In this specific LO problem, all marginalized and kept states are the first two knots
         for (auto &xkidx : knots_marg_lckidx_gbkidx)
             ROS_ASSERT_MSG(xkidx.first == 0, "%d, %d\n", xkidx.first, xkidx.second);
-        for (auto &xkidx : knots_keep_lckidx_gbkidx)    
+        for (auto &xkidx : knots_keep_lckidx_gbkidx)
             ROS_ASSERT_MSG(xkidx.first == 1, "%d, %d\n", xkidx.first, xkidx.second);
 
         int RES_MARG_GSIZE = res_ldr_marg.size() + res_mp2_marg.size();
@@ -369,7 +369,7 @@ void GNSolver::Marginalize
 
         // Extract the blocks of J and r related to marginalization
         MatrixXd Jmarg = MatrixXd::Zero(RES_MARG_GSIZE, XM_XK_GSIZE);
-        MatrixXd rmarg = MatrixXd::Zero(RES_MARG_GSIZE, 1);                
+        MatrixXd rmarg = MatrixXd::Zero(RES_MARG_GSIZE, 1);
 
         // Extract the corresponding blocks
         int row_marg = 0;
@@ -392,7 +392,7 @@ void GNSolver::Marginalize
         SparseMatrix<double> H = Jtp*Jsparse;
         MatrixXd b = -Jtp*rmarg;
 
-        // Due to the simple structure of GP, the marginalized block 
+        // Due to the simple structure of GP, the marginalized block
         // only consists of one state that will be marginalized
         MatrixXd H_xtra_(H.rows(), H.cols()); H_xtra_.setZero();
         VectorXd b_xtra_(b.rows(),        1); b_xtra_.setZero();
@@ -498,7 +498,7 @@ bool GNSolver::Solve
     SparseMatrix<double> Jtp = Jsparse.transpose();
     SparseMatrix<double> b = -Jtp*rsparse;
     SparseMatrix<double> H =  Jtp*Jsparse;
-    
+
     // Add the prior factor
     if(Hprior_sparse.rows() > 0 && bprior_sparse.rows() > 0)
     {
@@ -564,7 +564,7 @@ bool GNSolver::Solve
         SparseMatrix<double> Jtp = Jsparse.transpose();
         SparseMatrix<double> b = -Jtp*rsparse;
         SparseMatrix<double> H =  Jtp*Jsparse;
-        
+
         // Add the prior factor
         if(Hprior_sparse.rows() > 0 && bprior_sparse.rows() > 0)
         {
