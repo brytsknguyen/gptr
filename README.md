@@ -1,37 +1,16 @@
 # A Gaussian Process Trajectory Representation with Closed-Form Kinematics for Continuous-Time Motion Estimation
 ## Preresiquite
 
-### ROS 1 User
-* Install Ubuntu 20.04 and ROS NOETIC
-* Checkout the master branch
-* Please catkin build [SFUISE](https://github.com/ASIG-X/SFUISE) in your workspace to have the cf_msg, which is required in gptr.
-* Please install Ceres 2.0 and sophus
-  ```
-  sudo apt install libfmt-dev # may be required as a dependency of sophus
-  sudo apt install ros-noetic-sophus
-  sudo apt install libceres-dev
-  ```
-* Git clone and catkin build the repo.
-
-### ROS 2 User
-* Install Ubuntu 22.04 and ROS HUMBLE
-* Checkout ros2 branch
+### Installation
+* Install Ubuntu 24.04 and ROS JAZZY
 * Please colcon build [SFUISE2](https://github.com/ASIG-X/SFUISE2) in your workspace to have the cf_msg.
-* Install sophus and ceres 2.0
+* Install Sophus 1.24.6, and ceres 2.2
   ```
   sudo apt install libfmt-dev # may be required as a dependency of sophus
-  sudo apt install ros-humble-sophus
+  sudo apt install ros-jazzy-sophus
   sudo apt install libceres-dev
   ```
 * Git clone and colcon build the repo.
-
-### Ceres 2.2
-
-Ceres 2.2 replaces LocalParameterization class with Manifold. We have also did some tests on ceres.2.2 on Ubuntu 22.04 and ROS HUMBLE. 
-* Install ceres from source.
-* Install sophus from source. Do `git checkout 1.24.6`. If there is a complaint about cmake version, you can manual change the cmake version in CMakeLists.txt file, for example `cmake_minimum_required(VERSION 3.22)` instead of 3.24.
-* Make sure `libfmt-dev` is installed.
-* Checkout the ceres.2.2 branch of this repo and colcon build the repo.
 
 Please raise an issue should you encounter any issue with the compilation of the package.
 
@@ -47,7 +26,7 @@ After that, modify the path to the data and prior map in `run_sim.launch` and la
 
 ### With handheld setup
 
-Similar to the synthetic dataset, please download the data and the prior map from [here](https://drive.google.com/file/d/1QId8X4LFxYdYewHSBXiDEAvpIFD8w-ei/view?usp=sharing).
+Similar to the synthetic dataset, please download the data and the prior map from [here](https://drive.google.com/drive/folders/10KdF9jgIRkpdoQMnBlmgFWqHBJyES5-Q?usp=drive_link).
 
 Then specify the paths to the data and prior map in `gptr/launch/run_lio_cathhs_iot.launch` before roslaunch. You should see the following illustration.
 
@@ -77,7 +56,7 @@ Below is an exemplary run on sequence `const2-trial4-tdoa2`
 <img src="/docs/ui_video.gif" width="600"/>
 
 ### Evaluation
-Please set `if_save_traj` in `gptr/launch/run_util.launch` to `1` and change `result_save_path` accordingly. 
+Please set `if_save_traj` in `gptr/launch/run_util.launch` to `1` and change `result_save_path` accordingly.
 
 ```
 evo_ape tum /traj_save_path/gt.txt /traj_save_path/traj.txt -a --plot

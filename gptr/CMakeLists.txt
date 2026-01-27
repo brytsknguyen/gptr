@@ -71,7 +71,7 @@ message("Eigen dir ${EIGEN3_INCLUDE_DIR}")
 
 # lidar
 add_executable(${PROJECT_NAME}_pl src/GPPL.cpp include/SE3JQ.cpp)
-target_include_directories(${PROJECT_NAME}_pl PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+target_include_directories(${PROJECT_NAME}_pl PRIVATE /opt/ros/jazzy/include) # To include sophus for some stupid reason
 ament_target_dependencies(${PROJECT_NAME}_pl
   rclcpp
   pcl_conversions
@@ -90,7 +90,7 @@ install(TARGETS
 
 # UWB
 add_executable(${PROJECT_NAME}_pp src/GPPP.cpp include/SE3JQ.cpp)
-target_include_directories(${PROJECT_NAME}_pp PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+target_include_directories(${PROJECT_NAME}_pp PRIVATE /opt/ros/jazzy/include) # To include sophus for some stupid reason
 ament_target_dependencies(${PROJECT_NAME}_pp
   rclcpp
   pcl_conversions
@@ -114,7 +114,7 @@ install(TARGETS
 
 # VIcalib
 add_executable(${PROJECT_NAME}_vicalib src/GPVICalib.cpp include/SE3JQ.cpp)
-target_include_directories(${PROJECT_NAME}_vicalib PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+target_include_directories(${PROJECT_NAME}_vicalib PRIVATE /opt/ros/jazzy/include) # To include sophus for some stupid reason
 ament_target_dependencies(${PROJECT_NAME}_vicalib
   rclcpp
   pcl_conversions
@@ -139,7 +139,7 @@ install(TARGETS
 
 # UIB experiment
 add_executable(${PROJECT_NAME}_uib src/GPUIB.cpp include/SE3JQ.cpp)
-target_include_directories(${PROJECT_NAME}_uib PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+target_include_directories(${PROJECT_NAME}_uib PRIVATE /opt/ros/jazzy/include) # To include sophus for some stupid reason
 ament_target_dependencies(${PROJECT_NAME}_uib
   rclcpp
   pcl_conversions
@@ -160,7 +160,7 @@ install(TARGETS
 
 # UI Fusion
 add_executable(${PROJECT_NAME}_ui src/GPUI.cpp include/SE3JQ.cpp)
-target_include_directories(${PROJECT_NAME}_ui PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+target_include_directories(${PROJECT_NAME}_ui PRIVATE /opt/ros/jazzy/include) # To include sophus for some stupid reason
 ament_target_dependencies(${PROJECT_NAME}_ui
   rclcpp
   pcl_conversions
@@ -181,7 +181,7 @@ install(TARGETS
 
 # Test
 add_executable(${PROJECT_NAME}_ui_test src/testUI.cpp include/SE3JQ.cpp)
-target_include_directories(${PROJECT_NAME}_ui_test PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+target_include_directories(${PROJECT_NAME}_ui_test PRIVATE /opt/ros/jazzy/include) # To include sophus for some stupid reason
 ament_target_dependencies(${PROJECT_NAME}_ui_test
   rclcpp
   pcl_conversions
@@ -206,7 +206,7 @@ install(TARGETS
 
 # Lidar Odometry
 add_executable(${PROJECT_NAME}_lo src/GPLO.cpp include/ikdTree/ikd_Tree.cpp include/SE3JQ.cpp)
-target_include_directories(${PROJECT_NAME}_lo PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+target_include_directories(${PROJECT_NAME}_lo PRIVATE /opt/ros/jazzy/include) # To include sophus for some stupid reason
 ament_target_dependencies(${PROJECT_NAME}_lo
   rclcpp
   pcl_conversions
@@ -225,7 +225,7 @@ install(TARGETS
 
 # Test
 add_executable(${PROJECT_NAME}_lo_test src/testLIO.cpp include/SE3JQ.cpp)
-target_include_directories(${PROJECT_NAME}_lo_test PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+target_include_directories(${PROJECT_NAME}_lo_test PRIVATE /opt/ros/jazzy/include) # To include sophus for some stupid reason
 ament_target_dependencies(${PROJECT_NAME}_lo_test
   rclcpp
   pcl_conversions
@@ -247,7 +247,7 @@ install(TARGETS
 
 # Test
 add_executable(${PROJECT_NAME}_testlie src/testLie.cpp include/SE3JQ.cpp)
-target_include_directories(${PROJECT_NAME}_testlie PRIVATE /opt/ros/humble/include) # To include sophus for some stupid reason
+target_include_directories(${PROJECT_NAME}_testlie PRIVATE /opt/ros/jazzy/include) # To include sophus for some stupid reason
 ament_target_dependencies(${PROJECT_NAME}_testlie
   rclcpp
   pcl_conversions
