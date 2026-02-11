@@ -1218,6 +1218,7 @@ public:
     }
 
     void Evaluate(
+        bool fix_xtrz,
         int inner_iter, int outer_iter, vector<GaussianProcessPtr> &trajs,
         double tmin, double tmax, double tmid,
         const vector<vector<vector<LidarCoef>>> &cloudCoef, const vector<vector<lidarFeaIdx>> &featuresSelected,
@@ -1258,25 +1259,31 @@ public:
             // Only add extrinsic if there are multiple trajectories
             if (trajs.size() > 1)
                 for(int lidx = 1; lidx < Nlidar; lidx++)
+                {
+                    // RINFO("Adding %x, %x extrinsic params", R_Lx_Ly[lidx].data(), P_Lx_Ly[lidx].data());
+                    // Add the extrinsic params
+                    problem.AddParameterBlock(R_Lx_Ly[lidx].data(), 4, new GPSO3dLocalParameterization());
+                    problem.AddParameterBlock(P_Lx_Ly[lidx].data(), 3);
+                    paramInfoMap.insert(R_Lx_Ly[lidx].data(), ParamInfo(R_Lx_Ly[lidx].data(), getEigenPtr(R_Lx_Ly[lidx]), ParamType::SO3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 0));
+                    paramInfoMap.insert(P_Lx_Ly[lidx].data(), ParamInfo(P_Lx_Ly[lidx].data(), getEigenPtr(P_Lx_Ly[lidx]), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
+
+                    // // Add constraint to xt
+                    // problem.SetParameterUpperBound(P_Lx_Ly[lidx].data(), 0, -0.12);
+                    // problem.SetParameterLowerBound(P_Lx_Ly[lidx].data(), 0, -0.22);
+
+                    // problem.SetParameterUpperBound(P_Lx_Ly[lidx].data(), 1,  0.05);
+                    // problem.SetParameterLowerBound(P_Lx_Ly[lidx].data(), 1, -0.05);
+
+                    // problem.SetParameterUpperBound(P_Lx_Ly[lidx].data(), 2, -0.45);
+                    // problem.SetParameterLowerBound(P_Lx_Ly[lidx].data(), 2, -0.65);
+
+                    // Fix the extrinsics if required
+                    if(fix_xtrz)
                     {
-                        // RINFO("Adding %x, %x extrinsic params", R_Lx_Ly[lidx].data(), P_Lx_Ly[lidx].data());
-                        // Add the extrinsic params
-                        problem.AddParameterBlock(R_Lx_Ly[lidx].data(), 4, new GPSO3dLocalParameterization());
-                        problem.AddParameterBlock(P_Lx_Ly[lidx].data(), 3);
-                        paramInfoMap.insert(R_Lx_Ly[lidx].data(), ParamInfo(R_Lx_Ly[lidx].data(), getEigenPtr(R_Lx_Ly[lidx]), ParamType::SO3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 0));
-                        paramInfoMap.insert(P_Lx_Ly[lidx].data(), ParamInfo(P_Lx_Ly[lidx].data(), getEigenPtr(P_Lx_Ly[lidx]), ParamType::RV3, ParamRole::EXTRINSIC, paramInfoMap.size(), -1, -1, 1));
-
-                        // // Add constraint to xt
-                        // problem.SetParameterUpperBound(P_Lx_Ly[lidx].data(), 0, -0.12);
-                        // problem.SetParameterLowerBound(P_Lx_Ly[lidx].data(), 0, -0.22);
-
-                        // problem.SetParameterUpperBound(P_Lx_Ly[lidx].data(), 1,  0.05);
-                        // problem.SetParameterLowerBound(P_Lx_Ly[lidx].data(), 1, -0.05);
-
-                        // problem.SetParameterUpperBound(P_Lx_Ly[lidx].data(), 2, -0.45);
-                        // problem.SetParameterLowerBound(P_Lx_Ly[lidx].data(), 2, -0.65);
-
+                        problem.SetParameterBlockConstant(R_Lx_Ly[lidx].data());
+                        problem.SetParameterBlockConstant(P_Lx_Ly[lidx].data());
                     }
+                }
 
             // Sanity check
             for(auto &param_ : paramInfoMap.params_info)
@@ -1608,6 +1615,12 @@ public:
     SE3d GetExtrinsics(int lidx)
     {
         return SE3d(R_Lx_Ly[lidx], P_Lx_Ly[lidx]);
+    }
+
+    void SetExtrinsics(int lidx, SE3d T_Lx_Ly)
+    {
+        R_Lx_Ly[lidx] = T_Lx_Ly.so3();
+        P_Lx_Ly[lidx] = T_Lx_Ly.translation();
     }
 
     void Reset()

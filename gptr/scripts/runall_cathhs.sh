@@ -1,15 +1,17 @@
 #!bin/bash
 
+exp_root=/media/tmn/mySataSSD1/Experiments/tro_gptr_v3
+
 # Function to run exps
 runexp()
 {
     sequence=$1
     logroot=$2
     deltaT=$3
-    method=$4
+    fix_xtrz=$4
 
     # Bag file
-    lidar_bag_file=/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/${sequence}
+    lidar_bag_file=/media/tmn/mySataSSD1/Experiments/tro_gptr_v3/cathhs_sequences/${sequence}
 
     # Copy the config
     mkdir -p ${logroot}/${sequence}/
@@ -24,7 +26,7 @@ runexp()
         log_dir=${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar/try_$n
 
         # Run the exp
-        ros2 launch gptr run_cathhs.py lidar_bag_file:=$lidar_bag_file log_dir:=$log_dir deltaT:=$deltaT pose_type:=$pose_type use_approx_drv:=$use_approx_drv
+        ros2 launch gptr run_cathhs.launch.py lidar_bag_file:=$lidar_bag_file log_dir:=$log_dir deltaT:=$deltaT pose_type:=$pose_type use_approx_drv:=$use_approx_drv fix_xtrz:=$fix_xtrz
     done
 
     # Kinematic type and use/unuse of closed form
@@ -36,7 +38,7 @@ runexp()
         log_dir=${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar/try_$n
 
         # Run the exp
-        ros2 launch gptr run_cathhs.py lidar_bag_file:=$lidar_bag_file log_dir:=$log_dir deltaT:=$deltaT pose_type:=$pose_type use_approx_drv:=$use_approx_drv
+        ros2 launch gptr run_cathhs.launch.py lidar_bag_file:=$lidar_bag_file log_dir:=$log_dir deltaT:=$deltaT pose_type:=$pose_type use_approx_drv:=$use_approx_drv fix_xtrz:=$fix_xtrz
     done
 
     # Kinematic type and use/unuse of closed form
@@ -48,7 +50,7 @@ runexp()
         log_dir=${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar/try_$n
 
         # Run the exp
-        ros2 launch gptr run_cathhs.py lidar_bag_file:=$lidar_bag_file log_dir:=$log_dir deltaT:=$deltaT pose_type:=$pose_type use_approx_drv:=$use_approx_drv
+        ros2 launch gptr run_cathhs.launch.py lidar_bag_file:=$lidar_bag_file log_dir:=$log_dir deltaT:=$deltaT pose_type:=$pose_type use_approx_drv:=$use_approx_drv fix_xtrz:=$fix_xtrz
     done
 
     # Kinematic type and use/unuse of closed form
@@ -60,10 +62,14 @@ runexp()
         log_dir=${logroot}/${sequence}/exp_${pose_type}_${use_approx_drv}/gptr_two_lidar/try_$n
 
         # Run the exp
-        ros2 launch gptr run_cathhs.py lidar_bag_file:=$lidar_bag_file log_dir:=$log_dir deltaT:=$deltaT pose_type:=$pose_type use_approx_drv:=$use_approx_drv
+        ros2 launch gptr run_cathhs.launch.py lidar_bag_file:=$lidar_bag_file log_dir:=$log_dir deltaT:=$deltaT pose_type:=$pose_type use_approx_drv:=$use_approx_drv fix_xtrz:=$fix_xtrz
     done
 }
 
-runexp cathhs_07 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/cathhs_exp/gptr/ 0.02204
-runexp cathhs_08 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/cathhs_exp/gptr/ 0.02204
-runexp cathhs_09 /media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/cathhs_exp/gptr/ 0.02204
+runexp cathhs_07 ${exp_root}/logs/lio/cathhs_exp/gptr/ 0.02204 0
+runexp cathhs_08 ${exp_root}/logs/lio/cathhs_exp/gptr/ 0.02204 0
+runexp cathhs_09 ${exp_root}/logs/lio/cathhs_exp/gptr/ 0.02204 0
+
+runexp cathhs_07 ${exp_root}/logs/lio/cathhs_exp/gptr_fixed_xtrz/ 0.02204 1
+runexp cathhs_08 ${exp_root}/logs/lio/cathhs_exp/gptr_fixed_xtrz/ 0.02204 1
+runexp cathhs_09 ${exp_root}/logs/lio/cathhs_exp/gptr_fixed_xtrz/ 0.02204 1

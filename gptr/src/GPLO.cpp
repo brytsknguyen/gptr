@@ -173,6 +173,7 @@ typename pcl::PointCloud<PointType>::Ptr uniformDownsample(const typename pcl::P
 void getInitPose(int lidx,
                  const vector<vector<CloudXYZITPtr>> &clouds,
                  const vector<vector<rclcpp::Time>> &cloudstamp,
+                 const bool &do_init_icp,
                  CloudXYZIPtr &priormap,
                  vector<double> &timestart,
                  const vector<double> &xyzypr_W_L0,
@@ -237,9 +238,12 @@ void getInitPose(int lidx,
     ioaOpt.text = myprintf("T_W_L(%d,0)_refined_%d", lidx, 10);
     IOASummary ioaSum;
     ioaSum.final_tf = ioaOpt.init_tf;
-    cm.IterateAssociateOptimize(ioaOpt, ioaSum, priormap, pc0[lidx]);
-    RINFO("Refined: \n");
-    cout << ioaSum.final_tf.tfMat() << endl;
+    if(do_init_icp)
+    {
+        cm.IterateAssociateOptimize(ioaOpt, ioaSum, priormap, pc0[lidx]);
+        RINFO("Refined: \n");
+        cout << ioaSum.final_tf.tfMat() << endl;
+    }
 
     // Save the result to external buffer
     tf_W_Li0[lidx] = ioaOpt.init_tf;
@@ -439,6 +443,12 @@ int main(int argc, char **argv)
         RINFO("Failed to get xyzypr_W_L0. Setting all to zeros\n");
         xyzypr_W_L0 = vector<double>(Nlidar*6, 0.0);
     }
+
+    // Skip the initial ICP
+    bool do_init_icp = Util::GetBoolParam(nh_ptr, "do_init_icp", true);
+    bool fix_xtrz    = Util::GetBoolParam(nh_ptr, "fix_xtrz", false);
+    RINFO("do_init_icp choice: %d\n", do_init_icp);
+    RINFO("fix_xtrz choice: %d\n", fix_xtrz);
 
     T_B_Li_gndtr.resize(Nlidar);
     vector<double> xtrz_gndtr(Nlidar*6, 0.0);
@@ -733,7 +743,7 @@ int main(int argc, char **argv)
     vector<double> timestart(Nlidar);
     vector<thread> poseInitThread(Nlidar);
     for(int lidx = 0; lidx < Nlidar; lidx++)
-        poseInitThread[lidx] = thread(getInitPose, lidx, std::ref(clouds), std::ref(cloudstamp), std::ref(priormap),
+        poseInitThread[lidx] = thread(getInitPose, lidx, std::ref(clouds), std::ref(cloudstamp), std::ref(do_init_icp), std::ref(priormap),
                                       std::ref(timestart), std::ref(xyzypr_W_L0), std::ref(pc0), std::ref(tf_W_Li0), std::ref(tf_W_Li0_refined));
 
     for(int lidx = 0; lidx < Nlidar; lidx++)
@@ -961,6 +971,11 @@ int main(int argc, char **argv)
     else
         variant += "_ClosedForm";
 
+    // Copy the ground truth extrinsics to the parameters
+    if(fix_xtrz)
+        for(int lidx = 0; lidx < Nlidar; lidx++)
+            gpmlc->SetExtrinsics(lidx, (T_B_Li_gndtr[0].inverse()*T_B_Li_gndtr[lidx]).getSE3());
+
     vector<deque<RosPoseStampedMsg>> extrinsic_poses(Nlidar);
 
     /* #endregion Create the LOAM modules ---------------------------------------------------------------------------*/
@@ -1115,7 +1130,7 @@ int main(int argc, char **argv)
                 report.tictocs["t_select_feature"] = tt_selectfeature.Toc();
 
                 // Optimize
-                gpmlc->Evaluate(inner_iter, outer_iter, trajs, tmin, tmax, tmid, swCloudCoef,
+                gpmlc->Evaluate(fix_xtrz, inner_iter, outer_iter, trajs, tmin, tmax, tmid, swCloudCoef,
                                 featuresSelected, inner_iter >= max_inner_iter - 1 || converged,
                                 report);
 

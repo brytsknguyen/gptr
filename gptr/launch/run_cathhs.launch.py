@@ -7,14 +7,17 @@ from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
+# Root to store data and exp
+exp_root = '/media/tmn/mySataSSD1/Experiments/tro_gptr_v3'
+
 # Sequence
 sequence_ = 'cathhs_07'
 
 # Bag file
-lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/{sequence_}'
+lidar_bag_file_ = f'{exp_root}/cathhs_sequences/{sequence_}'
 
 # Direction to log the exp
-log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/cathhs_exp/cathhs_{sequence_}_gptr_two_lidar/'
+log_dir_ = f'{exp_root}/logs/lio/cathhs_exp/cathhs_{sequence_}_gptr_two_lidar_/'
 
 # Type of pose
 # pose_type_ = 'SE3'
@@ -24,25 +27,30 @@ pose_type_ = 'SO3xR3'
 use_approx_drv_ = '0'
 
 # Knot length
-deltaT_ = '0.04357'
+deltaT_ = '0.02204'
 
 # Initial pose in each sequence
 xyzypr_W_L0 =[ 0,   0,  0,   0, 0,  0,
                0.2, 0, -0.2, 0, 90, 0 ]
 
+# Fix the extrinsics in the MLCME scheme
+fix_xtrz_ = '0'
+
 def generate_launch_description():
 
-    launcharg_lidar_bag_file  = DeclareLaunchArgument('lidar_bag_file', default_value=lidar_bag_file_, description='')   # Bag file
-    launcharg_log_dir         = DeclareLaunchArgument('log_dir', default_value=log_dir_, description='')                 # Direction to log the exp
-    launcharg_pose_type       = DeclareLaunchArgument('pose_type', default_value=pose_type_, description='')             # Variant of kinematics
-    launcharg_use_approx_drv  = DeclareLaunchArgument('use_approx_drv', default_value=use_approx_drv_, description='')   # Variant of approximation
-    launcharg_deltaT          = DeclareLaunchArgument('deltaT', default_value=deltaT_, description='')                   # Variant of approximation
+    launcharg_lidar_bag_file  = DeclareLaunchArgument('lidar_bag_file', default_value=lidar_bag_file_, description='')                                 # Bag file
+    launcharg_log_dir         = DeclareLaunchArgument('log_dir',        default_value=log_dir_,        description='')                                 # Direction to log the exp
+    launcharg_pose_type       = DeclareLaunchArgument('pose_type',      default_value=pose_type_,      description='')                                 # Variant of kinematics
+    launcharg_use_approx_drv  = DeclareLaunchArgument('use_approx_drv', default_value=use_approx_drv_, description='')                                 # Variant of approximation
+    launcharg_deltaT          = DeclareLaunchArgument('deltaT',         default_value=deltaT_,         description='')                                 # Variant of approximation
+    launcharg_fix_xtrz        = DeclareLaunchArgument('fix_xtrz',       default_value=fix_xtrz_,       description='fixed xtrz using the gndtr value') # Variant of approximation
 
     lidar_bag_file  = LaunchConfiguration('lidar_bag_file')
     log_dir         = LaunchConfiguration('log_dir')
     pose_type       = LaunchConfiguration('pose_type')
     use_approx_drv  = LaunchConfiguration('use_approx_drv')
     deltaT          = LaunchConfiguration('deltaT')
+    fix_xtrz        = LaunchConfiguration('fix_xtrz')
 
     # GPTR LO node
     gptr_lo_node = Node(
@@ -55,7 +63,7 @@ def generate_launch_description():
         parameters  =
         [
             # Location of the prior map
-            {"priormap_file"   : "/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/cathhs_07/cathhs_iot_prior_2cm.pcd"},
+            {"priormap_file"   : f"{exp_root}/cathhs_sequences/cathhs_07/cathhs_iot_prior_2cm.pcd"},
 
             # Location of bag file
             {"lidar_bag_file"  : lidar_bag_file},
@@ -86,10 +94,12 @@ def generate_launch_description():
 
             # Initial pose of each lidars
             {'xyzypr_W_L0'     : xyzypr_W_L0},
+            {'do_init_icp'     : 0},           # Skip the initial ICP matching with the priormap
+            {'fix_xtrz'        : fix_xtrz},    # Fix the the extrinsics, in that case the xtrz_gndtr will be assigned to the params
 
             # Groundtruth for evaluation
-            {'xtrz_gndtr'      : [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                   0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ]},
+            {'xtrz_gndtr'      : [ 0.0,   0.0,  0.0,   0.0, 0.0,  0.0,
+                                   0.117, 0.0, -0.141, 0.0, 90.0, 0.0 ]},
 
             {'T_E_G'           : [ -0.00037886633842519943, -0.011824967458688653, -0.6445255757936823, 177.41697100832081, -0.8380643201341046, -0.4324815049625096,
                                     0.018040371221108277,   -0.005781886649251375, -0.6659410499572929, 177.8095334058065,  -0.6988913250237251, -0.4278818562418 ]},
@@ -143,7 +153,7 @@ def generate_launch_description():
             {'dJ_conv_thres'   : 10.0},
             {'conv_dX_thres'   : [-0.05, -0.5, -1.0, -0.05, -0.5, -1.0 ]},
             {'change_thres'    : [-15.0, -0.5, -1.0, -15.0, -8.0, -2.0 ]},
-            {'fix_time_begin'  : 0.0125},
+            {'fix_time_begin'  : 1.0e-2},
             {'fix_time_end'    : -0.0},
             {'fuse_marg'       : 1},
             {'compute_cost'    : 1},
@@ -186,6 +196,7 @@ def generate_launch_description():
                               launcharg_deltaT,
                               launcharg_pose_type,
                               launcharg_use_approx_drv,
+                              launcharg_fix_xtrz,
                               gptr_lo_node,
                               cartinbot_viz, rviz_node,
                               on_exit_action
