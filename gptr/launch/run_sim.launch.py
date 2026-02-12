@@ -7,14 +7,17 @@ from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
+# Root to store data and exp
+exp_root = '/media/tmn/mySataSSD1/Experiments/tro_gptr_v3'
+
 # Sequence
 sequence_ = 'cloud_avia_mid_w55_dynxtrz_e5'
 
 # Bag file
-lidar_bag_file_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/sequences/{sequence_}'
+lidar_bag_file_ = f'{exp_root}/sim_sequences/{sequence_}'
 
 # Direction to log the exp
-log_dir_ = f'/media/tmn/mySataSSD1/Experiments/gptr_v2/logs/lio/sim_exp/sim_{sequence_}_gptr_two_lidar/'
+log_dir_ = f'{exp_root}/logs/lio/sim_exp/sim_{sequence_}_gptr_two_lidar/'
 
 # Type of pose
 # pose_type_ = 'SE3'
@@ -30,19 +33,24 @@ deltaT_ = '0.04357'
 xyzypr_W_L0 =[ 0,    0,   0.70,  43,  48, 0,
               -0.3, -0.3, 0.55, -134, 0,  0 ]
 
+# Fix the extrinsics in the MLCME scheme
+fix_xtrz_ = '0'
+
 def generate_launch_description():
 
-    launcharg_lidar_bag_file  = DeclareLaunchArgument('lidar_bag_file', default_value=lidar_bag_file_, description='')   # Bag file
-    launcharg_log_dir         = DeclareLaunchArgument('log_dir', default_value=log_dir_, description='')                 # Direction to log the exp
-    launcharg_pose_type       = DeclareLaunchArgument('pose_type', default_value=pose_type_, description='')             # Variant of kinematics
-    launcharg_use_approx_drv  = DeclareLaunchArgument('use_approx_drv', default_value=use_approx_drv_, description='')   # Variant of approximation
-    launcharg_deltaT          = DeclareLaunchArgument('deltaT', default_value=deltaT_, description='')                   # Variant of approximation
+    launcharg_lidar_bag_file  = DeclareLaunchArgument('lidar_bag_file', default_value=lidar_bag_file_, description='')                                 # Bag file
+    launcharg_log_dir         = DeclareLaunchArgument('log_dir',        default_value=log_dir_,        description='')                                 # Direction to log the exp
+    launcharg_pose_type       = DeclareLaunchArgument('pose_type',      default_value=pose_type_,      description='')                                 # Variant of kinematics
+    launcharg_use_approx_drv  = DeclareLaunchArgument('use_approx_drv', default_value=use_approx_drv_, description='')                                 # Variant of approximation
+    launcharg_deltaT          = DeclareLaunchArgument('deltaT',         default_value=deltaT_,         description='')                                 # Variant of approximation
+    launcharg_fix_xtrz        = DeclareLaunchArgument('fix_xtrz',       default_value=fix_xtrz_,       description='fixed xtrz using the gndtr value') # Variant of approximation
 
     lidar_bag_file  = LaunchConfiguration('lidar_bag_file')
     log_dir         = LaunchConfiguration('log_dir')
     pose_type       = LaunchConfiguration('pose_type')
     use_approx_drv  = LaunchConfiguration('use_approx_drv')
     deltaT          = LaunchConfiguration('deltaT')
+    fix_xtrz        = LaunchConfiguration('fix_xtrz')
 
     # GPTR LO node
     gptr_lo_node = Node(
@@ -55,7 +63,7 @@ def generate_launch_description():
         parameters  =
         [
             # Location of the prior map
-            {"priormap_file"   : "/media/tmn/mySataSSD1/Experiments/gptr/sim_priormap.pcd"},
+            {"priormap_file"   : "/media/tmn/mySataSSD1/Experiments/tro_gptr_v3/sim_sequences/sim_priormap.pcd"},
 
             # Location of bag file
             {"lidar_bag_file"  : lidar_bag_file},
@@ -86,6 +94,8 @@ def generate_launch_description():
 
             # Initial pose of each lidars
             {'xyzypr_W_L0'     : xyzypr_W_L0},
+            {'do_init_icp'     : 1},           # Skip the initial ICP matching with the priormap
+            {'fix_xtrz'        : fix_xtrz},    # Fix the the extrinsics, in that case the xtrz_gndtr will be assigned to the params
 
             # Groundtruth for evaluation
             {'xtrz_gndtr'      : [ 0, 0, 0, 0, 0, 0,
@@ -123,12 +133,12 @@ def generate_launch_description():
             {'max_acc'         : -5.0},
 
             # Extrinsic estimation
-            {'SW_CLOUDNUM'     : PythonExpression(['int(0.6/', LaunchConfiguration('deltaT'), ' + 0.5)'])},
+            {'SW_CLOUDNUM'     : PythonExpression(['int(1.2/', LaunchConfiguration('deltaT'), ' + 0.5)'])},
             {'SW_CLOUDSTEP'    : 1},
             {'max_lidarcoefs'  : 2000},
             {'XTRZ_DENSITY'    : 1},
             {'min_planarity'   : 0.85},
-            {'max_plane_dis'   : 0.5},
+            {'max_plane_dis'   : 0.3},
             {'knnsize'         : 8},
 
             {'use_ceres'       : 1},
@@ -183,5 +193,9 @@ def generate_launch_description():
                               launcharg_deltaT,
                               launcharg_pose_type,
                               launcharg_use_approx_drv,
-                              gptr_lo_node, cartinbot_viz, rviz_node,
-                              on_exit_action])
+                              launcharg_fix_xtrz,
+                              gptr_lo_node,
+                              cartinbot_viz,
+                              rviz_node,
+                              on_exit_action
+                              ])
